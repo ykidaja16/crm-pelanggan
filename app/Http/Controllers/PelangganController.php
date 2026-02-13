@@ -7,6 +7,8 @@ use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Validator;
 use Illuminate\Support\Facades\Log;
+use Illuminate\Support\Facades\Auth;
+
 use App\Models\Pelanggan;
 use App\Imports\KunjunganImport;
 use Maatwebsite\Excel\Facades\Excel;
@@ -41,18 +43,23 @@ class PelangganController extends Controller
             $input['biaya'] = str_replace('.', '', $input['biaya'] ?? '');
             $nik = trim($input['nik'] ?? '');
 
-            // Check for duplicate NIK within the input
+            // Check for duplicate nik within the input
             if (isset($duplicateInInput[$index])) {
-                $errors[$index][] = 'NIK ' . $nik . ' sudah digunakan di dalam formulir ini.';
+
+                $errors[$index][] = "Nomor Identitas {$nik} sudah digunakan di dalam formulir ini.";
+
                 continue;
             }
 
-            // Check for existing NIK in database
+            // Check for existing nik in database
             if (in_array($nik, $existingNik)) {
+
                 $pelanggan = Pelanggan::where('nik', $nik)->first();
-                $errors[$index][] = 'NIK ' . $nik . ' sudah terdaftar atas nama "' . $pelanggan->nama . '".';
+                $errors[$index][] = "Nomor Identitas {$nik} sudah terdaftar atas nama \"{$pelanggan->nama}\".";
+
                 continue;
             }
+
 
             $validator = Validator::make($input, [
                 'nik' => 'required',
@@ -61,7 +68,9 @@ class PelangganController extends Controller
                 'biaya' => 'required|numeric|min:0',
                 'tanggal_kunjungan' => 'required|date',
             ], [
-                'nik.required' => 'NIK wajib diisi.',
+                'nik.required' => "Nomor Identitas wajib diisi.",
+
+
                 'nama.required' => 'Nama wajib diisi.',
                 'biaya.required' => 'Biaya wajib diisi.',
                 'biaya.numeric' => 'Biaya harus berupa angka.',
@@ -280,7 +289,10 @@ class PelangganController extends Controller
 
     public function import(Request $request)
     {
-        Log::info('Import process started', ['user' => auth()->user()->id ?? 'guest']);
+        $userId = Auth::check() ? Auth::user()->id : 'guest';
+        Log::info('Import process started', ['user' => $userId]);
+
+
         
         $request->validate([
             'file' => 'required|file|mimes:xlsx,xls,csv'
@@ -294,8 +306,9 @@ class PelangganController extends Controller
             $file = $request->file('file');
             Log::info('File uploaded', ['filename' => $file->getClientOriginalName(), 'size' => $file->getSize()]);
             
-            // Read the Excel file first to validate NIKs (without importing)
+            // Read the Excel file first to validate nik list (without importing)
             $rows = Excel::toArray(null, $file);
+
             
             $errors = [];
             $rowNumber = 1;
@@ -327,23 +340,29 @@ class PelangganController extends Controller
                 $alamat = trim($row[2] ?? '');
                 
                 if (empty($nik) || empty($nama)) {
-                    Log::debug("Row $rowNumber skipped: empty NIK or nama");
+                    Log::debug("Row {$rowNumber} skipped: empty nomor identitas or nama");
+
                     continue;
                 }
+
                 
                 $totalRows++;
                 
-                // Check if NIK exists in database
+                // Check if nik exists in database
                 $pelanggan = Pelanggan::where('nik', $nik)->first();
                 
                 if ($pelanggan) {
-                    // NIK exists, check if nama and alamat match
+                    // Nik exists, check if nama and alamat match
+
+
                     $dbNama = trim($pelanggan->nama ?? '');
                     $dbAlamat = trim($pelanggan->alamat ?? '');
                     
                     // If either nama or alamat is different, validation error
                     if (strtolower($nama) !== strtolower($dbNama) || strtolower($alamat) !== strtolower($dbAlamat)) {
-                        $errors[] = "Baris $rowNumber: NIK $nik sudah terdaftar dengan nama '$dbNama'. Data Excel nama '$nama' dan alamat '$alamat' tidak cocok.";
+                        $errors[] = "Baris {$rowNumber}: Nomor Identitas {$nik} sudah terdaftar dengan nama '{$dbNama}'. Data Excel nama '{$nama}' dan alamat '{$alamat}' tidak cocok.";
+
+
                         Log::warning("Validation failed for row $rowNumber", [
                             'nik' => $nik,
                             'excel_nama' => $nama,
@@ -353,12 +372,15 @@ class PelangganController extends Controller
                         ]);
                     } else {
                         $validRows++;
-                        Log::debug("Row $rowNumber validated: NIK exists but matches", ['nik' => $nik]);
+                        Log::debug("Row {$rowNumber} validated: nomor identitas exists but matches", ['nik' => $nik]);
+
                     }
                 } else {
                     $validRows++;
-                    Log::debug("Row $rowNumber validated: new NIK", ['nik' => $nik]);
+                    Log::debug("Row {$rowNumber} validated: new nomor identitas", ['nik' => $nik]);
+
                 }
+
             }
             
             Log::info('Validation completed', ['total_rows' => $totalRows, 'valid_rows' => $validRows, 'errors' => count($errors)]);
@@ -372,8 +394,10 @@ class PelangganController extends Controller
             
             if ($validRows === 0) {
                 Log::warning('No valid rows to import');
-                return back()->with('error', 'Tidak ada data valid untuk diimport. Pastikan file memiliki kolom: NIK, Nama, Alamat, Tanggal Kunjungan, Biaya');
+                return back()->with('error', "Tidak ada data valid untuk diimport. Pastikan file memiliki kolom: Nomor Identitas, Nama, Alamat, Tanggal Kunjungan, Biaya");
+
             }
+
 
             // If no errors, proceed with import
             Log::info('Starting Excel import', ['valid_rows' => $validRows]);
