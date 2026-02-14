@@ -2,6 +2,7 @@
 
 use Illuminate\Support\Facades\Route;
 use App\Http\Controllers\PelangganController;
+use App\Http\Controllers\DashboardController;
 use App\Http\Controllers\LoginController;
 use App\Http\Controllers\ForgotPasswordController;
 
@@ -15,7 +16,7 @@ Route::get('password/reset', [ForgotPasswordController::class , 'showLinkRequest
 Route::post('password/email', [ForgotPasswordController::class , 'sendResetLinkEmail'])->name('password.email');
 
 Route::middleware(['auth'])->group(function () {
-    Route::get('/dashboard', [PelangganController::class , 'index'])->name('dashboard');
+    Route::get('/dashboard', [DashboardController::class , 'index'])->name('dashboard');
     Route::get('/pelanggan', [PelangganController::class , 'index'])->name('pelanggan.index');
     Route::get('/', function () {
             return redirect()->route('dashboard');
@@ -25,10 +26,11 @@ Route::middleware(['auth'])->group(function () {
         Route::post('/import', [PelangganController::class , 'import'])->name('pelanggan.import');
         Route::get('/export', [PelangganController::class , 'export'])->name('pelanggan.export');
 
+        Route::get('/pelanggan/{pelanggan}/show', [PelangganController::class , 'show'])->name('pelanggan.show');
+        
         Route::middleware([\App\Http\Middleware\EnsureUserIsAdmin::class])->group(function () {
             Route::get('/pelanggan/create', [PelangganController::class , 'create'])->name('pelanggan.create');
             Route::post('/pelanggan', [PelangganController::class , 'store'])->name('pelanggan.store');
-            Route::get('/pelanggan/{pelanggan}/show', [PelangganController::class , 'show'])->name('pelanggan.show');
             Route::get('/pelanggan/{pelanggan}/edit', [PelangganController::class , 'edit'])->name('pelanggan.edit');
             Route::put('/pelanggan/{pelanggan}', [PelangganController::class , 'update'])->name('pelanggan.update');
             Route::delete('/pelanggan/{pelanggan}', [PelangganController::class , 'destroy'])->name('pelanggan.destroy');

@@ -100,7 +100,8 @@
                             <button type="button" id="add" class="btn btn-success text-white"><i class="fas fa-plus"></i> Tambah Baris</button>
                         </div>
                         <div>
-                            <a href="{{ route('dashboard') }}" class="btn btn-secondary me-2">Kembali</a>
+                            <a href="{{ route('pelanggan.index') }}" class="btn btn-secondary me-2">Kembali</a>
+
                             <button type="submit" class="btn btn-primary">Simpan Semua Data</button>
                         </div>
                     </div>

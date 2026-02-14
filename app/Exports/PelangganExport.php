@@ -94,17 +94,19 @@ class PelangganExport implements FromCollection, WithHeadings
         }
 
         // Tentukan tanggal akhir periode berdasarkan type
+        // Untuk 'semua', tidak ada filter tanggal - tampilkan semua data
         $endDate = null;
         if ($this->type == 'perbulan') {
             $endDate = \Carbon\Carbon::createFromDate($this->tahun, $this->bulan, 1)->endOfMonth();
         } elseif ($this->type == 'pertahun') {
             $endDate = \Carbon\Carbon::createFromDate($this->tahun, 12, 31);
-        } // untuk 'semua', endDate tetap null
+        }
 
         $pelanggan = Pelanggan::with(['kunjungans' => function($q) use ($endDate) {
             if ($endDate) {
                 $q->where('tanggal_kunjungan', '<=', $endDate);
             }
+            // Jika endDate null (tipe 'semua'), tidak ada filter - ambil semua kunjungan
         }])->get();
 
         // Hitung total kumulatif dan filter berdasarkan kunjungan di periode
@@ -128,10 +130,11 @@ class PelangganExport implements FromCollection, WithHeadings
                 // Filter: hanya yang ada kunjungan di tahun tersebut
                 return $kunjunganFiltered->isNotEmpty();
             } else {
+                // Untuk semua data, export SEMUA pelanggan tanpa filter
                 $p->tgl_kunjungan = $p->kunjungans->sortByDesc('tanggal_kunjungan')->first()?->tanggal_kunjungan->format('Y-m-d') ?? '-';
-                // Filter: hanya yang ada kunjungan
-                return $p->kunjungans->isNotEmpty();
+                return true;
             }
+
         });
 
         // Kembalikan data pelanggan yang difilter

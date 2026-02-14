@@ -114,8 +114,9 @@ class PelangganController extends Controller
         }
 
         if ($createdCount > 0 && empty($errors)) {
-            return redirect()->route('dashboard')->with('success', $createdCount . ' Pelanggan berhasil ditambahkan');
+            return redirect()->route('pelanggan.create')->with('success', $createdCount . ' Pelanggan berhasil ditambahkan');
         } elseif ($createdCount > 0 && !empty($errors)) {
+
             return redirect()->route('pelanggan.create')
                 ->with('success', $createdCount . ' data berhasil disimpan.')
                 ->with('error', count($errors) . ' data gagal disimpan. Silakan periksa kesalahan di bawah.')
@@ -131,95 +132,108 @@ class PelangganController extends Controller
 
     public function index(Request $request)
     {
-        $bulan = $request->bulan ?? date('m');
-        $tahun = $request->tahun ?? date('Y');
-        $type = $request->type ?? 'perbulan'; // perbulan, pertahun, semua
+        $bulan = $request->bulan;
+        $tahun = $request->tahun;
+        $type = $request->type;
         $search = $request->search;
         $sort = $request->sort ?? 'nama';
         $direction = $request->direction ?? 'asc';
 
-        // Jika ada pencarian pelanggan, tampilkan riwayat klasifikasi
-        if ($search) {
-            $pelanggan = Pelanggan::where('nik', 'like', '%' . $search . '%')
-                                  ->orWhere('nama', 'like', '%' . $search . '%')
-                                  ->first();
-
-            if (!$pelanggan) {
-                return view('pelanggan.index', [
-                    'pelanggan' => collect(),
-                    'bulan' => $bulan,
-                    'tahun' => $tahun,
-                    'type' => $type,
-                    'search' => $search,
-                    'history' => null,
-                    'sort' => $sort,
-                    'direction' => $direction
-                ]);
-            }
-
-            // Ambil semua kunjungan pelanggan, urutkan berdasarkan tanggal
-            $kunjungans = $pelanggan->kunjungans()->orderBy('tanggal_kunjungan')->get();
-
-            // Hitung kumulatif per bulan
-            $history = [];
-            $cumulative = 0;
-            $currentMonth = null;
-            $monthlyTotal = 0;
-
-            foreach ($kunjungans as $k) {
-                $monthKey = $k->tanggal_kunjungan->format('Y-m');
-                if ($currentMonth !== $monthKey) {
-                    if ($currentMonth) {
-                        $history[] = [
-                            'bulan' => $currentMonth,
-                            'total_bulanan' => $monthlyTotal,
-                            'total_kumulatif' => $cumulative,
-                            'class' => $this->getClass($cumulative),
-                            'kunjungan_terakhir' => $k->tanggal_kunjungan->format('Y-m-d')
-                        ];
-                    }
-                    $currentMonth = $monthKey;
-                    $monthlyTotal = 0;
-                }
-                $monthlyTotal += $k->biaya;
-                $cumulative += $k->biaya;
-            }
-
-            // Tambahkan bulan terakhir
-            if ($currentMonth) {
-                $history[] = [
-                    'bulan' => $currentMonth,
-                    'total_bulanan' => $monthlyTotal,
-                    'total_kumulatif' => $cumulative,
-                    'class' => $this->getClass($cumulative),
-                    'kunjungan_terakhir' => $kunjungans->last()->tanggal_kunjungan->format('Y-m-d')
-                ];
-            }
-
+        // Jika tidak ada filter atau search yang dipilih, tampilkan halaman kosong
+        if (!$type && !$bulan && !$tahun && !$search) {
             return view('pelanggan.index', [
-                'pelanggan' => collect([$pelanggan]),
-                'bulan' => $bulan,
-                'tahun' => $tahun,
-                'type' => $type,
-                'search' => $search,
-                'history' => $history,
+                'pelanggan' => collect(),
+                'bulan' => null,
+                'tahun' => null,
+                'type' => null,
+                'search' => null,
+                'history' => null,
                 'sort' => $sort,
                 'direction' => $direction
             ]);
         }
 
+        // Set default values jika type sudah dipilih tapi bulan/tahun belum
+        if ($type && !$bulan) {
+            $bulan = date('m');
+        }
+        if ($type && !$tahun) {
+            $tahun = date('Y');
+        }
+        if (!$type) {
+            $type = 'perbulan';
+            $bulan = date('m');
+            $tahun = date('Y');
+        }
+
+        // Jika ada pencarian pelanggan, tampilkan data pelanggan (bukan riwayat)
+        $searchMode = false;
+        if ($search) {
+            $searchMode = true;
+            $pelangganQuery = Pelanggan::where('nik', 'like', '%' . $search . '%')
+                                  ->orWhere('nama', 'like', '%' . $search . '%');
+            
+            $pelanggan = $pelangganQuery->get();
+            
+            // Hitung total dan class untuk setiap pelanggan
+            $pelanggan = $pelanggan->map(function ($p) {
+                $p->total = $p->kunjungans->sum('biaya');
+                $p->class = $this->getClass($p->total);
+                $p->tgl_kunjungan = $p->kunjungans->sortByDesc('tanggal_kunjungan')->first()?->tanggal_kunjungan->format('Y-m-d') ?? '-';
+                return $p;
+            });
+
+            // Sorting untuk hasil pencarian
+            if ($sort == 'nik') {
+                $pelanggan = $direction == 'asc' ? $pelanggan->sortBy('nik') : $pelanggan->sortByDesc('nik');
+            } elseif ($sort == 'nama') {
+                $pelanggan = $direction == 'asc' ? $pelanggan->sortBy(function($p) { return strtolower($p->nama); }) : $pelanggan->sortByDesc(function($p) { return strtolower($p->nama); });
+            } elseif ($sort == 'tgl_kunjungan') {
+                $pelanggan = $direction == 'asc' ? $pelanggan->sortBy('tgl_kunjungan') : $pelanggan->sortByDesc('tgl_kunjungan');
+            } elseif ($sort == 'class') {
+                $pelanggan = $direction == 'asc' ? $pelanggan->sortBy('total') : $pelanggan->sortByDesc('total');
+            }
+
+            // Manual Pagination untuk hasil pencarian
+            $perPage = 30;
+            $page = $request->input('page', 1);
+            $sliced = $pelanggan->slice(($page - 1) * $perPage, $perPage)->values();
+            $pelangganPaginator = new \Illuminate\Pagination\LengthAwarePaginator(
+                $sliced,
+                $pelanggan->count(),
+                $perPage,
+                $page,
+                ['path' => $request->url(), 'query' => $request->query()]
+            );
+
+            return view('pelanggan.index', [
+                'pelanggan' => $pelangganPaginator,
+                'bulan' => $bulan,
+                'tahun' => $tahun,
+                'type' => $type,
+                'search' => $search,
+                'history' => null,
+                'sort' => $sort,
+                'direction' => $direction,
+                'searchMode' => true
+            ]);
+        }
+
+
         // Tentukan tanggal akhir periode berdasarkan type
+        // Untuk 'semua', tidak ada filter tanggal - tampilkan semua data
         $endDate = null;
         if ($type == 'perbulan') {
             $endDate = \Carbon\Carbon::createFromDate($tahun, $bulan, 1)->endOfMonth();
         } elseif ($type == 'pertahun') {
             $endDate = \Carbon\Carbon::createFromDate($tahun, 12, 31);
-        } // untuk 'semua', endDate tetap null
+        }
 
         $pelanggan = Pelanggan::with(['kunjungans' => function($q) use ($endDate) {
             if ($endDate) {
                 $q->where('tanggal_kunjungan', '<=', $endDate);
             }
+            // Jika endDate null (tipe 'semua'), tidak ada filter - ambil semua kunjungan
         }])->get();
 
         // Hitung total kumulatif dan filter
@@ -245,10 +259,9 @@ class PelangganController extends Controller
                 // Hanya tampilkan pelanggan yang memiliki kunjungan di tahun tersebut
                 return $kunjunganFiltered->count() > 0;
             } else {
+                // Untuk semua data, tampilkan SEMUA pelanggan tanpa filter
                 $p->tgl_kunjungan = $p->kunjungans->sortByDesc('tanggal_kunjungan')->first()?->tanggal_kunjungan->format('Y-m-d') ?? '-';
-                
-                // Untuk semua data, tampilkan pelanggan yang pernah посещает
-                return $p->total > 0;
+                return true;
             }
         });
 
@@ -286,12 +299,10 @@ class PelangganController extends Controller
         ]);
     }
 
-
     public function import(Request $request)
     {
         $userId = Auth::check() ? Auth::user()->id : 'guest';
         Log::info('Import process started', ['user' => $userId]);
-
 
         
         $request->validate([
@@ -398,7 +409,6 @@ class PelangganController extends Controller
 
             }
 
-
             // If no errors, proceed with import
             Log::info('Starting Excel import', ['valid_rows' => $validRows]);
             Excel::import(new KunjunganImport, $file);
@@ -427,8 +437,6 @@ class PelangganController extends Controller
         }
     }
 
-
-
     public function export(Request $request)
     {
         $bulan = $request->bulan ?? date('m');
@@ -437,7 +445,6 @@ class PelangganController extends Controller
         $search = $request->search;
         return Excel::download(new \App\Exports\PelangganExport($bulan, $tahun, $type, $search), 'pelanggan_'.$bulan.'_'.$tahun.'.xlsx');
     }
-
 
     public function create()
     {
@@ -498,5 +505,4 @@ class PelangganController extends Controller
         }
         return 'Basic';
     }
-
 }

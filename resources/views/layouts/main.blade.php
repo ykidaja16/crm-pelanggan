@@ -100,30 +100,30 @@
     <!-- Sidebar -->
     <nav id="sidebar">
         <div class="sidebar-header">
-            <h4 class="mb-0">Medical Lab</h4>
+            <h4 class="mb-0">SIMA Lab</h4>
             <small>CRM System</small>
         </div>
 
         <ul class="list-unstyled components">
-            <li class="{{ request()->is('dashboard') ? 'active' : '' }}">
+            <li class="{{ request()->routeIs('dashboard') ? 'active' : '' }}">
                 <a href="{{ route('dashboard') }}">
                     <i class="fas fa-chart-line"></i> Dashboard
                 </a>
             </li>
-            <!-- Only Admin can create/edit, but everyone can view list -->
-                <li class="sidebar-item">
-                    <a href="{{ route('pelanggan.index') }}" class="sidebar-link {{ request()->is('pelanggan*') ? 'active' : '' }}">
-                        <i class="fas fa-users me-2"></i> Data Pelanggan
-                    </a>
-                </li>
-                @if(Auth::user()->role?->name === 'Super Admin')
-                <li class="sidebar-item">
-                    <a href="{{ route('users.index') }}" class="sidebar-link {{ request()->is('users*') ? 'active' : '' }}">
-                        <i class="fas fa-user-cog me-2"></i> Manajemen User
-                    </a>
-                </li>
-                @endif
+            <li class="{{ request()->routeIs('pelanggan.index') || request()->routeIs('pelanggan.show') || request()->routeIs('pelanggan.create') || request()->routeIs('pelanggan.edit') ? 'active' : '' }}">
+                <a href="{{ route('pelanggan.index') }}">
+                    <i class="fas fa-users"></i> Data Pelanggan
+                </a>
+            </li>
+            @if(Auth::user()->role?->name === 'Super Admin')
+            <li class="{{ request()->routeIs('users*') ? 'active' : '' }}">
+                <a href="{{ route('users.index') }}">
+                    <i class="fas fa-user-cog"></i> Manajemen User
+                </a>
+            </li>
+            @endif
         </ul>
+
 
         <ul class="list-unstyled components border-top pt-2">
             <li>

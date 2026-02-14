@@ -76,7 +76,7 @@
 
     <div class="login-card">
         <div class="login-header">
-            <h3>Medical Lab</h3>
+            <h3>SIMA Lab</h3>
             <p>Customer Relationship Management</p>
         </div>
         <div class="login-body">
