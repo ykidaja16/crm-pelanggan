@@ -10,8 +10,10 @@ use Illuminate\Support\Facades\Log;
 use Illuminate\Support\Facades\Auth;
 
 use App\Models\Pelanggan;
+use App\Models\Kunjungan;
 use App\Imports\KunjunganImport;
 use Maatwebsite\Excel\Facades\Excel;
+
 
 
 class PelangganController extends Controller
@@ -306,7 +308,7 @@ class PelangganController extends Controller
 
         
         $request->validate([
-            'file' => 'required|file|mimes:xlsx,xls,csv'
+            'file' => 'required|file|mimes:xlsx,xls,csv,txt'
         ], [
             'file.required' => 'File Excel/CSV wajib diupload.',
             'file.file' => 'File harus berupa file.',
@@ -315,10 +317,17 @@ class PelangganController extends Controller
 
         try {
             $file = $request->file('file');
-            Log::info('File uploaded', ['filename' => $file->getClientOriginalName(), 'size' => $file->getSize()]);
+            $extension = strtolower($file->getClientOriginalExtension());
+            Log::info('File uploaded', ['filename' => $file->getClientOriginalName(), 'size' => $file->getSize(), 'extension' => $extension]);
             
-            // Read the Excel file first to validate nik list (without importing)
-            $rows = Excel::toArray(null, $file);
+            // Handle CSV files differently for better compatibility
+            if ($extension === 'csv' || $extension === 'txt') {
+                $rows = $this->readCsvFile($file);
+            } else {
+                // Read the Excel file first to validate nik list (without importing)
+                $rows = Excel::toArray(null, $file);
+            }
+
 
             
             $errors = [];
@@ -410,13 +419,22 @@ class PelangganController extends Controller
             }
 
             // If no errors, proceed with import
-            Log::info('Starting Excel import', ['valid_rows' => $validRows]);
-            Excel::import(new KunjunganImport, $file);
+            Log::info('Starting import', ['valid_rows' => $validRows, 'file_type' => $extension]);
+            
+            if ($extension === 'csv' || $extension === 'txt') {
+                // For CSV, process directly using the already-read data
+                $this->processCsvImport($rows[0]);
+            } else {
+                // For Excel files, use Excel::import
+                Excel::import(new KunjunganImport, $file);
+            }
             
             Log::info('Import completed successfully');
             return back()->with('success', "Import berhasil! $validRows data telah diproses.");
+
             
         } catch (\Maatwebsite\Excel\Validators\ValidationException $e) {
+
             $failures = $e->failures();
             $errorMessages = [];
             
@@ -504,5 +522,212 @@ class PelangganController extends Controller
             return 'Silver';
         }
         return 'Basic';
+    }
+
+    /**
+     * Process CSV data directly for import
+     */
+    private function processCsvImport(array $rows): void
+    {
+        $processedCount = 0;
+        
+        foreach ($rows as $index => $row) {
+            $rowNumber = $index + 2; // +2 because we start from row 2 (row 1 is header)
+            
+            // Skip header row
+            if ($index === 0 && count($row) > 0 && strtolower(trim($row[0] ?? '')) === 'nik') {
+                continue;
+            }
+            
+            // Skip rows with insufficient data
+            if (count($row) < 5) {
+                continue;
+            }
+            
+            $nik = trim($row[0] ?? '');
+            $nama = trim($row[1] ?? '');
+            $alamat = trim($row[2] ?? '');
+            $tanggalKunjungan = $row[3] ?? null;
+            $biaya = $row[4] ?? null;
+            
+            // Skip empty rows
+            if (empty($nik) || empty($nama)) {
+                continue;
+            }
+            
+            // Process date
+            $tanggal = $this->parseCsvDate($tanggalKunjungan);
+            if (!$tanggal) {
+                Log::warning("Row $rowNumber skipped: invalid date", ['nik' => $nik, 'tanggal_raw' => $tanggalKunjungan]);
+                continue;
+            }
+            
+            // Process biaya
+            $biayaValue = $this->parseCsvBiaya($biaya);
+            if ($biayaValue === null) {
+                Log::warning("Row $rowNumber skipped: invalid biaya", ['nik' => $nik, 'biaya_raw' => $biaya]);
+                continue;
+            }
+            
+            // Create or update pelanggan and kunjungan
+            DB::transaction(function () use ($nik, $nama, $alamat, $tanggal, $biayaValue, &$processedCount) {
+                $pelanggan = Pelanggan::updateOrCreate(
+                    ['nik' => $nik],
+                    [
+                        'nama' => $nama,
+                        'alamat' => $alamat,
+                    ]
+                );
+                
+                Kunjungan::create([
+                    'pelanggan_id' => $pelanggan->id,
+                    'tanggal_kunjungan' => $tanggal,
+                    'biaya' => $biayaValue
+                ]);
+                
+                // Recalculate class
+                $total = $pelanggan->kunjungans()->sum('biaya');
+                $pelanggan->update(['class' => $this->getClass($total)]);
+                
+                $processedCount++;
+            });
+        }
+        
+        Log::info('CSV import completed', ['processed' => $processedCount]);
+    }
+    
+    /**
+     * Parse date from CSV string
+     */
+    private function parseCsvDate($value): ?\Carbon\Carbon
+    {
+        if (empty($value)) {
+            return null;
+        }
+        
+        try {
+            $dateString = trim((string) $value);
+            
+            // Try common Indonesian date formats
+            $formats = [
+                'Y-m-d',           // 2024-01-15
+                'd/m/Y',           // 15/01/2024
+                'd-m-Y',           // 15-01-2024
+                'd/m/y',           // 15/01/24
+                'd-m-y',           // 15-01-24
+                'Y/m/d',           // 2024/01/15
+            ];
+            
+            foreach ($formats as $format) {
+                try {
+                    $date = \Carbon\Carbon::createFromFormat($format, $dateString);
+                    if ($date && $date->year > 2000 && $date->year < 2100) {
+                        return $date;
+                    }
+                } catch (\Exception $e) {
+                    continue;
+                }
+            }
+            
+            // Last resort: try Carbon parse
+            $date = \Carbon\Carbon::parse($dateString);
+            if ($date->year > 2000 && $date->year < 2100) {
+                return $date;
+            }
+            
+            return null;
+        } catch (\Exception $e) {
+            return null;
+        }
+    }
+    
+    /**
+     * Parse biaya from CSV value
+     */
+    private function parseCsvBiaya($value): ?float
+    {
+        if (empty($value) && $value !== 0 && $value !== '0') {
+            return null;
+        }
+        
+        try {
+            // If it's already numeric
+            if (is_numeric($value)) {
+                return (float) $value;
+            }
+            
+            // Clean up string value
+            $cleanValue = (string) $value;
+            $cleanValue = str_replace(['Rp', ' ', '.', ',00'], '', $cleanValue);
+            
+            // Handle Indonesian number format
+            if (strpos($cleanValue, ',') !== false && strpos($cleanValue, '.') !== false) {
+                $cleanValue = str_replace('.', '', $cleanValue);
+                $cleanValue = str_replace(',', '.', $cleanValue);
+            } elseif (strpos($cleanValue, ',') !== false) {
+                $parts = explode(',', $cleanValue);
+                if (count($parts) === 2 && strlen($parts[1]) <= 2) {
+                    $cleanValue = str_replace(',', '.', $cleanValue);
+                } else {
+                    $cleanValue = str_replace(',', '', $cleanValue);
+                }
+            }
+            
+            $result = (float) $cleanValue;
+            return $result >= 0 ? $result : null;
+        } catch (\Exception $e) {
+            return null;
+        }
+    }
+
+    /**
+     * Read CSV file with proper encoding and delimiter handling
+     */
+    private function readCsvFile($file)
+    {
+
+        $path = $file->getPathname();
+        $content = file_get_contents($path);
+        
+        // Detect and remove BOM if present
+        $bom = pack('CCC', 0xEF, 0xBB, 0xBF);
+        if (substr($content, 0, 3) === $bom) {
+            $content = substr($content, 3);
+        }
+        
+        // Convert to UTF-8 if needed
+        if (!mb_check_encoding($content, 'UTF-8')) {
+            $content = mb_convert_encoding($content, 'UTF-8', 'ISO-8859-1');
+        }
+        
+        // Detect delimiter (comma, semicolon, or tab)
+        $delimiters = [',', ';', "\t"];
+        $bestDelimiter = ',';
+        $maxCols = 0;
+        
+        $lines = explode("\n", $content);
+        $firstLine = $lines[0] ?? '';
+        
+        foreach ($delimiters as $delimiter) {
+            $cols = count(str_getcsv($firstLine, $delimiter));
+            if ($cols > $maxCols) {
+                $maxCols = $cols;
+                $bestDelimiter = $delimiter;
+            }
+        }
+        
+        Log::info('CSV delimiter detected', ['delimiter' => $bestDelimiter, 'columns' => $maxCols]);
+        
+        // Parse CSV
+        $rows = [];
+        foreach ($lines as $line) {
+            $line = trim($line);
+            if (empty($line)) continue;
+            
+            $row = str_getcsv($line, $bestDelimiter);
+            $rows[] = $row;
+        }
+        
+        return [$rows]; // Return in same format as Excel::toArray (array of sheets)
     }
 }

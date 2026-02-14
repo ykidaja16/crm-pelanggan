@@ -3,12 +3,12 @@
 use Illuminate\Support\Facades\Route;
 use App\Http\Controllers\PelangganController;
 use App\Http\Controllers\DashboardController;
-use App\Http\Controllers\LoginController;
+use App\Http\Controllers\Auth\LoginController;
 use App\Http\Controllers\ForgotPasswordController;
 
 // Auth
 Route::get('/login', [LoginController::class , 'index'])->name('login');
-Route::post('/login', [LoginController::class , 'authenticate']);
+Route::post('/login', [LoginController::class , 'authenticate'])->middleware('throttle:login');
 Route::post('/logout', [LoginController::class , 'logout'])->name('logout');
 
 // Forgot Password
@@ -23,7 +23,7 @@ Route::middleware(['auth'])->group(function () {
         }
         );
 
-        Route::post('/import', [PelangganController::class , 'import'])->name('pelanggan.import');
+        Route::post('/import', [PelangganController::class , 'import'])->name('pelanggan.import')->middleware('throttle:import');
         Route::get('/export', [PelangganController::class , 'export'])->name('pelanggan.export');
 
         Route::get('/pelanggan/{pelanggan}/show', [PelangganController::class , 'show'])->name('pelanggan.show');
