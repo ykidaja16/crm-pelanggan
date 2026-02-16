@@ -94,7 +94,8 @@
                 @csrf
                 <div class="mb-3">
                     <label class="form-label text-muted small fw-bold">USERNAME</label>
-                    <input type="text" name="username" class="form-control" placeholder="Enter your username" value="{{ old('username') }}" required>
+                    <input type="text" name="username" class="form-control" placeholder="Enter your username" value="{{ old('username') }}" required autocomplete="off">
+
                 </div>
                 <div class="mb-4">
                     <label class="form-label text-muted small fw-bold">PASSWORD</label>

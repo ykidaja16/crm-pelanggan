@@ -151,9 +151,11 @@ class PelangganController extends Controller
                 'search' => null,
                 'history' => null,
                 'sort' => $sort,
-                'direction' => $direction
+                'direction' => $direction,
+                'searchMode' => false
             ]);
         }
+
 
         // Set default values jika type sudah dipilih tapi bulan/tahun belum
         if ($type && !$bulan) {
@@ -297,8 +299,10 @@ class PelangganController extends Controller
             'type' => $type,
             'search' => $search,
             'sort' => $sort,
-            'direction' => $direction
+            'direction' => $direction,
+            'searchMode' => false
         ]);
+
     }
 
     public function import(Request $request)

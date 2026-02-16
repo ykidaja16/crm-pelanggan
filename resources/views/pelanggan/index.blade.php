@@ -72,7 +72,7 @@
                         <div class="col-md-3 d-flex align-items-end">
                             <button class="btn btn-info me-2 text-white"><i class="fas fa-search"></i> Search</button>
                             @if($search)
-                                <a href="{{ route('dashboard') }}" class="btn btn-secondary"><i class="fas fa-times"></i> Clear</a>
+                                <a href="{{ route('pelanggan.index') }}" class="btn btn-secondary"><i class="fas fa-times"></i> Clear</a>
                             @endif
                         </div>
                     </form>
@@ -82,15 +82,18 @@
 
         <!-- Filter Card -->
         <div class="col-md-12 mb-4">
-            <div class="card">
+            <div class="card {{ ($search && isset($searchMode) && $searchMode) ? 'border-secondary' : '' }}">
                 <div class="card-header bg-white">
                     <i class="fas fa-filter text-primary me-2"></i> Filter Data
+                    @if($search && isset($searchMode) && $searchMode)
+                        <span class="badge bg-secondary ms-2">Nonaktif saat pencarian</span>
+                    @endif
                 </div>
                 <div class="card-body">
                     <form method="GET" class="row align-items-end">
                         <div class="col-md-2">
                             <label class="form-label">Tipe Filter</label>
-                            <select name="type" class="form-select">
+                            <select name="type" class="form-select" {{ ($search && isset($searchMode) && $searchMode) ? 'disabled' : '' }}>
                                 <option value="" {{ !$type ? 'selected' : '' }}>--Pilihan--</option>
                                 <option value="perbulan" {{ $type == 'perbulan' ? 'selected' : '' }}>Per Bulan</option>
                                 <option value="pertahun" {{ $type == 'pertahun' ? 'selected' : '' }}>Per Tahun</option>
@@ -100,7 +103,7 @@
 
                         <div class="col-md-2" id="bulan-container">
                             <label class="form-label">Bulan</label>
-                            <select name="bulan" class="form-select">
+                            <select name="bulan" class="form-select" {{ ($search && isset($searchMode) && $searchMode) ? 'disabled' : '' }}>
                                 <option value="" {{ !$bulan ? 'selected' : '' }}>--Pilihan--</option>
                                 @foreach ([
                                     1 => 'Januari', 2 => 'Februari', 3 => 'Maret', 4 => 'April',
@@ -114,7 +117,7 @@
 
                         <div class="col-md-2" id="tahun-container">
                             <label class="form-label">Tahun</label>
-                            <select name="tahun" class="form-select">
+                            <select name="tahun" class="form-select" {{ ($search && isset($searchMode) && $searchMode) ? 'disabled' : '' }}>
                                 <option value="" {{ !$tahun ? 'selected' : '' }}>--Pilihan--</option>
                                 @for ($i = 2020; $i <= date('Y') + 1; $i++)
                                     <option value="{{ $i }}" {{ $tahun == $i ? 'selected' : '' }}>
@@ -125,9 +128,9 @@
                         </div>
 
                         <div class="col-md-3 d-flex align-items-end">
-                            <button class="btn btn-primary me-2"><i class="fas fa-filter"></i> Filter</button>
-                            @if($type || $bulan || $tahun)
-                                <a href="{{ route('dashboard') }}" class="btn btn-secondary me-2"><i class="fas fa-times"></i> Clear</a>
+                            <button class="btn btn-primary me-2" {{ ($search && isset($searchMode) && $searchMode) ? 'disabled' : '' }}><i class="fas fa-filter"></i> Filter</button>
+                            @if($type || $bulan || $tahun || ($search && isset($searchMode) && $searchMode))
+                                <a href="{{ route('pelanggan.index') }}" class="btn btn-secondary me-2"><i class="fas fa-times"></i> Clear</a>
                                 <a href="{{ route('pelanggan.export', ['bulan' => $bulan, 'tahun' => $tahun, 'type' => $type, 'search' => $search]) }}" class="btn btn-success text-white"><i class="fas fa-file-excel me-1"></i> Export</a>
                             @endif
                         </div>
@@ -135,6 +138,7 @@
                 </div>
             </div>
         </div>
+
     </div>
 
     <!-- Data Table -->
@@ -214,7 +218,6 @@
                                             </form>
                                         @endif
                                     </td>
-
                                 </tr>
                             @empty
                                 <tr>
