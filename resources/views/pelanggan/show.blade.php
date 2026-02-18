@@ -5,7 +5,8 @@
 @section('content')
     <div class="d-flex justify-content-between align-items-center mb-4">
         <h3 class="text-primary mb-0">Detail Pelanggan</h3>
-        <a href="{{ route('dashboard') }}" class="btn btn-secondary"><i class="fas fa-arrow-left"></i> Kembali</a>
+        <a href="{{ route('pelanggan.index') }}" class="btn btn-secondary"><i class="fas fa-arrow-left"></i> Kembali</a>
+
     </div>
 
     <!-- Customer Info Card -->

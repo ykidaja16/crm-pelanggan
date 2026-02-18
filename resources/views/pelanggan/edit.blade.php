@@ -35,7 +35,8 @@
                         @enderror
                     </div>
                     <div class="d-flex justify-content-between">
-                        <a href="{{ route('dashboard') }}" class="btn btn-secondary">Kembali</a>
+                        <a href="{{ route('pelanggan.index') }}" class="btn btn-secondary">Kembali</a>
+
                         <button type="submit" class="btn btn-success text-white">Update Data</button>
                     </div>
                 </form>

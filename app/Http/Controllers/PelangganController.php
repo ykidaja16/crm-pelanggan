@@ -24,7 +24,7 @@ class PelangganController extends Controller
         $errors = [];
         $createdCount = 0;
 
-        // First, collect all NIKs and check for duplicates within the input
+        // Pertama, kumpulkan semua NIK dan periksa duplikat dalam input
         $niks = [];
         $duplicateInInput = [];
         foreach ($inputs as $index => $input) {
@@ -37,15 +37,15 @@ class PelangganController extends Controller
             }
         }
 
-        // Get all existing NIKs from database
+        // Ambil semua NIK yang sudah ada dari database
         $existingNik = Pelanggan::whereIn('nik', array_values($niks))->pluck('nik')->toArray();
 
         foreach ($inputs as $index => $input) {
-            // Preprocess biaya to remove dots
+            // Proses biaya untuk menghapus titik
             $input['biaya'] = str_replace('.', '', $input['biaya'] ?? '');
             $nik = trim($input['nik'] ?? '');
 
-            // Check for duplicate nik within the input
+            // Periksa duplikat NIK dalam input
             if (isset($duplicateInInput[$index])) {
 
                 $errors[$index][] = "Nomor Identitas {$nik} sudah digunakan di dalam formulir ini.";
@@ -53,7 +53,7 @@ class PelangganController extends Controller
                 continue;
             }
 
-            // Check for existing nik in database
+            // Periksa NIK yang sudah ada di database
             if (in_array($nik, $existingNik)) {
 
                 $pelanggan = Pelanggan::where('nik', $nik)->first();
@@ -91,7 +91,7 @@ class PelangganController extends Controller
                         'nik' => $input['nik'],
                         'nama' => $input['nama'],
                         'alamat' => $input['alamat'] ?? null,
-                        'class' => 'Basic', // temporary, will update after calculating
+                        'class' => 'Basic', // sementara, akan diupdate setelah dihitung
                     ]);
 
                     $pelanggan->kunjungans()->create([
@@ -99,7 +99,7 @@ class PelangganController extends Controller
                         'biaya' => $input['biaya'],
                     ]);
 
-                    // Calculate total and update class
+                    // Hitung total dan update kelas
                     $total = $pelanggan->kunjungans()->sum('biaya');
                     $pelanggan->update(['class' => $this->getClass($total)]);
                     $createdCount++;
@@ -107,7 +107,7 @@ class PelangganController extends Controller
             }
         }
 
-        // Collect only the failed inputs (rows with errors)
+        // Kumpulkan hanya input yang gagal (baris dengan error)
         $failedInputs = [];
         foreach ($errors as $index => $errorMessages) {
             if (isset($inputs[$index])) {
@@ -324,11 +324,11 @@ class PelangganController extends Controller
             $extension = strtolower($file->getClientOriginalExtension());
             Log::info('File uploaded', ['filename' => $file->getClientOriginalName(), 'size' => $file->getSize(), 'extension' => $extension]);
             
-            // Handle CSV files differently for better compatibility
+            // Tangani file CSV secara berbeda untuk kompatibilitas lebih baik
             if ($extension === 'csv' || $extension === 'txt') {
                 $rows = $this->readCsvFile($file);
             } else {
-                // Read the Excel file first to validate nik list (without importing)
+                // Baca file Excel dulu untuk validasi daftar NIK (tanpa mengimport)
                 $rows = Excel::toArray(null, $file);
             }
 
@@ -349,7 +349,7 @@ class PelangganController extends Controller
             foreach ($rows[0] as $row) {
                 $rowNumber++;
                 
-                // Skip header row (row 1) - already skipped by startRow() in import class but we read raw
+                // Lewati baris header (baris 1) - sudah dilewati oleh startRow() di kelas import tapi kita baca mentahan
                 if ($rowNumber == 2 && count($row) > 0 && strtolower(trim($row[0] ?? '')) == 'nik') {
                     continue;
                 }
@@ -372,17 +372,17 @@ class PelangganController extends Controller
                 
                 $totalRows++;
                 
-                // Check if nik exists in database
+                // Periksa apakah NIK ada di database
                 $pelanggan = Pelanggan::where('nik', $nik)->first();
                 
                 if ($pelanggan) {
-                    // Nik exists, check if nama and alamat match
+                    // NIK ada, periksa apakah nama dan alamat cocok
 
 
                     $dbNama = trim($pelanggan->nama ?? '');
                     $dbAlamat = trim($pelanggan->alamat ?? '');
                     
-                    // If either nama or alamat is different, validation error
+                    // Jika nama atau alamat berbeda, error validasi
                     if (strtolower($nama) !== strtolower($dbNama) || strtolower($alamat) !== strtolower($dbAlamat)) {
                         $errors[] = "Baris {$rowNumber}: Nomor Identitas {$nik} sudah terdaftar dengan nama '{$dbNama}'. Data Excel nama '{$nama}' dan alamat '{$alamat}' tidak cocok.";
 
@@ -409,7 +409,7 @@ class PelangganController extends Controller
             
             Log::info('Validation completed', ['total_rows' => $totalRows, 'valid_rows' => $validRows, 'errors' => count($errors)]);
             
-            // If there are ANY errors, fail ALL import
+            // Jika ada error, gagalkan SEMUA import
             if (!empty($errors)) {
                 Log::warning('Import failed due to validation errors', ['error_count' => count($errors)]);
                 return back()->with('error', 'Import gagal! Beberapa data tidak cocok dengan database. Silakan perbaiki file Excel terlebih dahulu:')
@@ -422,14 +422,14 @@ class PelangganController extends Controller
 
             }
 
-            // If no errors, proceed with import
+            // Jika tidak ada error, lanjutkan import
             Log::info('Starting import', ['valid_rows' => $validRows, 'file_type' => $extension]);
             
             if ($extension === 'csv' || $extension === 'txt') {
-                // For CSV, process directly using the already-read data
+                // Untuk CSV, proses langsung menggunakan data yang sudah dibaca
                 $this->processCsvImport($rows[0]);
             } else {
-                // For Excel files, use Excel::import
+                // Untuk file Excel, gunakan Excel::import
                 Excel::import(new KunjunganImport, $file);
             }
             
@@ -529,21 +529,21 @@ class PelangganController extends Controller
     }
 
     /**
-     * Process CSV data directly for import
+     * Proses data CSV langsung untuk import
      */
     private function processCsvImport(array $rows): void
     {
         $processedCount = 0;
         
         foreach ($rows as $index => $row) {
-            $rowNumber = $index + 2; // +2 because we start from row 2 (row 1 is header)
+            $rowNumber = $index + 2; // +2 karena kita mulai dari baris 2 (baris 1 adalah header)
             
-            // Skip header row
+            // Lewati baris header
             if ($index === 0 && count($row) > 0 && strtolower(trim($row[0] ?? '')) === 'nik') {
                 continue;
             }
             
-            // Skip rows with insufficient data
+            // Lewati baris dengan data tidak lengkap
             if (count($row) < 5) {
                 continue;
             }
@@ -554,26 +554,26 @@ class PelangganController extends Controller
             $tanggalKunjungan = $row[3] ?? null;
             $biaya = $row[4] ?? null;
             
-            // Skip empty rows
+            // Lewati baris kosong
             if (empty($nik) || empty($nama)) {
                 continue;
             }
             
-            // Process date
+            // Proses tanggal
             $tanggal = $this->parseCsvDate($tanggalKunjungan);
             if (!$tanggal) {
                 Log::warning("Row $rowNumber skipped: invalid date", ['nik' => $nik, 'tanggal_raw' => $tanggalKunjungan]);
                 continue;
             }
             
-            // Process biaya
+            // Proses biaya
             $biayaValue = $this->parseCsvBiaya($biaya);
             if ($biayaValue === null) {
                 Log::warning("Row $rowNumber skipped: invalid biaya", ['nik' => $nik, 'biaya_raw' => $biaya]);
                 continue;
             }
             
-            // Create or update pelanggan and kunjungan
+            // Buat atau update pelanggan dan kunjungan
             DB::transaction(function () use ($nik, $nama, $alamat, $tanggal, $biayaValue, &$processedCount) {
                 $pelanggan = Pelanggan::updateOrCreate(
                     ['nik' => $nik],
@@ -589,7 +589,7 @@ class PelangganController extends Controller
                     'biaya' => $biayaValue
                 ]);
                 
-                // Recalculate class
+                // Hitung ulang kelas
                 $total = $pelanggan->kunjungans()->sum('biaya');
                 $pelanggan->update(['class' => $this->getClass($total)]);
                 
@@ -601,7 +601,7 @@ class PelangganController extends Controller
     }
     
     /**
-     * Parse date from CSV string
+     * Parse tanggal dari string CSV
      */
     private function parseCsvDate($value): ?\Carbon\Carbon
     {
@@ -612,7 +612,7 @@ class PelangganController extends Controller
         try {
             $dateString = trim((string) $value);
             
-            // Try common Indonesian date formats
+            // Coba format tanggal Indonesia yang umum
             $formats = [
                 'Y-m-d',           // 2024-01-15
                 'd/m/Y',           // 15/01/2024
@@ -633,7 +633,7 @@ class PelangganController extends Controller
                 }
             }
             
-            // Last resort: try Carbon parse
+            // Terakhir: coba parse dengan Carbon
             $date = \Carbon\Carbon::parse($dateString);
             if ($date->year > 2000 && $date->year < 2100) {
                 return $date;
@@ -646,7 +646,7 @@ class PelangganController extends Controller
     }
     
     /**
-     * Parse biaya from CSV value
+     * Parse biaya dari nilai CSV
      */
     private function parseCsvBiaya($value): ?float
     {
@@ -655,16 +655,16 @@ class PelangganController extends Controller
         }
         
         try {
-            // If it's already numeric
+            // Jika sudah berupa angka
             if (is_numeric($value)) {
                 return (float) $value;
             }
             
-            // Clean up string value
+            // Bersihkan nilai string
             $cleanValue = (string) $value;
             $cleanValue = str_replace(['Rp', ' ', '.', ',00'], '', $cleanValue);
             
-            // Handle Indonesian number format
+            // Tangani format angka Indonesia
             if (strpos($cleanValue, ',') !== false && strpos($cleanValue, '.') !== false) {
                 $cleanValue = str_replace('.', '', $cleanValue);
                 $cleanValue = str_replace(',', '.', $cleanValue);
@@ -685,26 +685,25 @@ class PelangganController extends Controller
     }
 
     /**
-     * Read CSV file with proper encoding and delimiter handling
+     * Baca file CSV dengan encoding dan delimiter yang tepat
      */
     private function readCsvFile($file)
     {
-
         $path = $file->getPathname();
         $content = file_get_contents($path);
         
-        // Detect and remove BOM if present
+        // Deteksi dan hapus BOM jika ada
         $bom = pack('CCC', 0xEF, 0xBB, 0xBF);
         if (substr($content, 0, 3) === $bom) {
             $content = substr($content, 3);
         }
         
-        // Convert to UTF-8 if needed
+        // Konversi ke UTF-8 jika diperlukan
         if (!mb_check_encoding($content, 'UTF-8')) {
             $content = mb_convert_encoding($content, 'UTF-8', 'ISO-8859-1');
         }
         
-        // Detect delimiter (comma, semicolon, or tab)
+        // Deteksi delimiter (koma, titik koma, atau tab)
         $delimiters = [',', ';', "\t"];
         $bestDelimiter = ',';
         $maxCols = 0;
@@ -732,6 +731,6 @@ class PelangganController extends Controller
             $rows[] = $row;
         }
         
-        return [$rows]; // Return in same format as Excel::toArray (array of sheets)
+        return [$rows]; // Kembalikan dalam format yang sama dengan Excel::toArray (array of sheets)
     }
 }
