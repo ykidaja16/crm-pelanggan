@@ -1,58 +1,37 @@
-# TODO: Perbaikan Import Excel - COMPLETED ✅
+# TODO: Implementasi Riwayat Perubahan Kelas Pelanggan
 
-## Summary of Changes
+## Progress
+- [x] 1. Buat Migration untuk tabel pelanggan_class_histories
+- [x] 2. Buat Model PelangganClassHistory
+- [x] 3. Modifikasi Model Pelanggan (tambah relasi dan logika pencatatan)
+- [x] 4. Modifikasi PelangganController (load data riwayat kelas)
+- [x] 5. Update View show.blade.php (tampilkan riwayat kelas)
+- [x] 6. Jalankan migrasi database
+- [x] 7. Testing
 
-### 1. ✅ Perbaiki Route (web.php)
-- Named route `pelanggan.import` sudah ada dan berfungsi
-- Route menggunakan POST method
 
-### 2. ✅ Perbaiki Form Import (index.blade.php)
-- ✅ Ganti action="/import" dengan `route('pelanggan.import')`
-- ✅ Tambahkan loading state saat submit (spinner + progress indicator)
-- ✅ Tambahkan validasi client-side untuk file extension (.xlsx, .xls, .csv)
-- ✅ Tambahkan accept attribute pada input file
-- ✅ Tambahkan section scripts di layout main.blade.php
 
-### 3. ✅ Perbaiki Controller (PelangganController.php)
-- ✅ Tambahkan logging untuk debugging
-- ✅ Perbaiki error handling dengan try-catch lebih spesifik
-- ✅ Tambahkan validasi file sebelum import
-- ✅ Pastikan redirect dengan session flash messages (success/error)
+## Detail Implementasi
 
-### 4. ✅ Perbaiki Import Class (KunjunganImport.php)
-- ✅ Handle format tanggal dari Excel (serial date + multiple string formats)
-- ✅ Handle format angka/biaya dengan benar (Indonesian format: 1.234,56)
-- ✅ Tambahkan validasi row data (skip incomplete rows)
-- ✅ Tambahkan logging untuk setiap row yang diproses
-- ✅ Fix array access issue dengan toArray()
-- ✅ Fix field name `tanggal_kunjungan` (bukan `tanggal`)
+### 1. Migration
+Tabel: pelanggan_class_histories
+- pelanggan_id (foreign key)
+- previous_class (nullable)
+- new_class
+- changed_at (datetime)
+- changed_by (nullable)
+- reason (nullable)
 
-### 5. Testing Checklist
-- [ ] Test import dengan file Excel valid (.xlsx)
-- [ ] Test import dengan file CSV valid (.csv)
-- [ ] Test import dengan file kosong (hanya header)
-- [ ] Test import dengan format tanggal berbeda (DD/MM/YYYY, YYYY-MM-DD)
-- [ ] Test import dengan format biaya berbeda (1.234,56 atau 1234.56)
-- [ ] Verifikasi loading state muncul saat klik Import
-- [ ] Verifikasi pesan success muncul setelah import berhasil
-- [ ] Verifikasi pesan error muncul jika ada masalah
-- [ ] Verifikasi data masuk ke database dengan benar
+### 2. Model
+PelangganClassHistory dengan relasi belongsTo Pelanggan
 
-## File Test yang Dibuat
-- `test_import.csv` - File CSV sample untuk testing
+### 3. Modifikasi Pelanggan Model
+- Tambah method classHistories()
+- Modifikasi updateStats() untuk mencatat perubahan kelas
 
-## Cara Testing
-1. Buka browser ke http://localhost/crm-pelanggan/dashboard
-2. Pilih file CSV/Excel yang valid
-3. Klik tombol Import
-4. Perhatikan:
-   - Loading spinner muncul
-   - Progress indicator "Sedang memproses file..."
-   - Setelah selesai, halaman reload dengan pesan success/error
-   - Data muncul di tabel dashboard
+### 4. Controller
+- Method show(): load classHistories bersama kunjungans
 
-## Troubleshooting
-Jika masih ada masalah, cek:
-1. **Browser Console** (F12 → Console) - ada error JavaScript?
-2. **Network Tab** (F12 → Network) - status code POST request?
-3. **Laravel Log** - `storage/logs/laravel.log` - error terbaru?
+### 5. View
+- Tampilkan timeline riwayat kelas di halaman detail pelanggan
+- Tunjukkan kapan menjadi Prioritas, Loyal, Potensial

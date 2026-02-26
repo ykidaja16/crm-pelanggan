@@ -4,8 +4,10 @@ namespace App\Imports;
 
 use App\Models\Pelanggan;
 use App\Models\Kunjungan;
+use App\Models\Cabang;
 use Illuminate\Support\Collection;
 use Illuminate\Support\Facades\Log;
+use Illuminate\Support\Facades\DB;
 use Carbon\Carbon;
 use PhpOffice\PhpSpreadsheet\Shared\Date;
 use Maatwebsite\Excel\Concerns\ToCollection;
@@ -15,7 +17,7 @@ class KunjunganImport implements ToCollection, WithStartRow
 {
     public function startRow(): int
     {
-        return 2;
+        return 2; // Skip header row
     }
 
     public function collection(Collection $rows)
@@ -25,6 +27,9 @@ class KunjunganImport implements ToCollection, WithStartRow
         
         Log::info('Starting KunjunganImport collection processing', ['total_rows' => $rows->count()]);
         
+        // Pre-load cabangs for faster lookup
+        $cabangs = Cabang::all()->keyBy('kode');
+        
         foreach ($rows as $index => $row) {
             $rowNumber = $index + 2; // +2 because we start from row 2
             
@@ -32,42 +37,74 @@ class KunjunganImport implements ToCollection, WithStartRow
                 // Convert row to array for safe access
                 $rowArray = $row->toArray();
                 
-                // Skip rows with insufficient data (need at least 5 columns)
-                if (count($rowArray) < 5) {
-                    Log::debug("Row $rowNumber skipped: insufficient columns", ['column_count' => count($rowArray), 'data' => $rowArray]);
+                // New format requires at least 10 columns
+                if (count($rowArray) < 10) {
+                    Log::debug("Row $rowNumber skipped: insufficient columns", [
+                        'column_count' => count($rowArray), 
+                        'data' => $rowArray
+                    ]);
                     continue;
                 }
 
-                // Safely get values with null coalescing
-                $nik = isset($rowArray[0]) ? trim((string)$rowArray[0]) : '';
-                $nama = isset($rowArray[1]) ? trim((string)$rowArray[1]) : '';
-                $alamat = isset($rowArray[2]) ? trim((string)$rowArray[2]) : '';
-                $tanggalKunjungan = $rowArray[3] ?? null;
-                $biaya = $rowArray[4] ?? null;
+                // Parse new 10-column format:
+                // 0: No, 1: Nama Pasien, 2: Total Kedatangan, 3: Tanggal Kedatangan, 
+                // 4: Total (biaya), 5: No Telpon, 6: DOB, 7: PID, 8: Alamat, 9: Kota
+                
+                $no = isset($rowArray[0]) ? (int) $rowArray[0] : null;
+                $namaPasien = isset($rowArray[1]) ? trim((string)$rowArray[1]) : '';
+                $totalKedatangan = isset($rowArray[2]) ? (int) $rowArray[2] : 0;
+                $tanggalKedatangan = $rowArray[3] ?? null;
+                $totalBiaya = $rowArray[4] ?? null;
+                $noTelp = isset($rowArray[5]) ? trim((string)$rowArray[5]) : null;
+                $dob = $rowArray[6] ?? null;
+                $pid = isset($rowArray[7]) ? trim((string)$rowArray[7]) : '';
+                $alamat = isset($rowArray[8]) ? trim((string)$rowArray[8]) : '';
+                $kota = isset($rowArray[9]) ? trim((string)$rowArray[9]) : '';
 
-                // Skip empty rows
-                if (empty($nik) || empty($nama)) {
-                    Log::debug("Row $rowNumber skipped: empty NIK or nama", ['nik' => $nik, 'nama' => $nama]);
+                // Skip empty rows - PID and Nama are required
+                if (empty($pid) || empty($namaPasien)) {
+                    Log::debug("Row $rowNumber skipped: empty PID or Nama", [
+                        'pid' => $pid, 
+                        'nama' => $namaPasien
+                    ]);
                     continue;
                 }
+
+                // Extract cabang kode from PID (first 2 characters)
+                $cabangKode = strtoupper(substr($pid, 0, 2));
+                
+                // Validate cabang kode
+                if (!isset($cabangs[$cabangKode])) {
+                    Log::warning("Row $rowNumber skipped: invalid cabang code in PID", [
+                        'pid' => $pid,
+                        'cabang_kode' => $cabangKode
+                    ]);
+                    $errorCount++;
+                    continue;
+                }
+                
+                $cabang = $cabangs[$cabangKode];
 
                 Log::debug("Processing row $rowNumber", [
-                    'nik' => $nik,
-                    'nama' => $nama,
-                    'tanggal_raw' => $tanggalKunjungan,
-                    'biaya_raw' => $biaya
+                    'no' => $no,
+                    'pid' => $pid,
+                    'nama' => $namaPasien,
+                    'cabang' => $cabangKode,
+                    'tanggal_raw' => $tanggalKedatangan,
+                    'biaya_raw' => $totalBiaya
                 ]);
 
-                // Process date - handle Excel serial date or string date
-                $tanggalKunjungan = $this->processDate($tanggalKunjungan, $rowNumber);
+                // Process dates
+                $tanggalKedatangan = $this->processDate($tanggalKedatangan, $rowNumber);
+                $dob = $this->processDate($dob, $rowNumber);
                 
-                // Process biaya - handle various number formats
-                $biaya = $this->processBiaya($biaya, $rowNumber);
+                // Process biaya
+                $biaya = $this->processBiaya($totalBiaya, $rowNumber);
 
                 // Skip if date or biaya is invalid
-                if (!$tanggalKunjungan) {
-                    Log::warning("Row $rowNumber skipped: invalid date", [
-                        'nik' => $nik,
+                if (!$tanggalKedatangan) {
+                    Log::warning("Row $rowNumber skipped: invalid tanggal kedatangan", [
+                        'pid' => $pid,
                         'tanggal_raw' => $rowArray[3] ?? null
                     ]);
                     $errorCount++;
@@ -76,40 +113,61 @@ class KunjunganImport implements ToCollection, WithStartRow
 
                 if ($biaya === null) {
                     Log::warning("Row $rowNumber skipped: invalid biaya", [
-                        'nik' => $nik,
+                        'pid' => $pid,
                         'biaya_raw' => $rowArray[4] ?? null
                     ]);
                     $errorCount++;
                     continue;
                 }
 
-                // Create or update pelanggan
-                $pelanggan = Pelanggan::updateOrCreate(
-                    ['nik' => $nik],
-                    [
-                        'nama' => $nama,
-                        'alamat' => $alamat,
-                    ]
-                );
+                // Process in transaction
+                DB::transaction(function () use (
+                    $no, $pid, $namaPasien, $totalKedatangan, $tanggalKedatangan,
+                    $biaya, $noTelp, $dob, $alamat, $kota, $cabang, &$processedCount
+                ) {
+                    // Find or create pelanggan by PID
+                    $pelanggan = Pelanggan::firstOrNew(['pid' => $pid]);
+                    
+                    // Set/update pelanggan data
+                    $pelanggan->cabang_id = $cabang->id;
+                    $pelanggan->nama = $namaPasien;
+                    $pelanggan->no_telp = $noTelp;
+                    $pelanggan->dob = $dob;
+                    $pelanggan->alamat = $alamat;
+                    $pelanggan->kota = $kota;
+                    
+                    // Save pelanggan first to get ID
+                    $pelanggan->save();
 
-                Log::debug("Pelanggan created/updated", ['pelanggan_id' => $pelanggan->id, 'nik' => $nik]);
+                    Log::debug("Pelanggan created/updated", [
+                        'pelanggan_id' => $pelanggan->id, 
+                        'pid' => $pid
+                    ]);
 
-                // Create kunjungan with correct field name
-                $kunjungan = Kunjungan::create([
-                    'pelanggan_id' => $pelanggan->id,
-                    'tanggal_kunjungan' => $tanggalKunjungan,
-                    'biaya' => $biaya
+                    // Create kunjungan record
+                    $kunjungan = Kunjungan::create([
+                        'no' => $no,
+                        'pelanggan_id' => $pelanggan->id,
+                        'cabang_id' => $cabang->id,
+                        'tanggal_kunjungan' => $tanggalKedatangan,
+                        'biaya' => $biaya
+                    ]);
+
+                    Log::debug("Kunjungan created", [
+                        'kunjungan_id' => $kunjungan->id,
+                        'no' => $no
+                    ]);
+
+                    // Recalculate and update pelanggan stats
+                    $pelanggan->updateStats();
+                    
+                    $processedCount++;
+                });
+
+                Log::info("Row $rowNumber processed successfully", [
+                    'pid' => $pid, 
+                    'pelanggan_id' => $pelanggan->id ?? null
                 ]);
-
-                Log::debug("Kunjungan created", ['kunjungan_id' => $kunjungan->id]);
-
-                // Recalculate class
-                $total = $pelanggan->kunjungans()->sum('biaya');
-                $class = $this->getClass($total);
-                $pelanggan->update(['class' => $class]);
-                
-                $processedCount++;
-                Log::info("Row $rowNumber processed successfully", ['nik' => $nik, 'pelanggan_id' => $pelanggan->id]);
 
             } catch (\Exception $e) {
                 $errorCount++;
@@ -139,7 +197,6 @@ class KunjunganImport implements ToCollection, WithStartRow
         try {
             // If it's a number, it's likely an Excel serial date
             if (is_numeric($value)) {
-                // Excel serial date to PHP DateTime
                 $dateTime = Date::excelToDateTimeObject($value);
                 return Carbon::instance($dateTime);
             }
@@ -172,7 +229,7 @@ class KunjunganImport implements ToCollection, WithStartRow
             foreach ($formats as $format) {
                 try {
                     $date = Carbon::createFromFormat($format, $dateString);
-                    if ($date && $date->year > 2000 && $date->year < 2100) {
+                    if ($date && $date->year > 1900 && $date->year < 2100) {
                         return $date;
                     }
                 } catch (\Exception $e) {
@@ -182,7 +239,7 @@ class KunjunganImport implements ToCollection, WithStartRow
 
             // Last resort: try Carbon parse
             $date = Carbon::parse($dateString);
-            if ($date->year > 2000 && $date->year < 2100) {
+            if ($date->year > 1900 && $date->year < 2100) {
                 return $date;
             }
 
@@ -221,17 +278,13 @@ class KunjunganImport implements ToCollection, WithStartRow
             
             // Handle Indonesian number format (1.234,56 -> 1234.56)
             if (strpos($cleanValue, ',') !== false && strpos($cleanValue, '.') !== false) {
-                // Has both comma and dot - Indonesian format: 1.234,56
                 $cleanValue = str_replace('.', '', $cleanValue);
                 $cleanValue = str_replace(',', '.', $cleanValue);
             } elseif (strpos($cleanValue, ',') !== false) {
-                // Only comma - could be decimal separator
                 $parts = explode(',', $cleanValue);
                 if (count($parts) === 2 && strlen($parts[1]) <= 2) {
-                    // Likely decimal: 1234,56 -> 1234.56
                     $cleanValue = str_replace(',', '.', $cleanValue);
                 } else {
-                    // Likely thousand separator: 1,234 -> 1234
                     $cleanValue = str_replace(',', '', $cleanValue);
                 }
             }
@@ -239,7 +292,10 @@ class KunjunganImport implements ToCollection, WithStartRow
             $result = (float) $cleanValue;
             
             if ($result < 0) {
-                Log::warning("Negative biaya on row $rowNumber", ['value' => $value, 'cleaned' => $cleanValue]);
+                Log::warning("Negative biaya on row $rowNumber", [
+                    'value' => $value, 
+                    'cleaned' => $cleanValue
+                ]);
                 return null;
             }
             
@@ -252,16 +308,5 @@ class KunjunganImport implements ToCollection, WithStartRow
             ]);
             return null;
         }
-    }
-
-    /**
-     * Get class based on total spending
-     */
-    private function getClass($total): string
-    {
-        if ($total >= 5000000) return 'Platinum';
-        if ($total >= 1000000) return 'Gold';
-        if ($total >= 100000) return 'Silver';
-        return 'Basic';
     }
 }

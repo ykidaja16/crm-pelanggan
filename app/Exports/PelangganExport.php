@@ -28,9 +28,10 @@ class PelangganExport implements FromCollection, WithHeadings
     {
         // Jika ada pencarian pelanggan spesifik
         if ($this->search) {
-            $pelanggan = Pelanggan::where('nik', 'like', '%' . $this->search . '%')
-                                  ->orWhere('nama', 'like', '%' . $this->search . '%')
-                                  ->first();
+            $pelanggan = Pelanggan::with('cabang')
+                ->where('pid', 'like', '%' . $this->search . '%')
+                ->orWhere('nama', 'like', '%' . $this->search . '%')
+                ->first();
 
             if (!$pelanggan) {
                 return collect();
@@ -53,7 +54,7 @@ class PelangganExport implements FromCollection, WithHeadings
                             'bulan' => $currentMonth,
                             'total_bulanan' => $monthlyTotal,
                             'total_kumulatif' => $cumulative,
-                            'class' => $this->getClass($cumulative),
+                            'class' => $this->getClass($cumulative, $kunjungans->count()),
                             'kunjungan_terakhir' => $k->tanggal_kunjungan->format('Y-m-d')
                         ];
                     }
@@ -70,7 +71,7 @@ class PelangganExport implements FromCollection, WithHeadings
                     'bulan' => $currentMonth,
                     'total_bulanan' => $monthlyTotal,
                     'total_kumulatif' => $cumulative,
-                    'class' => $this->getClass($cumulative),
+                    'class' => $this->getClass($cumulative, $kunjungans->count()),
                     'kunjungan_terakhir' => $kunjungans->last()->tanggal_kunjungan->format('Y-m-d')
                 ];
             }
@@ -80,9 +81,13 @@ class PelangganExport implements FromCollection, WithHeadings
             foreach ($history as $h) {
                 $data[] = [
                     'id' => $pelanggan->id,
-                    'nik' => $pelanggan->nik,
+                    'pid' => $pelanggan->pid,
                     'nama' => $pelanggan->nama,
-                    'alamat' => $pelanggan->alamat,
+                    'cabang' => $pelanggan->cabang?->nama ?? '-',
+                    'no_telp' => $pelanggan->no_telp ?? '-',
+                    'dob' => $pelanggan->dob ? $pelanggan->dob->format('d-m-Y') : '-',
+                    'alamat' => $pelanggan->alamat ?? '-',
+                    'kota' => $pelanggan->kota ?? '-',
                     'bulan' => $h['bulan'],
                     'total_bulanan' => $h['total_bulanan'],
                     'total_kumulatif' => $h['total_kumulatif'],
@@ -94,7 +99,6 @@ class PelangganExport implements FromCollection, WithHeadings
         }
 
         // Tentukan tanggal akhir periode berdasarkan type
-        // Untuk 'semua', tidak ada filter tanggal - tampilkan semua data
         $endDate = null;
         if ($this->type == 'perbulan') {
             $endDate = \Carbon\Carbon::createFromDate($this->tahun, $this->bulan, 1)->endOfMonth();
@@ -102,17 +106,17 @@ class PelangganExport implements FromCollection, WithHeadings
             $endDate = \Carbon\Carbon::createFromDate($this->tahun, 12, 31);
         }
 
-        $pelanggan = Pelanggan::with(['kunjungans' => function($q) use ($endDate) {
+        $pelanggan = Pelanggan::with(['cabang', 'kunjungans' => function($q) use ($endDate) {
             if ($endDate) {
                 $q->where('tanggal_kunjungan', '<=', $endDate);
             }
-            // Jika endDate null (tipe 'semua'), tidak ada filter - ambil semua kunjungan
         }])->get();
 
         // Hitung total kumulatif dan filter berdasarkan kunjungan di periode
         $pelanggan = $pelanggan->filter(function ($p) use ($endDate) {
-            $p->total = $p->kunjungans->sum('biaya');
-            $p->class = $this->getClass($p->total);
+            $p->total_biaya = $p->kunjungans->sum('biaya');
+            $p->total_kedatangan = $p->kunjungans->count();
+            $p->class = $this->getClass($p->total_biaya, $p->total_kedatangan);
 
             // Ambil kunjungan terakhir di periode
             if ($this->type == 'perbulan') {
@@ -120,32 +124,33 @@ class PelangganExport implements FromCollection, WithHeadings
                     return $k->tanggal_kunjungan->month == $this->bulan && $k->tanggal_kunjungan->year == $this->tahun;
                 });
                 $p->tgl_kunjungan = $kunjunganFiltered->sortByDesc('tanggal_kunjungan')->first()?->tanggal_kunjungan->format('Y-m-d') ?? '-';
-                // Filter: hanya yang ada kunjungan di bulan tersebut
                 return $kunjunganFiltered->isNotEmpty();
             } elseif ($this->type == 'pertahun') {
                 $kunjunganFiltered = $p->kunjungans->filter(function($k) {
                     return $k->tanggal_kunjungan->year == $this->tahun;
                 });
                 $p->tgl_kunjungan = $kunjunganFiltered->sortByDesc('tanggal_kunjungan')->first()?->tanggal_kunjungan->format('Y-m-d') ?? '-';
-                // Filter: hanya yang ada kunjungan di tahun tersebut
                 return $kunjunganFiltered->isNotEmpty();
             } else {
-                // Untuk semua data, export SEMUA pelanggan tanpa filter
                 $p->tgl_kunjungan = $p->kunjungans->sortByDesc('tanggal_kunjungan')->first()?->tanggal_kunjungan->format('Y-m-d') ?? '-';
                 return true;
             }
-
         });
 
         // Kembalikan data pelanggan yang difilter
         return $pelanggan->map(function ($p) {
             return [
                 'id' => $p->id,
-                'nik' => $p->nik,
+                'pid' => $p->pid,
                 'nama' => $p->nama,
-                'alamat' => $p->alamat,
+                'cabang' => $p->cabang?->nama ?? '-',
+                'no_telp' => $p->no_telp ?? '-',
+                'dob' => $p->dob ? $p->dob->format('d-m-Y') : '-',
+                'alamat' => $p->alamat ?? '-',
+                'kota' => $p->kota ?? '-',
+                'total_kedatangan' => $p->total_kedatangan,
                 'class' => $p->class,
-                'total' => $p->total,
+                'total_biaya' => $p->total_biaya,
                 'tgl_kunjungan' => $p->tgl_kunjungan
             ];
         });
@@ -159,9 +164,13 @@ class PelangganExport implements FromCollection, WithHeadings
         if ($this->search) {
             return [
                 'ID',
-                'NIK',
-                'Nama',
+                'PID',
+                'Nama Pasien',
+                'Cabang',
+                'No Telp',
+                'DOB',
                 'Alamat',
+                'Kota',
                 'Bulan',
                 'Total Bulanan',
                 'Total Kumulatif',
@@ -171,21 +180,44 @@ class PelangganExport implements FromCollection, WithHeadings
         } else {
             return [
                 'ID',
-                'NIK',
-                'Nama',
+                'PID',
+                'Nama Pasien',
+                'Cabang',
+                'No Telp',
+                'DOB',
                 'Alamat',
+                'Kota',
+                'Total Kedatangan',
                 'Kelas',
-                'Total',
+                'Total Biaya',
                 'Tanggal Kunjungan Terakhir'
             ];
         }
     }
 
-    private function getClass($total)
+    /**
+     * Get class based on total biaya and total kedatangan
+     * Potensial: Kedatangan minimal 2x dengan biaya berapapun atau 1x datang dengan minimal biaya 1 Juta
+     * Loyal: Kedatangan minimal 5x dengan total biaya berapapun
+     * Prioritas: 1x Kedatangan minimal 4 Juta, atau total biaya sudah lebih dari 4 juta
+     */
+    private function getClass($totalBiaya, $totalKedatangan)
     {
-        if ($total >= 5000000) return 'Platinum';
-        if ($total >= 1000000) return 'Gold';
-        if ($total >= 100000) return 'Silver';
-        return 'Basic';
+        // Prioritas: 1x Kedatangan minimal 4 Juta, atau total biaya sudah lebih dari 4 juta
+        if ($totalKedatangan >= 1 && $totalBiaya >= 4000000) {
+            return 'Prioritas';
+        }
+        
+        // Loyal: Kedatangan minimal 5x dengan total biaya berapapun
+        if ($totalKedatangan >= 5) {
+            return 'Loyal';
+        }
+        
+        // Potensial: Kedatangan minimal 2x dengan biaya berapapun atau 1x datang dengan minimal biaya 1 Juta
+        if ($totalKedatangan >= 2 || ($totalKedatangan >= 1 && $totalBiaya >= 1000000)) {
+            return 'Potensial';
+        }
+        
+        return 'Potensial'; // Default
     }
 }
