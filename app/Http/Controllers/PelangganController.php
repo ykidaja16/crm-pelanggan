@@ -52,6 +52,7 @@ class PelangganController extends Controller
                 } else {
                     DB::transaction(function () use ($input, &$updatedCount) {
                         $pelanggan = Pelanggan::find($input['existing_pelanggan_id']);
+                        $visitDate = \Carbon\Carbon::parse($input['tanggal_kunjungan']);
                         
                         // Tambah kunjungan baru
                         $pelanggan->kunjungans()->create([
@@ -60,8 +61,8 @@ class PelangganController extends Controller
                             'biaya' => $input['biaya'],
                         ]);
 
-                        // Update stats pelanggan
-                        $pelanggan->updateStats();
+                        // Update stats pelanggan dengan tanggal kunjungan
+                        $pelanggan->updateStats($visitDate);
                         $updatedCount++;
                     });
                 }
@@ -112,6 +113,8 @@ class PelangganController extends Controller
                 }
 
                 DB::transaction(function () use ($input, &$createdCount) {
+                    $visitDate = \Carbon\Carbon::parse($input['tanggal_kunjungan']);
+                    
                     $pelanggan = Pelanggan::create([
                         'pid' => $input['pid'],
                         'cabang_id' => $input['cabang_id'],
@@ -129,8 +132,8 @@ class PelangganController extends Controller
                         'biaya' => $input['biaya'],
                     ]);
 
-                    $pelanggan->updateStats();
-                    $pelanggan->recordInitialClass();
+                    $pelanggan->updateStats($visitDate);
+                    $pelanggan->recordInitialClass($visitDate);
                     $createdCount++;
                 });
 
@@ -213,10 +216,11 @@ class PelangganController extends Controller
         $cabangId = $request->cabang_id;
         $omsetRange = $request->omset_range;
         $kedatanganRange = $request->kedatangan_range;
+        $kelas = $request->kelas;
 
         $cabangs = Cabang::all();
 
-        if (!$type && !$bulan && !$tahun && !$search && !$cabangId && !$omsetRange && !$kedatanganRange) {
+        if (!$type && !$bulan && !$tahun && !$search && !$cabangId && !$omsetRange && !$kedatanganRange && !$kelas) {
             return view('pelanggan.index', [
                 'pelanggan' => collect(),
                 'bulan' => null,
@@ -226,6 +230,7 @@ class PelangganController extends Controller
                 'cabang_id' => null,
                 'omset_range' => null,
                 'kedatangan_range' => null,
+                'kelas' => null,
                 'cabangs' => $cabangs,
                 'sort' => $sort,
                 'direction' => $direction,
@@ -254,7 +259,7 @@ class PelangganController extends Controller
 
             
             $pelanggan = $pelangganQuery->get();
-            $pelanggan = $this->applyFilters($pelanggan, $cabangId, $omsetRange, $kedatanganRange);
+            $pelanggan = $this->applyFilters($pelanggan, $cabangId, $omsetRange, $kedatanganRange, $kelas);
             
             $pelanggan = $pelanggan->map(function ($p) {
                 $p->tgl_kunjungan = $p->kunjungans->sortByDesc('tanggal_kunjungan')->first()?->tanggal_kunjungan->format('Y-m-d') ?? '-';
@@ -283,6 +288,7 @@ class PelangganController extends Controller
                 'cabang_id' => $cabangId,
                 'omset_range' => $omsetRange,
                 'kedatangan_range' => $kedatanganRange,
+                'kelas' => $kelas,
                 'cabangs' => $cabangs,
                 'history' => null,
                 'sort' => $sort,
@@ -304,7 +310,7 @@ class PelangganController extends Controller
             }
         }])->get();
 
-        $pelanggan = $this->applyFilters($pelanggan, $cabangId, $omsetRange, $kedatanganRange);
+        $pelanggan = $this->applyFilters($pelanggan, $cabangId, $omsetRange, $kedatanganRange, $kelas);
 
         $pelanggan = $pelanggan->filter(function ($p) use ($endDate, $bulan, $tahun, $type) {
             if ($type == 'perbulan') {
@@ -347,6 +353,7 @@ class PelangganController extends Controller
             'cabang_id' => $cabangId,
             'omset_range' => $omsetRange,
             'kedatangan_range' => $kedatanganRange,
+            'kelas' => $kelas,
             'cabangs' => $cabangs,
             'sort' => $sort,
             'direction' => $direction,
@@ -354,10 +361,14 @@ class PelangganController extends Controller
         ]);
     }
 
-    private function applyFilters($pelanggan, $cabangId, $omsetRange, $kedatanganRange)
+    private function applyFilters($pelanggan, $cabangId, $omsetRange, $kedatanganRange, $kelas = null)
     {
         if ($cabangId) {
             $pelanggan = $pelanggan->where('cabang_id', $cabangId);
+        }
+
+        if ($kelas) {
+            $pelanggan = $pelanggan->where('class', $kelas);
         }
 
         if ($omsetRange !== null && $omsetRange !== '') {
@@ -535,7 +546,34 @@ class PelangganController extends Controller
         $tahun = $request->tahun ?? date('Y');
         $type = $request->type ?? 'perbulan';
         $search = $request->search;
-        return Excel::download(new \App\Exports\PelangganExport($bulan, $tahun, $type, $search), 'pelanggan_'.$bulan.'_'.$tahun.'.xlsx');
+        $cabangId = $request->cabang_id;
+        $omsetRange = $request->omset_range;
+        $kedatanganRange = $request->kedatangan_range;
+        $kelas = $request->kelas;
+        
+        // Build filename based on filters
+        $filename = 'pelanggan';
+        if ($search) {
+            $filename .= '_search_' . preg_replace('/[^a-zA-Z0-9]/', '_', $search);
+        } else {
+            if ($type == 'perbulan') {
+                $filename .= '_' . $bulan . '_' . $tahun;
+            } elseif ($type == 'pertahun') {
+                $filename .= '_tahun_' . $tahun;
+            } else {
+                $filename .= '_semua';
+            }
+        }
+        if ($kelas) {
+            $filename .= '_' . $kelas;
+        }
+        if ($cabangId) {
+            $cabang = Cabang::find($cabangId);
+            $filename .= '_' . ($cabang ? preg_replace('/[^a-zA-Z0-9]/', '_', $cabang->nama) : 'cabang');
+        }
+        $filename .= '.xlsx';
+        
+        return Excel::download(new \App\Exports\PelangganExport($bulan, $tahun, $type, $search, $cabangId, $omsetRange, $kedatanganRange, $kelas), $filename);
     }
 
     public function create()
@@ -578,15 +616,25 @@ class PelangganController extends Controller
         return redirect()->route('dashboard')->with('success', 'Pelanggan berhasil dihapus');
     }
 
-    public function show($id)
+    public function show(Request $request, $id)
     {
         $pelanggan = Pelanggan::with(['kunjungans', 'cabang', 'classHistories.changedBy'])->findOrFail($id);
         $totalTransaksi = $pelanggan->kunjungans->sum('biaya');
-        $kunjungans = $pelanggan->kunjungans->sortByDesc('tanggal_kunjungan');
-        $classHistories = $pelanggan->classHistories;
+        
+        // Pagination untuk riwayat kunjungan (10 per halaman)
+        $kunjungans = $pelanggan->kunjungans()
+            ->orderBy('tanggal_kunjungan', 'asc')
+            ->paginate(10, ['*'], 'kunjungan_page');
+        
+        // Pagination untuk riwayat perubahan kelas (10 per halaman)
+        $classHistories = $pelanggan->classHistories()
+            ->orderBy('changed_at', 'asc')
+            ->paginate(10, ['*'], 'class_page');
         
         return view('pelanggan.show', compact('pelanggan', 'kunjungans', 'totalTransaksi', 'classHistories'));
     }
+
+
 
 
     private function processCsvImport(array $rows): void
@@ -637,6 +685,7 @@ class PelangganController extends Controller
             }
             
             DB::transaction(function () use ($no, $pid, $nama, $noTelp, $dobDate, $alamat, $kota, $cabang, $tanggal, $biayaValue, &$processedCount) {
+                $isNewPelanggan = !Pelanggan::where('pid', $pid)->exists();
                 $pelanggan = Pelanggan::firstOrNew(['pid' => $pid]);
                 
                 $pelanggan->cabang_id = $cabang->id;
@@ -655,7 +704,14 @@ class PelangganController extends Controller
                     'biaya' => $biayaValue
                 ]);
                 
-                $pelanggan->updateStats();
+                // Update stats dengan tanggal kunjungan
+                $pelanggan->updateStats($tanggal);
+                
+                // Jika pelanggan baru, catat kelas awal dengan tanggal kunjungan
+                if ($isNewPelanggan) {
+                    $pelanggan->recordInitialClass($tanggal);
+                }
+                
                 $processedCount++;
             });
         }

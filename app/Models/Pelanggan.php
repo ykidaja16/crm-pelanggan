@@ -105,7 +105,7 @@ class Pelanggan extends Model
     /**
      * Update computed fields and recalculate class
      */
-    public function updateStats(): void
+    public function updateStats(?\Carbon\Carbon $visitDate = null): void
     {
         $oldClass = $this->class;
         
@@ -118,7 +118,7 @@ class Pelanggan extends Model
             $this->classHistories()->create([
                 'previous_class' => $oldClass,
                 'new_class' => $newClass,
-                'changed_at' => now(),
+                'changed_at' => $visitDate ?? now(),
                 'changed_by' => Auth::check() ? Auth::id() : null,
                 'reason' => 'Perubahan otomatis berdasarkan statistik kunjungan',
             ]);
@@ -131,12 +131,12 @@ class Pelanggan extends Model
     /**
      * Catat kelas awal saat pelanggan baru dibuat
      */
-    public function recordInitialClass(): void
+    public function recordInitialClass(?\Carbon\Carbon $visitDate = null): void
     {
         $this->classHistories()->create([
             'previous_class' => null,
             'new_class' => $this->class,
-            'changed_at' => now(),
+            'changed_at' => $visitDate ?? now(),
             'changed_by' => Auth::check() ? Auth::id() : null,
             'reason' => 'Kelas awal pelanggan baru',
         ]);

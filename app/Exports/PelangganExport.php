@@ -12,13 +12,21 @@ class PelangganExport implements FromCollection, WithHeadings
     protected $tahun;
     protected $type;
     protected $search;
+    protected $cabangId;
+    protected $omsetRange;
+    protected $kedatanganRange;
+    protected $kelas;
 
-    public function __construct($bulan, $tahun, $type, $search)
+    public function __construct($bulan, $tahun, $type, $search, $cabangId = null, $omsetRange = null, $kedatanganRange = null, $kelas = null)
     {
         $this->bulan = $bulan;
         $this->tahun = $tahun;
         $this->type = $type;
         $this->search = $search;
+        $this->cabangId = $cabangId;
+        $this->omsetRange = $omsetRange;
+        $this->kedatanganRange = $kedatanganRange;
+        $this->kelas = $kelas;
     }
 
     /**
@@ -106,11 +114,23 @@ class PelangganExport implements FromCollection, WithHeadings
             $endDate = \Carbon\Carbon::createFromDate($this->tahun, 12, 31);
         }
 
-        $pelanggan = Pelanggan::with(['cabang', 'kunjungans' => function($q) use ($endDate) {
+        $query = Pelanggan::with(['cabang', 'kunjungans' => function($q) use ($endDate) {
             if ($endDate) {
                 $q->where('tanggal_kunjungan', '<=', $endDate);
             }
-        }])->get();
+        }]);
+
+        // Apply cabang filter
+        if ($this->cabangId) {
+            $query->where('cabang_id', $this->cabangId);
+        }
+
+        // Apply kelas filter
+        if ($this->kelas) {
+            $query->where('class', $this->kelas);
+        }
+
+        $pelanggan = $query->get();
 
         // Hitung total kumulatif dan filter berdasarkan kunjungan di periode
         $pelanggan = $pelanggan->filter(function ($p) use ($endDate) {
@@ -136,6 +156,38 @@ class PelangganExport implements FromCollection, WithHeadings
                 return true;
             }
         });
+
+        // Apply omset range filter
+        if ($this->omsetRange !== null && $this->omsetRange !== '') {
+            $pelanggan = $pelanggan->filter(function ($p) {
+                switch ($this->omsetRange) {
+                    case '0':
+                        return $p->total_biaya < 1000000;
+                    case '1':
+                        return $p->total_biaya >= 1000000 && $p->total_biaya < 4000000;
+                    case '2':
+                        return $p->total_biaya >= 4000000;
+                    default:
+                        return true;
+                }
+            });
+        }
+
+        // Apply kedatangan range filter
+        if ($this->kedatanganRange !== null && $this->kedatanganRange !== '') {
+            $pelanggan = $pelanggan->filter(function ($p) {
+                switch ($this->kedatanganRange) {
+                    case '0':
+                        return $p->total_kedatangan <= 2;
+                    case '1':
+                        return $p->total_kedatangan >= 3 && $p->total_kedatangan <= 4;
+                    case '2':
+                        return $p->total_kedatangan > 4;
+                    default:
+                        return true;
+                }
+            });
+        }
 
         // Kembalikan data pelanggan yang difilter
         return $pelanggan->map(function ($p) {

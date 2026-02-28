@@ -132,8 +132,14 @@
                     </tbody>
                 </table>
             </div>
+            @if($classHistories->hasPages())
+                <div class="card-footer bg-white border-top d-flex justify-content-center py-3">
+                    {{ $classHistories->links('pagination::bootstrap-4') }}
+                </div>
+            @endif
         </div>
     </div>
+
 
     <!-- Visit History Card -->
     <div class="card shadow-sm border-0">
@@ -177,6 +183,11 @@
                     </tbody>
                 </table>
             </div>
+            @if($kunjungans->hasPages())
+                <div class="card-footer bg-white border-top d-flex justify-content-center py-3">
+                    {{ $kunjungans->links('pagination::bootstrap-4') }}
+                </div>
+            @endif
         </div>
     </div>
 @endsection

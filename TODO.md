@@ -9,6 +9,12 @@
 - [x] 6. Jalankan migrasi database
 - [x] 7. Testing
 
+## Update: Export Excel dengan Filter
+- [x] 1. Update PelangganExport.php - tambah parameter filter (cabang_id, kelas, omset_range, kedatangan_range)
+- [x] 2. Update PelangganController::export() - terima dan kirim semua parameter filter
+- [x] 3. Update index.blade.php - kirim semua parameter filter ke URL export
+
+
 
 
 ## Detail Implementasi
