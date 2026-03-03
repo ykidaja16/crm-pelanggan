@@ -149,7 +149,7 @@
         </div>
         <div class="card-body">
             <div class="row g-3">
-                <div class="col-md-3">
+                <div class="col-md-6">
                     <div class="alert alert-primary mb-0">
                         <div class="d-flex justify-content-between align-items-center">
                             <div>
@@ -160,29 +160,7 @@
                         </div>
                     </div>
                 </div>
-                <div class="col-md-3">
-                    <div class="alert alert-success mb-0">
-                        <div class="d-flex justify-content-between align-items-center">
-                            <div>
-                                <small class="text-muted d-block">Total Omset</small>
-                                <strong class="fs-5" id="summaryTotalOmset">Rp 0</strong>
-                            </div>
-                            <i class="fas fa-money-bill-wave fa-2x text-success opacity-50"></i>
-                        </div>
-                    </div>
-                </div>
-                <div class="col-md-3">
-                    <div class="alert alert-info mb-0">
-                        <div class="d-flex justify-content-between align-items-center">
-                            <div>
-                                <small class="text-muted d-block">Rata-rata Omset</small>
-                                <strong class="fs-5" id="summaryRataOmset">Rp 0</strong>
-                            </div>
-                            <i class="fas fa-calculator fa-2x text-info opacity-50"></i>
-                        </div>
-                    </div>
-                </div>
-                <div class="col-md-3">
+                <div class="col-md-6">
                     <div class="alert alert-warning mb-0">
                         <div class="d-flex justify-content-between align-items-center">
                             <div>
@@ -194,6 +172,7 @@
                     </div>
                 </div>
             </div>
+
         </div>
     </div>
 
@@ -387,9 +366,8 @@ document.addEventListener('DOMContentLoaded', function() {
             // Show summary
             document.getElementById('summaryCard').style.display = 'block';
             document.getElementById('summaryTotalPelanggan').textContent = (data.summary.total_pelanggan || 0).toLocaleString('id-ID');
-            document.getElementById('summaryTotalOmset').textContent = 'Rp ' + (data.summary.total_omset || 0).toLocaleString('id-ID');
-            document.getElementById('summaryRataOmset').textContent = 'Rp ' + Math.round(data.summary.rata_rata_omset || 0).toLocaleString('id-ID');
             document.getElementById('summaryTotalKunjungan').textContent = (data.summary.total_kunjungan || 0).toLocaleString('id-ID');
+
             
             // Show export buttons
             document.getElementById('exportButtons').style.display = 'flex';

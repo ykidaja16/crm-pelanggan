@@ -8,95 +8,78 @@ Dokumen ini berisi daftar fitur yang sudah dikerjakan dan saran pengembangan unt
 
 ### 1. **Manajemen Pelanggan**
 - [x] CRUD Pelanggan (Create, Read, Update, Delete)
-- [x] Sistem Klasifikasi Otomatis (Prioritas, Loyal, Potensial)
-- [x] Riwayat Kunjungan per Pelanggan dengan Pagination
+- [x] Sistem Klasifikasi Otomatis (Potensial, Loyal, Prioritas)
+- [x] Riwayat Kunjungan per Pelanggan
 - [x] Detail Pelanggan dengan Total Transaksi
-- [x] Riwayat Perubahan Kelas (Class History) dengan tracking siapa yang mengubah
-- [x] Auto-generate PID berdasarkan Kode Cabang
+- [x] **Sorting untuk semua kolom** (ID, PID, Nama, Cabang, No Telp, DOB, Alamat, Kunjungan, Tgl Kunjungan Terakhir, Total Biaya, Kelas)
+- [x] **Default filter "Semua Data"** (tidak lagi default per bulan)
 
 ### 2. **Import/Export Data**
 - [x] Import Excel (.xlsx, .xls)
-- [x] Import CSV dengan berbagai delimiter (auto-detect)
+- [x] Import CSV dengan berbagai delimiter
 - [x] Export Excel dengan filter
-- [x] **Template Import Download** - Template Excel dengan data dummy
+- [x] **Template Import Download** - Tombol download template dengan format yang benar
 - [x] Validasi data saat import (cek duplikat PID, validasi nama & alamat)
-- [x] **Bulk Export** - Export multiple pelanggan terpilih
+- [x] **Preserve Total Kedatangan dari Excel** - Nilai total_kedatangan dan total_biaya dari Excel tersimpan dengan benar
 
 ### 3. **Pencarian & Filter**
 - [x] Search by PID/Nama
 - [x] Filter per Bulan/Tahun/Semua Data
-- [x] **Filter Tanggal Range** - Dari tanggal X sampai tanggal Y
 - [x] Filter by Cabang
 - [x] Filter by Kelas (Prioritas, Loyal, Potensial)
-- [x] Filter by Range Omset (< 1jt, 1-4jt, > 4jt)
+- [x] Filter by Range Omset (0-<1Jt, 1-4Jt, >4Jt)
 - [x] Filter by Range Kedatangan (≤2, 3-4, >4)
-- [x] Sorting (PID, Nama, Tanggal Kunjungan, Klasifikasi, Total Biaya)
+- [x] Sorting (11 kolom dengan asc/desc)
 - [x] Pagination (30 data per halaman)
 
-### 4. **Bulk Actions (Aksi Massal)**
-- [x] Checkbox di setiap baris tabel
-- [x] Hapus multiple pelanggan sekaligus
-- [x] Export multiple pelanggan terpilih
-- [x] API Search Pelanggan by PID (untuk mode tambah kunjungan ke pelanggan lama)
+### 4. **Bulk Actions**
+- [x] Checkbox selection per row
+- [x] Select All checkbox
+- [x] Bulk Delete pelanggan terpilih
+- [x] Bulk Export pelanggan terpilih ke Excel
+- [x] Counter jumlah data terpilih
 
 ### 5. **Keamanan**
-- [x] Autentikasi & Autorisasi (Role: Super Admin, Admin, User)
-- [x] Rate Limiting (30 request/minute + throttle khusus login & import)
+- [x] Autentikasi & Autorisasi (Role: Admin, Superadmin, User)
+- [x] Rate Limiting (30 request/minute)
 - [x] Session Timeout
-- [x] **Audit Logging** - Pencatatan semua aktivitas user (login, logout, CRUD, import)
-- [x] Security Headers (X-Frame-Options, X-Content-Type-Options, etc)
-- [x] **Password Reset Request** - User request, admin approve/reject
-- [x] Middleware role-based access (EnsureUserIsAdmin, EnsureUserIsSuperAdmin)
+- [x] Audit Logging (Activity Log)
+- [x] Security Headers
+- [x] Password Reset Request
 
-### 6. **Dashboard & Analytics**
-- [x] **Quick Stats Widget**:
-  - Total Pelanggan Aktif
-  - Kunjungan Bulan Ini
-  - Kunjungan Tahun Ini
-  - Pelanggan Baru Bulan Ini
-- [x] **Grafik Statistik**:
-  - Grafik batang: Pertumbuhan pelanggan per bulan
-  - Grafik batang: Pertumbuhan pelanggan per tahun (5 tahun terakhir)
-  - Grafik pie: Distribusi klasifikasi (Prioritas, Loyal, Potensial)
-- [x] Filter grafik: Monthly, Yearly, By Class
-- [x] Caching dashboard stats (5 menit) untuk performa
+### 6. **Soft Deletes & Recycle Bin**
+- [x] Soft Deletes untuk Pelanggan
+- [x] Soft Deletes untuk Users
+- [x] Recycle Bin Pelanggan dengan Restore & Permanent Delete
+- [x] Recycle Bin Users dengan Restore & Permanent Delete
+- [x] Auto-cleanup recycle bin setelah 30 hari (Command)
 
-### 7. **Laporan Lengkap**
-- [x] Halaman khusus laporan dengan berbagai filter
-- [x] Preview laporan sebelum export
-- [x] Summary statistics (total pelanggan, total omset, rata-rata, total kunjungan)
-- [x] Export Excel
-- [x] **Print View** - Tampilan khusus untuk print
-- [x] Filter by periode, cabang, kelas, omset range, kedatangan range
+### 7. **Dashboard & Analytics**
+- [x] Dashboard dengan grafik Chart.js
+- [x] Filter grafik: Bulanan, Tahunan, per Kelas
+- [x] Quick Stats (Total Pelanggan, Kunjungan Bulan Ini, Kunjungan Tahun Ini, Pelanggan Baru)
+- [x] **Performance optimized** - Grouped queries + Caching 5 menit
 
-### 8. **User Experience**
+### 8. **Laporan**
+- [x] Laporan Pelanggan dengan filter lengkap
+- [x] Preview laporan dengan summary
+- [x] Export laporan ke Excel
+- [x] Print laporan
+
+### 9. **User Experience**
+- [x] **Branding SIMA Lab** - Logo di favicon, login, sidebar, navbar
 - [x] Disable autocomplete di login
 - [x] Tombol kembali ke dashboard pelanggan (konsisten)
 - [x] Filter nonaktif saat search dengan tetap bisa export
 - [x] Loading indicator saat import
-- [x] Pagination dengan informasi jumlah data
-- [x] Sorting indicator (asc/desc) di header tabel
+- [x] **Checkbox behavior fixed** - Hanya toggle saat klik checkbox, bukan row
 
-### 9. **Manajemen Pengguna**
-- [x] CRUD User (Super Admin only)
-- [x] Role management (Super Admin, Admin, User)
-- [x] Status aktif/non-aktif user
-- [x] **Password Reset Management** - List request, approve, reject
-- [x] **Activity Log** - Lihat log aktivitas semua user dengan filter, export, dan pagination (50 entri per halaman)
-
-
-### 10. **Performance Optimization** ⚡
-- [x] **Database Indexes** - 6 index baru untuk optimasi query
-- [x] **Query Optimization**:
-  - Dashboard: dari 12 query → 1 query (GROUP BY)
-  - Laporan: dari multiple query → single aggregate query
-  - Pelanggan index: DB-level filtering & pagination
-- [x] **Caching**:
-  - Dashboard stats di-cache 5 menit
-  - Cabang list di-cache 1 jam
-- [x] **Efficient Algorithms**:
-  - `updateStats()`: dari 2 query → 1 query
-  - `generatePid()`: dari orderBy→first → max() (lebih efisien)
+### 10. **Performance Optimization**
+- [x] Database indexes (6 indexes baru)
+- [x] Single query untuk updateStats()
+- [x] DB-level filtering & pagination
+- [x] Grouped queries untuk dashboard
+- [x] Cache untuk dashboard stats dan cabang list
 
 ---
 
@@ -106,287 +89,244 @@ Dokumen ini berisi daftar fitur yang sudah dikerjakan dan saran pengembangan unt
 **Status:** 🔴 Belum Dikerjakan  
 **Deskripsi:**
 - Export laporan pelanggan ke format PDF
+- Template laporan yang rapi dengan logo SIMA Lab
 - Export detail pelanggan + riwayat kunjungan
-- Template laporan yang rapi dengan logo
 - Export hasil filter/pencarian
 
 **Package yang dibutuhkan:** `barryvdh/laravel-dompdf`
 
-**Manfaat:** Memudahkan distribusi laporan dalam format yang tidak bisa diedit
+**Estimasi:** 2-3 hari
 
 ---
 
 ### 2. **Toast Notifications** 🔔
 **Status:** 🔴 Belum Dikerjakan  
 **Deskripsi:**
-- Ganti alert Bootstrap biasa dengan SweetAlert2 atau Toastr
-- Notifikasi popup yang lebih modern dan menarik
+- Notifikasi sukses/error yang muncul di pojok kanan atas
 - Auto-dismiss setelah 3-5 detik
-- Tipe: Success, Error, Warning, Info dengan ikon yang sesuai
+- Gantikan alert() yang mengganggu UX
 
-**Package yang dibutuhkan:** `sweetalert2` (via CDN atau npm)
+**Package yang dibutuhkan:** `sweetalert2` atau `toastr`
 
-**Manfaat:** UX yang lebih baik, notifikasi tidak mengganggu layout
+**Estimasi:** 1 hari
 
 ---
 
-### 3. **Profile Page** 👤
+### 3. **Auto-complete Search** 🔍
 **Status:** 🔴 Belum Dikerjakan  
 **Deskripsi:**
-- Halaman profil untuk edit data diri (nama, email, username)
-- Ganti password sendiri (dengan validasi password lama)
-- Upload foto profil
-- Lihat aktivitas login terakhir
+- Search suggestions saat mengetik nama/PID
+- Dropdown dengan hasil pencarian real-time
+- Klik suggestion untuk langsung ke detail pelanggan
 
-**Manfaat:** User bisa mengelola data pribadi tanpa harus minta admin
+**Package yang dibutuhkan:** Vanilla JS atau `select2`
+
+**Estimasi:** 2 hari
 
 ---
 
-### 4. **Soft Deletes + Recycle Bin (Lanjutan)** 💾
-**Status:** 🟡 Partial - Migration ada, UI belum lengkap  
+### 4. **Date Range Picker** 📅
+**Status:** 🔴 Belum Dikerjakan  
 **Deskripsi:**
-- Views Recycle Bin untuk Pelanggan dan User (sudah ada di tab tapi file tidak ditemukan)
-- Fitur "Restore" untuk mengembalikan data yang dihapus
-- Fitur "Permanent Delete" untuk hapus permanen setelah 30 hari
-- Command `cleanup:recycle-bin` untuk hapus permanen otomatis
+- Pilih range tanggal dengan kalender visual
+- Filter kunjungan dari tanggal X sampai Y
+- Preset: Hari ini, Minggu ini, Bulan ini, Tahun ini
 
-**File yang perlu dibuat:**
-- `resources/views/pelanggan/recycle-bin.blade.php`
-- `resources/views/users/recycle-bin.blade.php`
-- `app/Console/Commands/CleanupRecycleBin.php`
+**Package yang dibutuhkan:** `flatpickr` atau `daterangepicker`
 
-**Manfaat:** Mencegah kehilangan data permanen akibat salah klik
+**Estimasi:** 1-2 hari
 
 ---
 
-### 5. **Email Notifications** 📧
+### 5. **Quick Stats Widget di Data Pelanggan** 📊
+**Status:** 🔴 Belum Dikerjakan  
+**Deskripsi:**
+- Card ringkasan di atas tabel: Total Pelanggan, Rata-rata Kunjungan, Total Omset
+- Update otomatis saat filter berubah
+- Visual dengan icon dan warna
+
+**Estimasi:** 1 hari
+
+---
+
+## 🎯 Prioritas Menengah (Nice to Have)
+
+### 6. **Profile Page** 👤
+**Status:** 🔴 Belum Dikerjakan  
+**Deskripsi:**
+- Halaman profil user yang sedang login
+- Edit nama, email, password
+- Upload foto profil
+
+**Estimasi:** 2 hari
+
+---
+
+### 7. **Email Notifications** 📧
 **Status:** 🔴 Belum Dikerjakan  
 **Deskripsi:**
 - Email notifikasi saat password direset
-- Email konfirmasi untuk admin saat ada request password reset
-- Email ringkasan mingguan (opsional)
+- Email laporan mingguan ke admin
+- Email welcome saat user baru dibuat
 
-**Package yang dibutuhkan:** Laravel Mail + SMTP configuration
+**Package yang dibutuhkan:** Laravel Mail + SMTP
 
-**Manfaat:** Notifikasi real-time ke email admin/user
+**Estimasi:** 2-3 hari
 
 ---
 
-## 📊 Dashboard Analytics & Reporting (Lanjutan)
-
-### 6. **Advanced Dashboard Widgets** 📈
+### 8. **Data Backup Otomatis** 💾
 **Status:** 🔴 Belum Dikerjakan  
-**Ide:**
-- Trend line: Perbandingan kunjungan bulan ini vs bulan lalu
-- Top 5 Pelanggan dengan Omset Tertinggi
-- Top 5 Cabang dengan Kunjungan Terbanyak
-- Grafik pertumbuhan pelanggan baru per minggu
-
----
-
-### 7. **Laporan PDF dengan Chart** 📊
-**Status:** 🔴 Belum Dikerjakan  
-**Ide:**
-- Laporan PDF yang include grafik/statistik
-- Laporan bulanan otomatis dengan cron job
-- Kirim laporan via email ke admin
-
----
-
-## ✨ User Experience (UX) Enhancement
-
-### 8. **Dark Mode** 🌙
-**Status:** 🔴 Belum Dikerjakan  
-**Ide:**
-- Toggle dark/light mode di navbar
-- Simpan preferensi di localStorage
-- CSS variable untuk warna tema
-- Auto-detect system preference
-
----
-
-### 9. **Responsive Mobile** 📱
-**Status:** 🟡 Partial  
-**Ide:**
-- Optimasi tampilan untuk tablet dan mobile
-- Sidebar collapsible dengan hamburger menu
-- Table dengan horizontal scroll di mobile
-- Touch-friendly buttons
-
----
-
-### 10. **Auto-complete Search** ⌨️
-**Status:** 🔴 Belum Dikerjakan  
-**Ide:**
-- Suggestion nama/PID saat mengetik di search box
-- AJAX search untuk hasil real-time
-- Minimal 3 karakter untuk trigger search
-- Highlight hasil pencarian
-
----
-
-## 🔐 Security & Data Management
-
-### 11. **Data Backup Otomatis** 💿
-**Status:** 🔴 Belum Dikerjakan  
-**Ide:**
-- Backup database otomatis harian/mingguan via cron job
-- Tombol backup manual di admin panel
-- Download backup sebagai SQL dump
-- Retention policy (simpan 30 hari terakhir)
+**Deskripsi:**
+- Backup database otomatis harian/mingguan
+- Simpan ke cloud storage (Google Drive, S3)
+- Restore dari backup
 
 **Package yang dibutuhkan:** `spatie/laravel-backup`
 
----
-
-### 12. **Two Factor Authentication (2FA)** 🔐
-**Status:** 🔴 Belum Dikerjakan  
-**Ide:**
-- 2FA via Google Authenticator
-- Backup codes untuk recovery
-- Optional untuk admin, wajib untuk super admin
+**Estimasi:** 2 hari
 
 ---
 
-## 🧪 Testing & Quality Assurance
-
-### 13. **Unit Tests** ✅
+### 9. **API Mobile (JSON)** 📱
 **Status:** 🔴 Belum Dikerjakan  
-**Ide:**
-- Test untuk setiap method controller
-- Test untuk model relationships
-- Test untuk helper functions (calculateClass, generatePid)
+**Deskripsi:**
+- REST API untuk aplikasi mobile
+- Authentication dengan Sanctum
+- Endpoint: login, pelanggan, kunjungan, laporan
 
-**Command:** `php artisan make:test PelangganTest`
+**Package yang dibutuhkan:** `laravel/sanctum`
+
+**Estimasi:** 3-5 hari
 
 ---
 
-### 14. **Feature Tests** 🧪
+### 10. **Unit & Feature Tests** 🧪
 **Status:** 🔴 Belum Dikerjakan  
-**Ide:**
+**Deskripsi:**
+- Unit test untuk model dan service
+- Feature test untuk controller
 - Test alur lengkap: login → tambah pelanggan → edit → hapus
-- Test import/export dengan file sample
-- Test filter dan pencarian
-- Test role-based access control
+
+**Package yang dibutuhkan:** PHPUnit (sudah included)
+
+**Estimasi:** 3-5 hari
 
 ---
 
-### 15. **Browser Tests** 🌐
-**Status:** 🔴 Belum Dikerjakan  
-**Ide:**
-- Test otomatis dengan Laravel Dusk
-- Test UI interaction (klik, input, submit)
-- Screenshot saat test gagal
-- Test critical path: login, CRUD pelanggan, export
+## 🎁 Fitur Bonus (Future Ideas)
 
-**Package yang dibutuhkan:** `laravel/dusk`
-
----
-
-## 🎁 Fitur Bonus (Nice to Have)
-
-### 16. **Foto Pelanggan** 📷
+### 11. **Foto Pelanggan** 📷
 - Upload foto profil pelanggan
 - Preview foto di detail pelanggan
-- Compress foto otomatis (max 500KB)
+- Compress foto otomatis
 
-### 17. **Catatan Khusus per Pelanggan** 📝
+### 12. **Catatan Khusus** 📝
 - Field catatan tambahan per pelanggan
 - Rich text editor untuk format catatan
-- Tag/label untuk kategori khusus
 
-### 18. **Status Kunjungan** 🏥
+### 13. **Status Kunjungan** 🏥
 - Status: Selesai, Pending, Cancelled
 - Filter by status
 - Statistik status kunjungan
 
-### 19. **SMS/WhatsApp Gateway** 💬
+### 14. **SMS/WhatsApp Gateway** 💬
 - Kirim notifikasi ke pelanggan via WhatsApp
 - Reminder kunjungan berikutnya
 - Promo/penawaran ke pelanggan tertentu
 
-### 20. **Multi Cabang (Lanjutan)** 🏢
+### 15. **Multi Cabang Advanced** 🏢
 - Dashboard per cabang
-- Laporan komparasi antar cabang
-- User assignment ke cabang tertentu
+- Laporan per cabang dengan filter
+- Cabang admin hanya lihat data cabangnya
 
-### 21. **API REST** 🔌
-- API endpoint untuk mobile app
-- JWT authentication
-- Rate limiting untuk API
-- Dokumentasi API dengan Swagger
+### 16. **Loyalty Program** 🎁
+- Point system untuk pelanggan
+- Reward berdasarkan total kunjungan/biaya
+- Voucher diskon otomatis
+
+### 17. **Reminder System** ⏰
+- Reminder kunjungan berikutnya
+- Notifikasi pelanggan yang belum datang lama
+- Email/SMS reminder otomatis
 
 ---
 
-## 📅 Timeline Rekomendasi (Updated)
+## 📅 Timeline Rekomendasi
 
-### **Fase 1: UX & Reporting (Minggu 1-2)**
+### **Minggu 1-2: Prioritas Tinggi**
 1. Export PDF
-2. Toast Notifications (SweetAlert2)
-3. Profile Page
-4. Recycle Bin UI (lengkapi yang sudah ada)
+2. Toast Notifications
+3. Auto-complete Search
 
-### **Fase 2: Communication & Security (Minggu 3-4)**
-5. Email Notifications
-6. Data Backup Otomatis
-7. Two Factor Authentication (opsional)
+### **Minggu 3-4: UX Enhancement**
+4. Date Range Picker
+5. Quick Stats Widget
+6. Profile Page
 
-### **Fase 3: Testing & Polish (Bulan 2)**
-8. Unit Tests & Feature Tests
-9. Responsive Mobile
-10. Auto-complete Search
+### **Bulan 2: Advanced Features**
+7. Email Notifications
+8. Data Backup Otomatis
+9. API Mobile (jika diperlukan)
 
-### **Fase 4: Advanced Features (Bulan 3)**
-11. Dark Mode
-12. Advanced Dashboard Widgets
-13. API REST (jika diperlukan)
+### **Bulan 3: Quality & Testing**
+10. Unit & Feature Tests
+11. Performance monitoring
+12. Documentation
 
 ---
 
 ## 🛠️ Tech Stack Tambahan yang Direkomendasikan
 
-| Fitur | Package/Library | Status |
-|-------|----------------|--------|
-| Export PDF | `barryvdh/laravel-dompdf` | ⏳ Pending |
-| Toast Notification | `sweetalert2` (CDN) | ⏳ Pending |
-| Date Range Picker | `flatpickr` (sudah ada di laporan) | ✅ Done |
-| Testing | `laravel/dusk` (browser test) | ⏳ Pending |
-| Backup | `spatie/laravel-backup` | ⏳ Pending |
-| 2FA | `pragmarx/google2fa-laravel` | ⏳ Pending |
-| Queue/Job | Laravel Queue + Redis/Supervisor | ⏳ Pending |
+| Fitur | Package/Library | Priority |
+|-------|----------------|----------|
+| Export PDF | `barryvdh/laravel-dompdf` | 🔴 High |
+| Toast Notification | `sweetalert2` atau `toastr` | 🔴 High |
+| Auto-complete | `select2` atau vanilla JS | 🔴 High |
+| Date Range Picker | `flatpickr` | 🟡 Medium |
+| Testing | PHPUnit (built-in) | 🟡 Medium |
+| Backup | `spatie/laravel-backup` | 🟡 Medium |
+| API Auth | `laravel/sanctum` | 🟢 Low |
+| Queue/Job | Laravel Queue + Redis | 🟢 Low |
 
 ---
 
-## 📊 Ringkasan Status Project
+## 📊 Current Project Status
 
-| Kategori | Done | In Progress | Pending |
-|----------|------|-------------|---------|
-| Core CRM | 90% | 5% | 5% |
-| Import/Export | 95% | 0% | 5% |
-| Reporting | 70% | 0% | 30% |
-| Security | 85% | 5% | 10% |
-| UX/UI | 60% | 10% | 30% |
-| Testing | 5% | 0% | 95% |
+**Overall Completion: ~75%**
 
-**Overall Progress: ~75%**
+| Module | Status | Completion |
+|--------|--------|------------|
+| Manajemen Pelanggan | ✅ Complete | 100% |
+| Import/Export | ✅ Complete | 100% |
+| Filter & Search | ✅ Complete | 100% |
+| Bulk Actions | ✅ Complete | 100% |
+| Keamanan | ✅ Complete | 100% |
+| Soft Deletes | ✅ Complete | 100% |
+| Dashboard | ✅ Complete | 100% |
+| Laporan | ✅ Complete | 100% |
+| UX/Branding | ✅ Complete | 100% |
+| Performance | ✅ Complete | 100% |
+| Export PDF | 🔴 Not Started | 0% |
+| Notifications | 🔴 Not Started | 0% |
+| Auto-complete | 🔴 Not Started | 0% |
+| Date Range | 🔴 Not Started | 0% |
+| Tests | 🔴 Not Started | 0% |
 
 ---
 
 ## 📝 Catatan Pengembangan
 
-- ✅ **Optimasi Performa sudah selesai** - Lihat `TODO.md` untuk detail
-- ✅ **Soft Deletes migration sudah ada** - Perlu lengkapi UI Recycle Bin
-- ✅ **Activity Log sudah lengkap** - Model, migration, controller, export, view
-- ✅ **Klasifikasi sudah final** - Prioritas, Loyal, Potensial (dengan tracking history)
 - **Selalu backup database** sebelum melakukan perubahan besar
 - **Test di local** sebelum deploy ke production
 - **Gunakan migration** untuk perubahan database
 - **Tulis dokumentasi** untuk fitur baru
 - **Code review** sebelum merge ke branch utama
+- **Gunakan queue** untuk proses berat (import besar, export PDF)
 
 ---
 
-**Dibuat:** 2026-03-02  
+**Dibuat:** 2026-03-03  
 **Oleh:** AI Assistant  
 **Project:** CRM Medical Lab - SIMA Lab  
-**Versi:** 2.0 (Updated)
+**Versi:** 1.5

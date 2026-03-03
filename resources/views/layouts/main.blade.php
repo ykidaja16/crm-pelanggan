@@ -4,8 +4,10 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>@yield('title', 'Medical Lab CRM')</title>
+    <link rel="icon" type="image/png" href="{{ asset('images/logosima.png') }}">
     <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
     <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css" rel="stylesheet">
+
     <style>
         body {
             font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
@@ -99,10 +101,13 @@
 <div class="wrapper">
     <!-- Sidebar -->
     <nav id="sidebar">
-        <div class="sidebar-header">
-            <h4 class="mb-0">SIMA Lab</h4>
-            <small>CRM System</small>
+        <div class="sidebar-header text-center">
+            <img src="{{ asset('images/logosima.png') }}" alt="SIMA Lab Logo" style="height: 60px; margin-bottom: 10px; max-width: 100%;">
+            <!-- <h4 class="mb-0">SIMA Lab</h4> -->
+            <h4 class="mb-0">CRM System</h4> 
         </div>
+
+
 
         <ul class="list-unstyled components">
             <li class="{{ request()->routeIs('dashboard') ? 'active' : '' }}">
@@ -154,11 +159,16 @@
                 <button type="button" id="sidebarCollapse" class="btn btn-light text-primary">
                     <i class="fas fa-bars"></i>
                 </button>
+                <a class="navbar-brand ms-3 d-flex align-items-center" href="{{ route('dashboard') }}">
+                    <img src="{{ asset('images/logosima.png') }}" alt="SIMA Lab" height="35" class="me-2">
+                    <!-- <span class="fw-bold text-primary">SIMA Lab</span> -->
+                </a>
                 <div class="ms-auto d-flex align-items-center">
                     <span class="me-3 text-muted">Welcome, <strong>{{ Auth::user()->name }}</strong> ({{ Auth::user()->role?->name ?? 'User' }})</span>
                 </div>
             </div>
         </nav>
+
 
         @yield('content')
     </div>

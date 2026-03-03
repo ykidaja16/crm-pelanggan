@@ -313,19 +313,12 @@
                 <div class="summary-value">{{ $pelanggan->count() }} orang</div>
             </div>
             <div class="summary-item">
-                <div class="summary-label">Total Omset</div>
-                <div class="summary-value">Rp {{ number_format($pelanggan->sum('total_biaya'), 0, ',', '.') }}</div>
-            </div>
-            <div class="summary-item">
-                <div class="summary-label">Rata-rata Omset</div>
-                <div class="summary-value">Rp {{ number_format($pelanggan->avg('total_biaya'), 0, ',', '.') }}</div>
-            </div>
-            <div class="summary-item">
                 <div class="summary-label">Total Kunjungan</div>
                 <div class="summary-value">{{ $pelanggan->sum('total_kedatangan') }} kali</div>
             </div>
         </div>
     </div>
+
 
     <!-- Footer -->
     <div class="footer">

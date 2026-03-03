@@ -34,7 +34,10 @@ class LaporanExport implements FromCollection, WithHeadings, WithStyles, WithCol
                 'Alamat' => $item->alamat ?? '-',
                 'Kota' => $item->kota ?? '-',
                 'Total Kunjungan' => $item->total_kedatangan ?? 0,
-                'Kunjungan Terakhir' => $item->tgl_kunjungan_terakhir ?? '-',
+                'Kunjungan Terakhir' => $item->tgl_kunjungan_terakhir 
+                    ? \Carbon\Carbon::parse($item->tgl_kunjungan_terakhir)->format('d-m-Y') 
+                    : '-',
+
 
                 'Total Biaya' => $item->total_biaya ?? 0,
                 'Kelas' => $item->class ?? 'Potensial',

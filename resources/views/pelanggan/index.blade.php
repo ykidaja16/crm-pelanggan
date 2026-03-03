@@ -163,14 +163,15 @@
                         <div class="col-md-3">
                             <label class="form-label fw-medium small">Periode</label>
                             <select name="type" id="typeSelect" class="form-select">
+                                <option value="semua" {{ $type == 'semua' ? 'selected' : '' }}>Semua Data</option>
                                 <option value="perbulan" {{ $type == 'perbulan' ? 'selected' : '' }}>Per Bulan</option>
                                 <option value="pertahun" {{ $type == 'pertahun' ? 'selected' : '' }}>Per Tahun</option>
-                                <option value="semua" {{ $type == 'semua' ? 'selected' : '' }}>Semua Data</option>
                             </select>
                         </div>
 
+
                         <!-- Row 2: Bulan, Tahun, Button -->
-                        <div class="col-md-3" id="bulanContainer" style="{{ $type == 'pertahun' || $type == 'semua' ? 'display:none;' : '' }}">
+                        <div class="col-md-3" id="bulanContainer" style="{{ !$type || $type == 'pertahun' || $type == 'semua' ? 'display:none;' : '' }}">
                             <label class="form-label fw-medium small">Bulan</label>
                             <select name="bulan" class="form-select">
                                 @for($i = 1; $i <= 12; $i++)
@@ -181,7 +182,8 @@
                             </select>
                         </div>
 
-                        <div class="col-md-3" id="tahunContainer" style="{{ $type == 'semua' ? 'display:none;' : '' }}">
+                        <div class="col-md-3" id="tahunContainer" style="{{ !$type || $type == 'semua' ? 'display:none;' : '' }}">
+
                             <label class="form-label fw-medium small">Tahun</label>
                             <select name="tahun" class="form-select">
                                 @for($i = date('Y'); $i >= date('Y') - 5; $i--)
@@ -269,7 +271,12 @@
                                         <input type="checkbox" id="selectAll" class="form-check-input" title="Pilih Semua">
                                     </th>
                                     @endif
-                                    <th class="px-2 py-2 text-center fw-semibold" style="width: 35px;">No</th>
+                                    <th class="px-2 py-2 text-center" style="width: 35px;">
+                                        <a href="{{ route('pelanggan.index', array_merge(request()->all(), ['sort' => 'id', 'direction' => $sort == 'id' && $direction == 'asc' ? 'desc' : 'asc'])) }}" class="text-decoration-none text-dark fw-semibold">
+                                            No <i class="fas fa-sort{{ $sort == 'id' ? ($direction == 'asc' ? '-up' : '-down') : '' }} text-muted ms-1"></i>
+                                        </a>
+                                    </th>
+
                                     <th class="py-2" style="width: 100px;">
                                         <a href="{{ route('pelanggan.index', array_merge(request()->all(), ['sort' => 'pid', 'direction' => $sort == 'pid' && $direction == 'asc' ? 'desc' : 'asc'])) }}" class="text-decoration-none text-dark fw-semibold">
                                             PID <i class="fas fa-sort{{ $sort == 'pid' ? ($direction == 'asc' ? '-up' : '-down') : '' }} text-muted ms-1"></i>
@@ -280,17 +287,47 @@
                                             Nama Pasien <i class="fas fa-sort{{ $sort == 'nama' ? ($direction == 'asc' ? '-up' : '-down') : '' }} text-muted ms-1"></i>
                                         </a>
                                     </th>
-                                    <th class="py-2 text-center fw-semibold" style="width: 100px;">Cabang</th>
-                                    <th class="py-2 fw-semibold" style="width: 100px;">No Telp</th>
-                                    <th class="py-2 text-center fw-semibold" style="width: 85px;">DOB</th>
-                                    <th class="py-2 fw-semibold" style="min-width: 120px; max-width: 180px;">Alamat</th>
-                                    <th class="py-2 text-center fw-semibold" style="width: 65px;">Kunjungan</th>
+                                    <th class="py-2 text-center" style="width: 100px;">
+                                        <a href="{{ route('pelanggan.index', array_merge(request()->all(), ['sort' => 'cabang_id', 'direction' => $sort == 'cabang_id' && $direction == 'asc' ? 'desc' : 'asc'])) }}" class="text-decoration-none text-dark fw-semibold">
+                                            Cabang <i class="fas fa-sort{{ $sort == 'cabang_id' ? ($direction == 'asc' ? '-up' : '-down') : '' }} text-muted ms-1"></i>
+                                        </a>
+                                    </th>
+
+                                    <th class="py-2" style="width: 100px;">
+                                        <a href="{{ route('pelanggan.index', array_merge(request()->all(), ['sort' => 'no_telp', 'direction' => $sort == 'no_telp' && $direction == 'asc' ? 'desc' : 'asc'])) }}" class="text-decoration-none text-dark fw-semibold">
+                                            No Telp <i class="fas fa-sort{{ $sort == 'no_telp' ? ($direction == 'asc' ? '-up' : '-down') : '' }} text-muted ms-1"></i>
+                                        </a>
+                                    </th>
+
+                                    <th class="py-2 text-center" style="width: 85px;">
+                                        <a href="{{ route('pelanggan.index', array_merge(request()->all(), ['sort' => 'dob', 'direction' => $sort == 'dob' && $direction == 'asc' ? 'desc' : 'asc'])) }}" class="text-decoration-none text-dark fw-semibold">
+                                            DOB <i class="fas fa-sort{{ $sort == 'dob' ? ($direction == 'asc' ? '-up' : '-down') : '' }} text-muted ms-1"></i>
+                                        </a>
+                                    </th>
+
+                                    <th class="py-2" style="min-width: 120px; max-width: 180px;">
+                                        <a href="{{ route('pelanggan.index', array_merge(request()->all(), ['sort' => 'alamat', 'direction' => $sort == 'alamat' && $direction == 'asc' ? 'desc' : 'asc'])) }}" class="text-decoration-none text-dark fw-semibold">
+                                            Alamat <i class="fas fa-sort{{ $sort == 'alamat' ? ($direction == 'asc' ? '-up' : '-down') : '' }} text-muted ms-1"></i>
+                                        </a>
+                                    </th>
+
+                                    <th class="py-2 text-center" style="width: 65px;">
+                                        <a href="{{ route('pelanggan.index', array_merge(request()->all(), ['sort' => 'total_kedatangan', 'direction' => $sort == 'total_kedatangan' && $direction == 'asc' ? 'desc' : 'asc'])) }}" class="text-decoration-none text-dark fw-semibold">
+                                            Kunjungan <i class="fas fa-sort{{ $sort == 'total_kedatangan' ? ($direction == 'asc' ? '-up' : '-down') : '' }} text-muted ms-1"></i>
+                                        </a>
+                                    </th>
+
                                     <th class="py-2 text-center" style="width: 100px;">
                                         <a href="{{ route('pelanggan.index', array_merge(request()->all(), ['sort' => 'tgl_kunjungan', 'direction' => $sort == 'tgl_kunjungan' && $direction == 'asc' ? 'desc' : 'asc'])) }}" class="text-decoration-none text-dark fw-semibold">
                                             Kunjungan Terakhir <i class="fas fa-sort{{ $sort == 'tgl_kunjungan' ? ($direction == 'asc' ? '-up' : '-down') : '' }} text-muted ms-1"></i>
                                         </a>
                                     </th>
-                                    <th class="py-2 text-end fw-semibold" style="width: 100px;">Total Biaya</th>
+                                    <th class="py-2 text-end" style="width: 100px;">
+                                        <a href="{{ route('pelanggan.index', array_merge(request()->all(), ['sort' => 'total_biaya', 'direction' => $sort == 'total_biaya' && $direction == 'asc' ? 'desc' : 'asc'])) }}" class="text-decoration-none text-dark fw-semibold">
+                                            Total Biaya <i class="fas fa-sort{{ $sort == 'total_biaya' ? ($direction == 'asc' ? '-up' : '-down') : '' }} text-muted ms-1"></i>
+                                        </a>
+                                    </th>
+
                                     <th class="py-2 text-center" style="width: 75px;">
                                         <a href="{{ route('pelanggan.index', array_merge(request()->all(), ['sort' => 'class', 'direction' => $sort == 'class' && $direction == 'asc' ? 'desc' : 'asc'])) }}" class="text-decoration-none text-dark fw-semibold">
                                             Kelas <i class="fas fa-sort{{ $sort == 'class' ? ($direction == 'asc' ? '-up' : '-down') : '' }} text-muted ms-1"></i>
@@ -299,14 +336,16 @@
                                     <th class="py-2 text-center fw-semibold" style="width: 110px;">Aksi</th>
                                 </tr>
                             </thead>
+
                             <tbody>
                                 @foreach($pelanggan as $index => $p)
-                                <tr class="pelanggan-row">
+                                <tr>
                                     @if(in_array(Auth::user()->role?->name, ['Admin', 'Super Admin']))
                                     <td class="px-2 py-2 text-center">
                                         <input type="checkbox" class="form-check-input row-checkbox" value="{{ $p->id }}" data-nama="{{ $p->nama }}">
                                     </td>
                                     @endif
+
                                     <td class="px-2 py-2 text-center">{{ $pelanggan->firstItem() + $index }}</td>
                                     <td class="py-2"><code class="bg-light px-1 py-1 rounded small text-nowrap">{{ $p->pid }}</code></td>
                                     <td class="py-2 fw-medium">{{ $p->nama }}</td>
@@ -385,21 +424,35 @@ document.addEventListener('DOMContentLoaded', function() {
     const bulanContainer = document.getElementById('bulanContainer');
     const tahunContainer = document.getElementById('tahunContainer');
     
-    if (typeSelect) {
-        typeSelect.addEventListener('change', function() {
-            if (this.value === 'pertahun' || this.value === 'semua') {
-                bulanContainer.style.display = 'none';
-            } else {
-                bulanContainer.style.display = 'block';
-            }
-            
-            if (this.value === 'semua') {
-                tahunContainer.style.display = 'none';
-            } else {
-                tahunContainer.style.display = 'block';
-            }
-        });
+    /**
+     * Update visibility of Bulan and Tahun containers based on selected type
+     */
+    function updatePeriodContainers() {
+        if (!typeSelect) return;
+        
+        const selectedType = typeSelect.value;
+        
+        if (selectedType === 'pertahun' || selectedType === 'semua') {
+            bulanContainer.style.display = 'none';
+        } else {
+            bulanContainer.style.display = 'block';
+        }
+        
+        if (selectedType === 'semua') {
+            tahunContainer.style.display = 'none';
+        } else {
+            tahunContainer.style.display = 'block';
+        }
     }
+    
+    // Set initial state on page load
+    updatePeriodContainers();
+    
+    // Update on change
+    if (typeSelect) {
+        typeSelect.addEventListener('change', updatePeriodContainers);
+    }
+
     
     // Import form handling
     const importForm = document.getElementById('importForm');

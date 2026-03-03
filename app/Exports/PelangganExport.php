@@ -63,7 +63,7 @@ class PelangganExport implements FromCollection, WithHeadings
                             'total_bulanan' => $monthlyTotal,
                             'total_kumulatif' => $cumulative,
                             'class' => $this->getClass($cumulative, $kunjungans->count()),
-                            'kunjungan_terakhir' => $k->tanggal_kunjungan->format('Y-m-d')
+                            'kunjungan_terakhir' => $k->tanggal_kunjungan->format('d-m-Y')
                         ];
                     }
                     $currentMonth = $monthKey;
@@ -80,7 +80,7 @@ class PelangganExport implements FromCollection, WithHeadings
                     'total_bulanan' => $monthlyTotal,
                     'total_kumulatif' => $cumulative,
                     'class' => $this->getClass($cumulative, $kunjungans->count()),
-                    'kunjungan_terakhir' => $kunjungans->last()->tanggal_kunjungan->format('Y-m-d')
+                    'kunjungan_terakhir' => $kunjungans->last()->tanggal_kunjungan->format('d-m-Y')
                 ];
             }
 
@@ -132,27 +132,26 @@ class PelangganExport implements FromCollection, WithHeadings
 
         $pelanggan = $query->get();
 
-        // Hitung total kumulatif dan filter berdasarkan kunjungan di periode
+        // Filter berdasarkan kunjungan di periode, tapi gunakan data asli dari database
         $pelanggan = $pelanggan->filter(function ($p) use ($endDate) {
-            $p->total_biaya = $p->kunjungans->sum('biaya');
-            $p->total_kedatangan = $p->kunjungans->count();
-            $p->class = $this->getClass($p->total_biaya, $p->total_kedatangan);
-
-            // Ambil kunjungan terakhir di periode
+            // Gunakan nilai yang sudah tersimpan di database (tidak dihitung ulang dari kunjungan filtered)
+            // Hanya gunakan kunjungan filtered untuk menentukan apakah pelanggan masuk filter periode
+            
+            // Ambil kunjungan terakhir di periode untuk tanggal kunjungan
             if ($this->type == 'perbulan') {
                 $kunjunganFiltered = $p->kunjungans->filter(function($k) {
                     return $k->tanggal_kunjungan->month == $this->bulan && $k->tanggal_kunjungan->year == $this->tahun;
                 });
-                $p->tgl_kunjungan = $kunjunganFiltered->sortByDesc('tanggal_kunjungan')->first()?->tanggal_kunjungan->format('Y-m-d') ?? '-';
+                $p->tgl_kunjungan = $kunjunganFiltered->sortByDesc('tanggal_kunjungan')->first()?->tanggal_kunjungan->format('d-m-Y') ?? '-';
                 return $kunjunganFiltered->isNotEmpty();
             } elseif ($this->type == 'pertahun') {
                 $kunjunganFiltered = $p->kunjungans->filter(function($k) {
                     return $k->tanggal_kunjungan->year == $this->tahun;
                 });
-                $p->tgl_kunjungan = $kunjunganFiltered->sortByDesc('tanggal_kunjungan')->first()?->tanggal_kunjungan->format('Y-m-d') ?? '-';
+                $p->tgl_kunjungan = $kunjunganFiltered->sortByDesc('tanggal_kunjungan')->first()?->tanggal_kunjungan->format('d-m-Y') ?? '-';
                 return $kunjunganFiltered->isNotEmpty();
             } else {
-                $p->tgl_kunjungan = $p->kunjungans->sortByDesc('tanggal_kunjungan')->first()?->tanggal_kunjungan->format('Y-m-d') ?? '-';
+                $p->tgl_kunjungan = $p->kunjungans->sortByDesc('tanggal_kunjungan')->first()?->tanggal_kunjungan->format('d-m-Y') ?? '-';
                 return true;
             }
         });

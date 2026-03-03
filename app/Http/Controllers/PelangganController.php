@@ -219,13 +219,19 @@ class PelangganController extends Controller
 
         $cabangs = Cabang::all();
 
-        // Tidak ada filter sama sekali — tampilkan state kosong
-        if (!$type && !$bulan && !$tahun && !$search && !$cabangId && !$omsetRange && !$kedatanganRange && !$kelas) {
+        // Set default periode ke "semua" jika tidak ada filter
+        // Tapi tampilkan data kosong saat pertama kali masuk (belum klik filter)
+        if (!$type && !$search) {
+            $type  = 'semua';
+            $bulan = null;
+            $tahun = null;
+            
+            // Return view dengan data kosong (belum klik filter)
             return view('pelanggan.index', [
                 'pelanggan'        => collect(),
                 'bulan'            => null,
                 'tahun'            => null,
-                'type'             => null,
+                'type'             => 'semua',
                 'search'           => null,
                 'cabang_id'        => null,
                 'omset_range'      => null,
@@ -236,16 +242,17 @@ class PelangganController extends Controller
                 'direction'        => $direction,
                 'searchMode'       => false,
             ]);
-        }
+        } elseif ($type === 'perbulan' && !$bulan) {
 
-        // Set default periode
-        if ($type && !$bulan) $bulan = date('m');
-        if ($type && !$tahun) $tahun = date('Y');
-        if (!$type && !$search) {
-            $type  = 'perbulan';
+
             $bulan = date('m');
+        }
+        
+        if ($type && $type !== 'semua' && !$tahun) {
             $tahun = date('Y');
         }
+
+
 
         // Subquery untuk tgl_kunjungan terakhir sesuai periode yang dipilih
         // Dihitung di DB level — tidak perlu load semua kunjungan ke memory
@@ -327,11 +334,23 @@ class PelangganController extends Controller
             $query->orderBy('total_biaya', $direction);
         } elseif ($sort === 'nama') {
             $query->orderByRaw("LOWER(nama) {$direction}");
-        } elseif (in_array($sort, ['pid', 'total_biaya', 'total_kedatangan'])) {
+        } elseif ($sort === 'alamat') {
+            $query->orderByRaw("LOWER(alamat) {$direction}");
+        } elseif ($sort === 'cabang_id') {
+            // Join dengan tabel cabangs untuk sorting berdasarkan nama cabang
+            $query->leftJoin('cabangs', 'pelanggans.cabang_id', '=', 'cabangs.id')
+                  ->orderByRaw("LOWER(cabangs.nama) {$direction}")
+                  ->select('pelanggans.*'); // Pastikan hanya select dari pelanggans
+        } elseif ($sort === 'id') {
+            $query->orderBy('pelanggans.id', $direction);
+        } elseif (in_array($sort, ['pid', 'total_biaya', 'total_kedatangan', 'no_telp', 'dob'])) {
             $query->orderBy($sort, $direction);
         } else {
             $query->orderByRaw('LOWER(nama) ASC');
         }
+
+
+
 
         // Paginate di DB level — tidak perlu manual slice dari collection
         $pelanggan = $query->paginate(30)->withQueryString();
@@ -378,7 +397,7 @@ class PelangganController extends Controller
             }
 
             $errors = [];
-            $rowNumber = 1;
+            $rowNumber = 0;
             $totalRows = 0;
             $validRows = 0;
             
@@ -394,9 +413,10 @@ class PelangganController extends Controller
             foreach ($rows[0] as $row) {
                 $rowNumber++;
                 
-                if ($rowNumber == 2 && count($row) > 0 && strtolower(trim($row[0] ?? '')) == 'no') {
+                if ($rowNumber == 1 && count($row) > 0 && strtolower(trim($row[0] ?? '')) == 'no') {
                     continue;
                 }
+
                 
                 if (count($row) < 10) {
                     Log::debug("Row $rowNumber skipped: insufficient columns", ['column_count' => count($row)]);

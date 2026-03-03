@@ -136,12 +136,23 @@ class KunjunganImport implements ToCollection, WithStartRow
                     $pelanggan->alamat = $alamat;
                     $pelanggan->kota = $kota;
                     
+                    // Save total_kedatangan and total_biaya from Excel (PRESERVE EXCEL VALUES)
+                    // Jangan panggil updateStats() agar nilai dari Excel tidak ditimpa dengan perhitungan ulang
+                    $pelanggan->total_kedatangan = $totalKedatangan;
+                    $pelanggan->total_biaya = $biaya;
+                    
+                    // Calculate class based on Excel data
+                    $pelanggan->class = Pelanggan::calculateClass($totalKedatangan, $biaya);
+                    
                     // Save pelanggan first to get ID
                     $pelanggan->save();
 
                     Log::debug("Pelanggan created/updated", [
                         'pelanggan_id' => $pelanggan->id, 
-                        'pid' => $pid
+                        'pid' => $pid,
+                        'total_kedatangan' => $totalKedatangan,
+                        'total_biaya' => $biaya,
+                        'class' => $pelanggan->class
                     ]);
 
                     // Create kunjungan record
@@ -157,9 +168,6 @@ class KunjunganImport implements ToCollection, WithStartRow
                         'kunjungan_id' => $kunjungan->id,
                         'no' => $no
                     ]);
-
-                    // Recalculate and update pelanggan stats
-                    $pelanggan->updateStats();
                     
                     $processedCount++;
                 });
