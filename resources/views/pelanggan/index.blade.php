@@ -527,20 +527,7 @@ document.addEventListener('DOMContentLoaded', function() {
         });
     });
 
-    // Klik baris untuk toggle checkbox (kecuali klik di tombol aksi)
-    document.querySelectorAll('.pelanggan-row').forEach(row => {
-        row.addEventListener('click', function(e) {
-            // Abaikan klik pada tombol, link, checkbox, form
-            if (e.target.closest('a, button, form, input')) return;
-            const cb = row.querySelector('.row-checkbox');
-            if (!cb) return;
-            cb.checked = !cb.checked;
-            row.classList.toggle('table-active', cb.checked);
-            updateBulkToolbar();
-        });
-        // Cursor pointer untuk baris
-        row.style.cursor = 'pointer';
-    });
+
 });
 
 /**
