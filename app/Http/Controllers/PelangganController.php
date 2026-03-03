@@ -206,223 +206,151 @@ class PelangganController extends Controller
 
     public function index(Request $request)
     {
-        $bulan = $request->bulan;
-        $tahun = $request->tahun;
-        $type = $request->type;
-        $search = $request->search;
-        $sort = $request->sort ?? 'nama';
-        $direction = $request->direction ?? 'asc';
-        
-        $cabangId = $request->cabang_id;
-        $omsetRange = $request->omset_range;
+        $bulan          = $request->bulan;
+        $tahun          = $request->tahun;
+        $type           = $request->type;
+        $search         = $request->search;
+        $sort           = $request->sort ?? 'nama';
+        $direction      = in_array($request->direction, ['asc', 'desc']) ? $request->direction : 'asc';
+        $cabangId       = $request->cabang_id;
+        $omsetRange     = $request->omset_range;
         $kedatanganRange = $request->kedatangan_range;
-        $kelas = $request->kelas;
+        $kelas          = $request->kelas;
 
         $cabangs = Cabang::all();
 
+        // Tidak ada filter sama sekali — tampilkan state kosong
         if (!$type && !$bulan && !$tahun && !$search && !$cabangId && !$omsetRange && !$kedatanganRange && !$kelas) {
             return view('pelanggan.index', [
-                'pelanggan' => collect(),
-                'bulan' => null,
-                'tahun' => null,
-                'type' => null,
-                'search' => null,
-                'cabang_id' => null,
-                'omset_range' => null,
+                'pelanggan'        => collect(),
+                'bulan'            => null,
+                'tahun'            => null,
+                'type'             => null,
+                'search'           => null,
+                'cabang_id'        => null,
+                'omset_range'      => null,
                 'kedatangan_range' => null,
-                'kelas' => null,
-                'cabangs' => $cabangs,
-                'sort' => $sort,
-                'direction' => $direction,
-                'searchMode' => false
+                'kelas'            => null,
+                'cabangs'          => $cabangs,
+                'sort'             => $sort,
+                'direction'        => $direction,
+                'searchMode'       => false,
             ]);
         }
 
-        if ($type && !$bulan) {
-            $bulan = date('m');
-        }
-        if ($type && !$tahun) {
-            $tahun = date('Y');
-        }
-        if (!$type) {
-            $type = 'perbulan';
+        // Set default periode
+        if ($type && !$bulan) $bulan = date('m');
+        if ($type && !$tahun) $tahun = date('Y');
+        if (!$type && !$search) {
+            $type  = 'perbulan';
             $bulan = date('m');
             $tahun = date('Y');
         }
 
-        $searchMode = false;
+        // Subquery untuk tgl_kunjungan terakhir sesuai periode yang dipilih
+        // Dihitung di DB level — tidak perlu load semua kunjungan ke memory
+        if ($type === 'perbulan' && $bulan && $tahun) {
+            $tglSubquery = "SELECT MAX(tanggal_kunjungan) FROM kunjungans
+                WHERE kunjungans.pelanggan_id = pelanggans.id
+                AND MONTH(tanggal_kunjungan) = {$bulan}
+                AND YEAR(tanggal_kunjungan) = {$tahun}";
+        } elseif ($type === 'pertahun' && $tahun) {
+            $tglSubquery = "SELECT MAX(tanggal_kunjungan) FROM kunjungans
+                WHERE kunjungans.pelanggan_id = pelanggans.id
+                AND YEAR(tanggal_kunjungan) = {$tahun}";
+        } else {
+            $tglSubquery = "SELECT MAX(tanggal_kunjungan) FROM kunjungans
+                WHERE kunjungans.pelanggan_id = pelanggans.id";
+        }
+
+        // Base query — semua filter dilakukan di DB, bukan di PHP/collection
+        $query = Pelanggan::with('cabang')
+            ->select('pelanggans.*')
+            ->selectRaw("({$tglSubquery}) as tgl_kunjungan");
+
+        // Filter pencarian (PID atau Nama)
         if ($search) {
-            $searchMode = true;
-            $pelangganQuery = Pelanggan::with('cabang')
-                ->where('pid', 'like', '%' . $search . '%')
-                ->orWhere('nama', 'like', '%' . $search . '%');
-
-            
-            $pelanggan = $pelangganQuery->get();
-            $pelanggan = $this->applyFilters($pelanggan, $cabangId, $omsetRange, $kedatanganRange, $kelas);
-            
-            $pelanggan = $pelanggan->map(function ($p) {
-                $p->tgl_kunjungan = $p->kunjungans->sortByDesc('tanggal_kunjungan')->first()?->tanggal_kunjungan->format('Y-m-d') ?? '-';
-                return $p;
+            $query->where(function ($q) use ($search) {
+                $q->where('pid', 'like', '%' . $search . '%')
+                  ->orWhere('nama', 'like', '%' . $search . '%');
             });
-
-            $pelanggan = $this->applySorting($pelanggan, $sort, $direction);
-
-            $perPage = 30;
-            $page = $request->input('page', 1);
-            $sliced = $pelanggan->slice(($page - 1) * $perPage, $perPage)->values();
-            $pelangganPaginator = new \Illuminate\Pagination\LengthAwarePaginator(
-                $sliced,
-                $pelanggan->count(),
-                $perPage,
-                $page,
-                ['path' => $request->url(), 'query' => $request->query()]
-            );
-
-            return view('pelanggan.index', [
-                'pelanggan' => $pelangganPaginator,
-                'bulan' => $bulan,
-                'tahun' => $tahun,
-                'type' => $type,
-                'search' => $search,
-                'cabang_id' => $cabangId,
-                'omset_range' => $omsetRange,
-                'kedatangan_range' => $kedatanganRange,
-                'kelas' => $kelas,
-                'cabangs' => $cabangs,
-                'history' => null,
-                'sort' => $sort,
-                'direction' => $direction,
-                'searchMode' => true
-            ]);
         }
 
-        $endDate = null;
-        if ($type == 'perbulan') {
-            $endDate = \Carbon\Carbon::createFromDate($tahun, $bulan, 1)->endOfMonth();
-        } elseif ($type == 'pertahun') {
-            $endDate = \Carbon\Carbon::createFromDate($tahun, 12, 31);
+        // Filter periode — hanya diterapkan jika bukan mode pencarian
+        if (!$search) {
+            if ($type === 'perbulan') {
+                $query->whereHas('kunjungans', function ($q) use ($bulan, $tahun) {
+                    $q->whereMonth('tanggal_kunjungan', $bulan)
+                      ->whereYear('tanggal_kunjungan', $tahun);
+                });
+            } elseif ($type === 'pertahun') {
+                $query->whereHas('kunjungans', function ($q) use ($tahun) {
+                    $q->whereYear('tanggal_kunjungan', $tahun);
+                });
+            }
+            // type === 'semua' — tidak ada filter periode
         }
 
-        $pelanggan = Pelanggan::with(['cabang', 'kunjungans' => function($q) use ($endDate) {
-            if ($endDate) {
-                $q->where('tanggal_kunjungan', '<=', $endDate);
+        // Filter cabang
+        if ($cabangId) {
+            $query->where('cabang_id', $cabangId);
+        }
+
+        // Filter kelas
+        if ($kelas) {
+            $query->where('class', $kelas);
+        }
+
+        // Filter range omset — menggunakan kolom total_biaya yang sudah tersimpan
+        if ($omsetRange !== null && $omsetRange !== '') {
+            switch ($omsetRange) {
+                case '0': $query->where('total_biaya', '<', 1000000); break;
+                case '1': $query->whereBetween('total_biaya', [1000000, 4000000]); break;
+                case '2': $query->where('total_biaya', '>=', 4000000); break;
             }
-        }])->get();
+        }
 
-        $pelanggan = $this->applyFilters($pelanggan, $cabangId, $omsetRange, $kedatanganRange, $kelas);
-
-        $pelanggan = $pelanggan->filter(function ($p) use ($endDate, $bulan, $tahun, $type) {
-            if ($type == 'perbulan') {
-                $kunjunganFiltered = $p->kunjungans->filter(function($k) use ($bulan, $tahun) {
-                    return $k->tanggal_kunjungan->month == $bulan && $k->tanggal_kunjungan->year == $tahun;
-                });
-                $p->tgl_kunjungan = $kunjunganFiltered->sortByDesc('tanggal_kunjungan')->first()?->tanggal_kunjungan->format('Y-m-d') ?? '-';
-                return $kunjunganFiltered->count() > 0;
-            } elseif ($type == 'pertahun') {
-                $kunjunganFiltered = $p->kunjungans->filter(function($k) use ($tahun) {
-                    return $k->tanggal_kunjungan->year == $tahun;
-                });
-                $p->tgl_kunjungan = $kunjunganFiltered->sortByDesc('tanggal_kunjungan')->first()?->tanggal_kunjungan->format('Y-m-d') ?? '-';
-                return $kunjunganFiltered->count() > 0;
-            } else {
-                $p->tgl_kunjungan = $p->kunjungans->sortByDesc('tanggal_kunjungan')->first()?->tanggal_kunjungan->format('Y-m-d') ?? '-';
-                return true;
+        // Filter range kedatangan — menggunakan kolom total_kedatangan yang sudah tersimpan
+        if ($kedatanganRange !== null && $kedatanganRange !== '') {
+            switch ($kedatanganRange) {
+                case '0': $query->where('total_kedatangan', '<=', 2); break;
+                case '1': $query->whereBetween('total_kedatangan', [3, 4]); break;
+                case '2': $query->where('total_kedatangan', '>', 4); break;
             }
-        });
+        }
 
-        $pelanggan = $this->applySorting($pelanggan, $sort, $direction);
+        // Sorting di DB level — tidak perlu sortBy() di collection
+        if ($sort === 'tgl_kunjungan') {
+            // MySQL: NULL values diletakkan di akhir (IS NULL = 0 untuk non-null, 1 untuk null)
+            $query->orderByRaw("(tgl_kunjungan IS NULL) ASC, tgl_kunjungan {$direction}");
+        } elseif ($sort === 'class') {
+            $query->orderBy('total_biaya', $direction);
+        } elseif ($sort === 'nama') {
+            $query->orderByRaw("LOWER(nama) {$direction}");
+        } elseif (in_array($sort, ['pid', 'total_biaya', 'total_kedatangan'])) {
+            $query->orderBy($sort, $direction);
+        } else {
+            $query->orderByRaw('LOWER(nama) ASC');
+        }
 
-        $perPage = 30;
-        $page = $request->input('page', 1);
-        $sliced = $pelanggan->slice(($page - 1) * $perPage, $perPage)->values();
-        $pelangganPaginator = new \Illuminate\Pagination\LengthAwarePaginator(
-            $sliced,
-            $pelanggan->count(),
-            $perPage,
-            $page,
-            ['path' => $request->url(), 'query' => $request->query()]
-        );
+        // Paginate di DB level — tidak perlu manual slice dari collection
+        $pelanggan = $query->paginate(30)->withQueryString();
 
         return view('pelanggan.index', [
-            'pelanggan' => $pelangganPaginator,
-            'bulan' => $bulan,
-            'tahun' => $tahun,
-            'type' => $type,
-            'search' => $search,
-            'cabang_id' => $cabangId,
-            'omset_range' => $omsetRange,
+            'pelanggan'        => $pelanggan,
+            'bulan'            => $bulan,
+            'tahun'            => $tahun,
+            'type'             => $type,
+            'search'           => $search,
+            'cabang_id'        => $cabangId,
+            'omset_range'      => $omsetRange,
             'kedatangan_range' => $kedatanganRange,
-            'kelas' => $kelas,
-            'cabangs' => $cabangs,
-            'sort' => $sort,
-            'direction' => $direction,
-            'searchMode' => false
+            'kelas'            => $kelas,
+            'cabangs'          => $cabangs,
+            'sort'             => $sort,
+            'direction'        => $direction,
+            'searchMode'       => (bool) $search,
         ]);
-    }
-
-    private function applyFilters($pelanggan, $cabangId, $omsetRange, $kedatanganRange, $kelas = null)
-    {
-        if ($cabangId) {
-            $pelanggan = $pelanggan->where('cabang_id', $cabangId);
-        }
-
-        if ($kelas) {
-            $pelanggan = $pelanggan->where('class', $kelas);
-        }
-
-        if ($omsetRange !== null && $omsetRange !== '') {
-            $pelanggan = $pelanggan->filter(function ($p) use ($omsetRange) {
-                $totalBiaya = $p->total_biaya ?? $p->kunjungans->sum('biaya');
-                switch ($omsetRange) {
-                    case '0':
-                        return $totalBiaya < 1000000;
-                    case '1':
-                        return $totalBiaya >= 1000000 && $totalBiaya < 4000000;
-                    case '2':
-                        return $totalBiaya >= 4000000;
-                    default:
-                        return true;
-                }
-            });
-        }
-
-        if ($kedatanganRange !== null && $kedatanganRange !== '') {
-            $pelanggan = $pelanggan->filter(function ($p) use ($kedatanganRange) {
-                $totalKedatangan = $p->total_kedatangan ?? $p->kunjungans->count();
-                switch ($kedatanganRange) {
-                    case '0':
-                        return $totalKedatangan <= 2;
-                    case '1':
-                        return $totalKedatangan >= 3 && $totalKedatangan <= 4;
-                    case '2':
-                        return $totalKedatangan > 4;
-                    default:
-                        return true;
-                }
-            });
-        }
-
-        return $pelanggan;
-    }
-
-    private function applySorting($pelanggan, $sort, $direction)
-    {
-        if ($sort == 'pid') {
-            $pelanggan = $direction == 'asc' ? $pelanggan->sortBy('pid') : $pelanggan->sortByDesc('pid');
-        } elseif ($sort == 'nama') {
-            $pelanggan = $direction == 'asc' 
-                ? $pelanggan->sortBy(function($p) { return strtolower($p->nama); }) 
-                : $pelanggan->sortByDesc(function($p) { return strtolower($p->nama); });
-        } elseif ($sort == 'tgl_kunjungan') {
-            $pelanggan = $direction == 'asc' ? $pelanggan->sortBy('tgl_kunjungan') : $pelanggan->sortByDesc('tgl_kunjungan');
-        } elseif ($sort == 'class') {
-            $pelanggan = $direction == 'asc' 
-                ? $pelanggan->sortBy('total_biaya') 
-                : $pelanggan->sortByDesc('total_biaya');
-        }
-
-        return $pelanggan;
     }
 
     public function import(Request $request)
@@ -576,6 +504,78 @@ class PelangganController extends Controller
         return Excel::download(new \App\Exports\PelangganExport($bulan, $tahun, $type, $search, $cabangId, $omsetRange, $kedatanganRange, $kelas), $filename);
     }
 
+    public function downloadTemplate()
+    {
+        $headers = [
+            'No',
+            'Nama Pasien',
+            'Total Kedatangan',
+            'Tanggal Kedatangan Terakhir',
+            'Total (Biaya)',
+            'No Telpon',
+            'DOB',
+            'PID',
+            'Alamat',
+            'Kota'
+        ];
+
+
+        // Data dummy sebagai contoh
+        $data = [
+            [1, 'Budi Santoso', 3, '2024-01-15', 2500000, '081234567890', '1990-05-20', 'JK00001', 'Jl. Sudirman No. 123', 'Jakarta'],
+            [2, 'Siti Aminah', 5, '2024-02-10', 4500000, '082345678901', '1985-08-12', 'BD00002', 'Jl. Ahmad Yani No. 45', 'Bandung'],
+            [3, 'Ahmad Wijaya', 2, '2024-03-05', 1200000, '083456789012', '1992-11-03', 'SB00003', 'Jl. Gatot Subroto No. 78', 'Surabaya'],
+            [4, 'Dewi Kusuma', 4, '2024-01-28', 3800000, '084567890123', '1988-04-25', 'YK00004', 'Jl. Malioboro No. 12', 'Yogyakarta'],
+            [5, 'Eko Prasetyo', 1, '2024-02-20', 850000, '085678901234', '1995-09-18', 'ML00005', 'Jl. Ijen No. 56', 'Malang'],
+        ];
+
+        $spreadsheet = new \PhpOffice\PhpSpreadsheet\Spreadsheet();
+        $sheet = $spreadsheet->getActiveSheet();
+
+        // Set header
+        foreach ($headers as $col => $header) {
+            $sheet->setCellValue(\PhpOffice\PhpSpreadsheet\Cell\Coordinate::stringFromColumnIndex($col + 1) . '1', $header);
+        }
+
+        // Set data
+        foreach ($data as $row => $rowData) {
+            foreach ($rowData as $col => $value) {
+                $sheet->setCellValue(\PhpOffice\PhpSpreadsheet\Cell\Coordinate::stringFromColumnIndex($col + 1) . ($row + 2), $value);
+            }
+        }
+
+        // Auto resize columns
+        foreach (range(1, count($headers)) as $col) {
+            $sheet->getColumnDimension(\PhpOffice\PhpSpreadsheet\Cell\Coordinate::stringFromColumnIndex($col))->setAutoSize(true);
+        }
+
+        // Style header
+        $headerStyle = [
+            'font' => ['bold' => true],
+            'fill' => [
+                'fillType' => \PhpOffice\PhpSpreadsheet\Style\Fill::FILL_SOLID,
+                'startColor' => ['rgb' => 'E2EFDA']
+            ],
+            'borders' => [
+                'allBorders' => [
+                    'borderStyle' => \PhpOffice\PhpSpreadsheet\Style\Border::BORDER_THIN
+                ]
+            ]
+        ];
+        $sheet->getStyle('A1:J1')->applyFromArray($headerStyle);
+
+        $writer = new \PhpOffice\PhpSpreadsheet\Writer\Xlsx($spreadsheet);
+        
+        $filename = 'template_import_pelanggan.xlsx';
+        $tempFile = tempnam(sys_get_temp_dir(), 'template_');
+        $writer->save($tempFile);
+
+        return response()->download($tempFile, $filename, [
+            'Content-Type' => 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
+        ])->deleteFileAfterSend(true);
+    }
+
+
     public function create()
     {
         $cabangs = Cabang::all();
@@ -615,6 +615,55 @@ class PelangganController extends Controller
 
         return redirect()->route('dashboard')->with('success', 'Pelanggan berhasil dihapus');
     }
+
+    /**
+     * Hapus multiple pelanggan sekaligus
+     */
+    public function bulkDelete(Request $request)
+    {
+        $ids = $request->input('ids', []);
+
+        if (empty($ids)) {
+            return redirect()->back()->with('error', 'Tidak ada pelanggan yang dipilih.');
+        }
+
+        // Pastikan semua ID valid (integer)
+        $ids = array_filter(array_map('intval', $ids));
+
+        if (empty($ids)) {
+            return redirect()->back()->with('error', 'ID pelanggan tidak valid.');
+        }
+
+        $count = Pelanggan::whereIn('id', $ids)->count();
+        Pelanggan::whereIn('id', $ids)->delete();
+
+        return redirect()->back()->with('success', "{$count} pelanggan berhasil dihapus.");
+    }
+
+    /**
+     * Export multiple pelanggan terpilih ke Excel
+     */
+    public function bulkExport(Request $request)
+    {
+        $ids = $request->input('ids', []);
+
+        if (empty($ids)) {
+            return redirect()->back()->with('error', 'Tidak ada pelanggan yang dipilih untuk diexport.');
+        }
+
+        // Pastikan semua ID valid (integer)
+        $ids = array_filter(array_map('intval', $ids));
+
+        if (empty($ids)) {
+            return redirect()->back()->with('error', 'ID pelanggan tidak valid.');
+        }
+
+        $filename = 'pelanggan_terpilih_' . date('Y-m-d_His') . '.xlsx';
+
+        return Excel::download(new \App\Exports\PelangganBulkExport($ids), $filename);
+    }
+
+
 
     public function show(Request $request, $id)
     {

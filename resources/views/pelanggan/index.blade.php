@@ -51,18 +51,22 @@
                             <input type="file" name="file" class="form-control" id="fileInput" required accept=".xlsx,.xls,.csv">                     
                             <div class="invalid-feedback">File harus berupa Excel atau CSV</div> 
                         </div>
-                        <div class="col-md-2">
-                             <button type="submit" class="btn btn-success w-100" id="importBtn">
-
+                        <div class="col-auto">
+                             <button type="submit" class="btn btn-success" id="importBtn">
                                 <span id="btnText"><i class="fas fa-upload me-2"></i>Import</span>
                                 <span id="btnLoading" class="spinner-border spinner-border-sm" style="display: none;"></span>
                             </button>
+                        </div>
+                        <div class="col-auto">
+                            <a href="{{ route('pelanggan.download-template') }}" class="btn btn-outline-primary">
+                                <i class="fas fa-download me-2"></i>Download Template
+                            </a>
                         </div>
                         <div class="col-md-6">
                             <div class="alert alert-light border mb-0">
                                 <small class="text-muted">
                                     <strong>Format Excel (10 kolom):</strong><br>
-                                    No | Nama Pasien | Total Kedatangan | Tanggal Kedatangan | Total (Biaya) | No Telpon | DOB | PID | Alamat | Kota
+                                    No | Nama Pasien | Total Kedatangan | Tanggal Kedatangan Terakhir | Total (Biaya) | No Telpon | DOB | PID | Alamat | Kota
                                 </small>
                             </div>
                         </div>
@@ -137,7 +141,6 @@
 
                         <div class="col-md-3">
                             <label class="form-label fw-medium small">Range Omset</label>
-
                             <select name="omset_range" class="form-select">
                                 <option value="">Semua Omset</option>
                                 <option value="0" {{ $omset_range === '0' ? 'selected' : '' }}>0 - < 1 Juta</option>
@@ -159,7 +162,6 @@
                         <!-- Row 2: Type, Bulan, Tahun, Button -->
                         <div class="col-md-3">
                             <label class="form-label fw-medium small">Periode</label>
-
                             <select name="type" id="typeSelect" class="form-select">
                                 <option value="perbulan" {{ $type == 'perbulan' ? 'selected' : '' }}>Per Bulan</option>
                                 <option value="pertahun" {{ $type == 'pertahun' ? 'selected' : '' }}>Per Tahun</option>
@@ -188,8 +190,8 @@
                             </select>
                         </div>
 
-                        <div class="col-md-3 d-flex align-items-end">
-                            <button type="submit" class="btn btn-info w-100">
+                        <div class="col-auto d-flex align-items-end">
+                            <button type="submit" class="btn btn-info">
                                 <i class="fas fa-filter me-2"></i>Terapkan Filter
                             </button>
                         </div>
@@ -201,36 +203,60 @@
                             </a>
                         </div>
                         @endif
-
                     </form>
                 </div>
-
             </div>
         </div>
 
         <!-- Data Table -->
         <div class="col-12">
             <div class="card shadow-sm border-0">
-                <div class="card-header bg-white py-2 border-bottom d-flex justify-content-between align-items-center">
+                <div class="card-header bg-white py-2 border-bottom d-flex justify-content-between align-items-center flex-wrap gap-2">
                     <h6 class="mb-0 fw-semibold text-info fs-6">
                         <i class="fas fa-users me-2"></i>Data Pelanggan
                     </h6>
 
-                    @if($pelanggan->count() > 0)
-                    <a href="{{ route('pelanggan.export', [
-                        'bulan' => $bulan, 
-                        'tahun' => $tahun, 
-                        'type' => $type, 
-                        'search' => $search,
-                        'cabang_id' => $cabang_id,
-                        'kelas' => $kelas,
-                        'omset_range' => $omset_range,
-                        'kedatangan_range' => $kedatangan_range
-                    ]) }}" class="btn btn-success">
-                        <i class="fas fa-file-excel me-2"></i>Export Excel
-                    </a>
-                    @endif
+                    <div class="d-flex align-items-center gap-2 flex-wrap">
+                        {{-- Bulk Action Toolbar (muncul saat ada checkbox dipilih) --}}
+                        @if(in_array(Auth::user()->role?->name, ['Admin', 'Super Admin']))
+                        <div id="bulkActionToolbar" class="d-none align-items-center gap-2">
+                            <span class="badge bg-primary fs-6 px-3 py-2" id="selectedCount">0 dipilih</span>
 
+                            {{-- Form Export Terpilih --}}
+                            <form id="bulkExportForm" method="POST" action="{{ route('pelanggan.bulk-export') }}" class="d-inline">
+                                @csrf
+                                <div id="bulkExportIds"></div>
+                                <button type="submit" class="btn btn-success btn-sm">
+                                    <i class="fas fa-file-excel me-1"></i>Export Terpilih
+                                </button>
+                            </form>
+
+                            {{-- Form Hapus Terpilih --}}
+                            <form id="bulkDeleteForm" method="POST" action="{{ route('pelanggan.bulk-delete') }}" class="d-inline" onsubmit="return confirmBulkDelete()">
+                                @csrf
+                                <div id="bulkDeleteIds"></div>
+                                <button type="submit" class="btn btn-danger btn-sm">
+                                    <i class="fas fa-trash me-1"></i>Hapus Terpilih
+                                </button>
+                            </form>
+                        </div>
+                        @endif
+
+                        @if($pelanggan->count() > 0)
+                        <a href="{{ route('pelanggan.export', [
+                            'bulan' => $bulan, 
+                            'tahun' => $tahun, 
+                            'type' => $type, 
+                            'search' => $search,
+                            'cabang_id' => $cabang_id,
+                            'kelas' => $kelas,
+                            'omset_range' => $omset_range,
+                            'kedatangan_range' => $kedatangan_range
+                        ]) }}" class="btn btn-success btn-sm" id="exportAllBtn">
+                            <i class="fas fa-file-excel me-2"></i>Export Excel
+                        </a>
+                        @endif
+                    </div>
                 </div>
                 <div class="card-body p-0">
                     @if($pelanggan->count() > 0)
@@ -238,6 +264,11 @@
                         <table class="table table-hover table-striped mb-0 align-middle small" style="min-width: 1200px;">
                             <thead class="table-light">
                                 <tr>
+                                    @if(in_array(Auth::user()->role?->name, ['Admin', 'Super Admin']))
+                                    <th class="px-2 py-2 text-center" style="width: 40px;">
+                                        <input type="checkbox" id="selectAll" class="form-check-input" title="Pilih Semua">
+                                    </th>
+                                    @endif
                                     <th class="px-2 py-2 text-center fw-semibold" style="width: 35px;">No</th>
                                     <th class="py-2" style="width: 100px;">
                                         <a href="{{ route('pelanggan.index', array_merge(request()->all(), ['sort' => 'pid', 'direction' => $sort == 'pid' && $direction == 'asc' ? 'desc' : 'asc'])) }}" class="text-decoration-none text-dark fw-semibold">
@@ -266,26 +297,28 @@
                                         </a>
                                     </th>
                                     <th class="py-2 text-center fw-semibold" style="width: 110px;">Aksi</th>
-
                                 </tr>
                             </thead>
                             <tbody>
                                 @foreach($pelanggan as $index => $p)
-                                <tr>
+                                <tr class="pelanggan-row">
+                                    @if(in_array(Auth::user()->role?->name, ['Admin', 'Super Admin']))
+                                    <td class="px-2 py-2 text-center">
+                                        <input type="checkbox" class="form-check-input row-checkbox" value="{{ $p->id }}" data-nama="{{ $p->nama }}">
+                                    </td>
+                                    @endif
                                     <td class="px-2 py-2 text-center">{{ $pelanggan->firstItem() + $index }}</td>
                                     <td class="py-2"><code class="bg-light px-1 py-1 rounded small text-nowrap">{{ $p->pid }}</code></td>
                                     <td class="py-2 fw-medium">{{ $p->nama }}</td>
                                     <td class="py-2 text-center">
                                         <span class="badge bg-info bg-opacity-10 text-info border border-info small text-nowrap">{{ $p->cabang?->nama ?? '-' }}</span>
                                     </td>
-
                                     <td class="py-2 text-nowrap small">{{ $p->no_telp ?? '-' }}</td>
                                     <td class="py-2 text-center text-nowrap small">{{ $p->dob ? $p->dob->format('d-m-Y') : '-' }}</td>
                                     <td class="py-2 small">{{ Str::limit($p->alamat, 25) ?? '-' }}</td>
                                     <td class="py-2 text-center"><span class="badge bg-secondary bg-opacity-10 text-secondary small">{{ $p->total_kedatangan ?? $p->kunjungans->count() }}</span></td>
                                     <td class="py-2 text-center text-nowrap small">{{ $p->tgl_kunjungan }}</td>
                                     <td class="py-2 text-end fw-semibold text-nowrap small">Rp {{ number_format($p->total_biaya ?? $p->kunjungans->sum('biaya'), 0, ',', '.') }}</td>
-
                                     <td class="py-2 text-center">
                                         @php
                                             $class = $p->class ?? 'Potensial';
@@ -322,8 +355,6 @@
                             </tbody>
                         </table>
                     </div>
-
-
                     
                     <!-- Pagination -->
                     <div class="d-flex justify-content-between align-items-center p-3 border-top bg-light small">
@@ -340,7 +371,6 @@
                         <i class="fas fa-inbox fa-3x mb-3 text-secondary opacity-50"></i>
                         <p class="mb-0">Belum ada data pelanggan. Silakan pilih filter atau import data.</p>
                     </div>
-
                     @endif
                 </div>
             </div>
@@ -408,6 +438,125 @@ document.addEventListener('DOMContentLoaded', function() {
             this.classList.remove('is-invalid');
         });
     }
+
+    // =============================================
+    // BULK ACTION — Checkbox Logic
+    // =============================================
+    const selectAll       = document.getElementById('selectAll');
+    const bulkToolbar     = document.getElementById('bulkActionToolbar');
+    const selectedCount   = document.getElementById('selectedCount');
+    const bulkExportIds   = document.getElementById('bulkExportIds');
+    const bulkDeleteIds   = document.getElementById('bulkDeleteIds');
+
+    // Hanya jalankan jika elemen ada (role Admin/SuperAdmin)
+    if (!selectAll || !bulkToolbar) return;
+
+    /**
+     * Ambil semua checkbox yang sedang dicentang
+     */
+    function getChecked() {
+        return Array.from(document.querySelectorAll('.row-checkbox:checked'));
+    }
+
+    /**
+     * Update toolbar: tampilkan/sembunyikan, update counter, sync hidden inputs
+     */
+    function updateBulkToolbar() {
+        const checked = getChecked();
+        const count   = checked.length;
+
+        if (count > 0) {
+            bulkToolbar.classList.remove('d-none');
+            bulkToolbar.classList.add('d-flex');
+            selectedCount.textContent = count + ' dipilih';
+        } else {
+            bulkToolbar.classList.add('d-none');
+            bulkToolbar.classList.remove('d-flex');
+        }
+
+        // Sync hidden input IDs ke kedua form
+        const ids = checked.map(cb => cb.value);
+
+        // Export form
+        if (bulkExportIds) {
+            bulkExportIds.innerHTML = '';
+            ids.forEach(id => {
+                const input = document.createElement('input');
+                input.type  = 'hidden';
+                input.name  = 'ids[]';
+                input.value = id;
+                bulkExportIds.appendChild(input);
+            });
+        }
+
+        // Delete form
+        if (bulkDeleteIds) {
+            bulkDeleteIds.innerHTML = '';
+            ids.forEach(id => {
+                const input = document.createElement('input');
+                input.type  = 'hidden';
+                input.name  = 'ids[]';
+                input.value = id;
+                bulkDeleteIds.appendChild(input);
+            });
+        }
+
+        // Update state selectAll checkbox
+        const allCheckboxes = document.querySelectorAll('.row-checkbox');
+        if (allCheckboxes.length > 0) {
+            selectAll.indeterminate = count > 0 && count < allCheckboxes.length;
+            selectAll.checked       = count === allCheckboxes.length;
+        }
+    }
+
+    // Select All / Deselect All
+    selectAll.addEventListener('change', function() {
+        document.querySelectorAll('.row-checkbox').forEach(cb => {
+            cb.checked = this.checked;
+            // Highlight baris yang dipilih
+            cb.closest('tr').classList.toggle('table-active', this.checked);
+        });
+        updateBulkToolbar();
+    });
+
+    // Individual checkbox
+    document.querySelectorAll('.row-checkbox').forEach(cb => {
+        cb.addEventListener('change', function() {
+            this.closest('tr').classList.toggle('table-active', this.checked);
+            updateBulkToolbar();
+        });
+    });
+
+    // Klik baris untuk toggle checkbox (kecuali klik di tombol aksi)
+    document.querySelectorAll('.pelanggan-row').forEach(row => {
+        row.addEventListener('click', function(e) {
+            // Abaikan klik pada tombol, link, checkbox, form
+            if (e.target.closest('a, button, form, input')) return;
+            const cb = row.querySelector('.row-checkbox');
+            if (!cb) return;
+            cb.checked = !cb.checked;
+            row.classList.toggle('table-active', cb.checked);
+            updateBulkToolbar();
+        });
+        // Cursor pointer untuk baris
+        row.style.cursor = 'pointer';
+    });
 });
+
+/**
+ * Konfirmasi hapus bulk — dipanggil dari onsubmit form
+ */
+function confirmBulkDelete() {
+    const checked = document.querySelectorAll('.row-checkbox:checked');
+    const count   = checked.length;
+    if (count === 0) {
+        alert('Tidak ada pelanggan yang dipilih.');
+        return false;
+    }
+    return confirm(
+        'Yakin ingin menghapus ' + count + ' pelanggan terpilih?\n\n' +
+        'Data yang dihapus tidak dapat dikembalikan!'
+    );
+}
 </script>
 @endsection

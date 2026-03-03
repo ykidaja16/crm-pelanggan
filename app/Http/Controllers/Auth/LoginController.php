@@ -7,6 +7,7 @@ use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\Cache;
 use Illuminate\Support\Facades\Log;
+use App\Models\ActivityLog;
 
 class LoginController extends Controller
 {
@@ -52,12 +53,23 @@ class LoginController extends Controller
 
             $request->session()->regenerate();
 
-            // Log successful login
+            // Catat login ke database activity log
+            ActivityLog::record(
+                action:      'login',
+                module:      'auth',
+                description: 'User berhasil login',
+                userId:      Auth::id(),
+                username:    Auth::user()->username,
+                role:        Auth::user()->role?->name ?? '-',
+                ipAddress:   $request->ip(),
+                userAgent:   $request->userAgent(),
+            );
+
+            // Log ke file sebagai backup
             Log::info('User logged in successfully', [
-                'user_id' => Auth::id(),
+                'user_id'  => Auth::id(),
                 'username' => Auth::user()->username,
-                'ip' => $request->ip(),
-                'user_agent' => $request->userAgent(),
+                'ip'       => $request->ip(),
             ]);
 
             return redirect()->intended('/dashboard');
@@ -92,19 +104,32 @@ class LoginController extends Controller
 
     public function logout(Request $request)
     {
-        $userId = Auth::id();
-        $username = Auth::user()?->username;
+        $userId   = Auth::id();
+        $username = Auth::user()?->username ?? 'guest';
+        $role     = Auth::user()?->role?->name ?? '-';
+
+        // Catat logout ke database SEBELUM Auth::logout()
+        ActivityLog::record(
+            action:      'logout',
+            module:      'auth',
+            description: 'User logout',
+            userId:      $userId,
+            username:    $username,
+            role:        $role,
+            ipAddress:   $request->ip(),
+            userAgent:   $request->userAgent(),
+        );
 
         Auth::logout();
 
         $request->session()->invalidate();
         $request->session()->regenerateToken();
 
-        // Log logout
+        // Log ke file sebagai backup
         Log::info('User logged out', [
-            'user_id' => $userId,
+            'user_id'  => $userId,
             'username' => $username,
-            'ip' => $request->ip(),
+            'ip'       => $request->ip(),
         ]);
 
         return redirect('/login');

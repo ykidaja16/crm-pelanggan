@@ -7,6 +7,7 @@ use App\Models\Cabang;
 use App\Models\PelangganClassHistory;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Support\Facades\Auth;
+use Illuminate\Support\Facades\DB;
 
 class Pelanggan extends Model
 {
@@ -48,7 +49,7 @@ class Pelanggan extends Model
 
     /**
      * Generate PID based on cabang kode
-     * Format: {KodeCabang}{UniqNumber} 
+     * Format: {KodeCabang}{UniqNumber}
      * Example: LXB0049356, LZD0010534
      */
     public static function generatePid($cabangKode, $existingPid = null): string
@@ -58,14 +59,12 @@ class Pelanggan extends Model
             return $existingPid;
         }
 
-        // Get last PID for this cabang
-        $lastPelanggan = self::where('pid', 'like', $cabangKode . '%')
-            ->orderBy('pid', 'desc')
-            ->first();
+        // Get last PID for this cabang using DB-level MAX for efficiency
+        $lastPid = self::where('pid', 'like', $cabangKode . '%')
+            ->max('pid');
 
-        if ($lastPelanggan) {
-            // Extract number from last PID
-            $lastNumber = (int) substr($lastPelanggan->pid, strlen($cabangKode));
+        if ($lastPid) {
+            $lastNumber = (int) substr($lastPid, strlen($cabangKode));
             $newNumber = $lastNumber + 1;
         } else {
             $newNumber = 1;
@@ -103,27 +102,35 @@ class Pelanggan extends Model
     }
 
     /**
-     * Update computed fields and recalculate class
+     * Update computed fields and recalculate class.
+     * Optimized: menggunakan 1 query (selectRaw) untuk count + sum sekaligus,
+     * bukan 2 query terpisah.
      */
     public function updateStats(?\Carbon\Carbon $visitDate = null): void
     {
         $oldClass = $this->class;
-        
-        $this->total_kedatangan = $this->kunjungans()->count();
-        $this->total_biaya = $this->kunjungans()->sum('biaya');
+
+        // Single query untuk count dan sum sekaligus (lebih efisien dari 2 query terpisah)
+        $stats = DB::table('kunjungans')
+            ->where('pelanggan_id', $this->id)
+            ->selectRaw('COUNT(*) as total_kedatangan, COALESCE(SUM(biaya), 0) as total_biaya')
+            ->first();
+
+        $this->total_kedatangan = (int) $stats->total_kedatangan;
+        $this->total_biaya = (float) $stats->total_biaya;
         $newClass = self::calculateClass($this->total_kedatangan, $this->total_biaya);
-        
+
         // Catat perubahan kelas jika berbeda
         if ($oldClass !== $newClass) {
             $this->classHistories()->create([
                 'previous_class' => $oldClass,
-                'new_class' => $newClass,
-                'changed_at' => $visitDate ?? now(),
-                'changed_by' => Auth::check() ? Auth::id() : null,
-                'reason' => 'Perubahan otomatis berdasarkan statistik kunjungan',
+                'new_class'      => $newClass,
+                'changed_at'     => $visitDate ?? now(),
+                'changed_by'     => Auth::check() ? Auth::id() : null,
+                'reason'         => 'Perubahan otomatis berdasarkan statistik kunjungan',
             ]);
         }
-        
+
         $this->class = $newClass;
         $this->save();
     }
@@ -135,10 +142,10 @@ class Pelanggan extends Model
     {
         $this->classHistories()->create([
             'previous_class' => null,
-            'new_class' => $this->class,
-            'changed_at' => $visitDate ?? now(),
-            'changed_by' => Auth::check() ? Auth::id() : null,
-            'reason' => 'Kelas awal pelanggan baru',
+            'new_class'      => $this->class,
+            'changed_at'     => $visitDate ?? now(),
+            'changed_by'     => Auth::check() ? Auth::id() : null,
+            'reason'         => 'Kelas awal pelanggan baru',
         ]);
     }
 }

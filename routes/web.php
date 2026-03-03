@@ -5,6 +5,7 @@ use App\Http\Controllers\PelangganController;
 use App\Http\Controllers\DashboardController;
 use App\Http\Controllers\Auth\LoginController;
 use App\Http\Controllers\ForgotPasswordController;
+use App\Http\Controllers\ActivityLogController;
 use App\Models\User;
 use App\Models\Role;
 
@@ -87,6 +88,13 @@ Route::middleware(['auth'])->group(function () {
 
         Route::post('/import', [PelangganController::class , 'import'])->name('pelanggan.import')->middleware('throttle:import');
         Route::get('/export', [PelangganController::class , 'export'])->name('pelanggan.export');
+        Route::get('/download-template', [PelangganController::class , 'downloadTemplate'])->name('pelanggan.download-template');
+
+        // Laporan Routes
+        Route::get('/laporan', [\App\Http\Controllers\LaporanController::class, 'index'])->name('laporan.index');
+        Route::get('/laporan/preview', [\App\Http\Controllers\LaporanController::class, 'preview'])->name('laporan.preview');
+        Route::get('/laporan/export', [\App\Http\Controllers\LaporanController::class, 'export'])->name('laporan.export');
+
 
         Route::get('/pelanggan/{pelanggan}/show', [PelangganController::class , 'show'])->name('pelanggan.show');
         
@@ -96,6 +104,10 @@ Route::middleware(['auth'])->group(function () {
             Route::get('/pelanggan/{pelanggan}/edit', [PelangganController::class , 'edit'])->name('pelanggan.edit');
             Route::put('/pelanggan/{pelanggan}', [PelangganController::class , 'update'])->name('pelanggan.update');
             Route::delete('/pelanggan/{pelanggan}', [PelangganController::class , 'destroy'])->name('pelanggan.destroy');
+
+            // Bulk actions
+            Route::post('/pelanggan/bulk-delete', [PelangganController::class, 'bulkDelete'])->name('pelanggan.bulk-delete');
+            Route::post('/pelanggan/bulk-export', [PelangganController::class, 'bulkExport'])->name('pelanggan.bulk-export');
             
             // API untuk mencari pelanggan berdasarkan PID
             Route::get('/api/pelanggan/search', [PelangganController::class, 'searchByPid'])->name('api.pelanggan.search');
@@ -104,12 +116,15 @@ Route::middleware(['auth'])->group(function () {
 
         Route::middleware([\App\Http\Middleware\EnsureUserIsSuperAdmin::class])->group(function () {
             Route::resource('users', \App\Http\Controllers\UserController::class);
-            
+
             // Password reset routes
             Route::get('/password-reset-requests', [\App\Http\Controllers\UserController::class, 'passwordResetRequests'])->name('users.password-reset-requests');
             Route::get('/users/{user}/reset-password', [\App\Http\Controllers\UserController::class, 'showResetForm'])->name('users.reset-password.form');
             Route::post('/users/{user}/reset-password', [\App\Http\Controllers\UserController::class, 'resetPassword'])->name('users.reset-password');
             Route::post('/password-reset-requests/{resetRequest}/reject', [\App\Http\Controllers\UserController::class, 'rejectPasswordResetRequest'])->name('users.password-reset.reject');
-        }
-        );
+
+            // Activity Log routes
+            Route::get('/activity-log', [ActivityLogController::class, 'index'])->name('activity-log.index');
+            Route::get('/activity-log/export', [ActivityLogController::class, 'export'])->name('activity-log.export');
+        });
     });

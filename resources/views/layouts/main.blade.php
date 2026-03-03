@@ -115,10 +115,20 @@
                     <i class="fas fa-users"></i> Data Pelanggan
                 </a>
             </li>
+            <li class="{{ request()->routeIs('laporan.*') ? 'active' : '' }}">
+                <a href="{{ route('laporan.index') }}">
+                    <i class="fas fa-file-alt"></i> Laporan
+                </a>
+            </li>
             @if(Auth::user()->role?->name === 'Super Admin')
             <li class="{{ request()->routeIs('users*') ? 'active' : '' }}">
                 <a href="{{ route('users.index') }}">
                     <i class="fas fa-user-cog"></i> Manajemen User
+                </a>
+            </li>
+            <li class="{{ request()->routeIs('activity-log*') ? 'active' : '' }}">
+                <a href="{{ route('activity-log.index') }}">
+                    <i class="fas fa-history"></i> Log Aktivitas
                 </a>
             </li>
             @endif

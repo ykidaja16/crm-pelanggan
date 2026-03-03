@@ -7,19 +7,32 @@ use Illuminate\Http\Request;
 use Symfony\Component\HttpFoundation\Response;
 use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\Log;
+use App\Models\ActivityLog;
 
 class AuditLog
 {
     /**
+     * Mapping route name → [action, module, description]
+     */
+    protected array $routeMap = [
+        'pelanggan.store'              => ['create', 'pelanggan', 'Menambah data pelanggan/kunjungan baru'],
+        'pelanggan.update'             => ['update', 'pelanggan', 'Mengubah data pelanggan'],
+        'pelanggan.destroy'            => ['delete', 'pelanggan', 'Menghapus data pelanggan'],
+        'pelanggan.import'             => ['import', 'pelanggan', 'Import data pelanggan dari file'],
+        'users.store'                  => ['create', 'user',      'Menambah user baru'],
+        'users.update'                 => ['update', 'user',      'Mengubah data user'],
+        'users.destroy'                => ['delete', 'user',      'Menghapus user'],
+        'users.reset-password'         => ['update', 'user',      'Reset password user'],
+        'users.password-reset.reject'  => ['update', 'user',      'Menolak permintaan reset password'],
+    ];
+
+    /**
      * Handle an incoming request.
-     *
-     * @param  \Closure(\Illuminate\Http\Request): (\Symfony\Component\HttpFoundation\Response)  $next
      */
     public function handle(Request $request, Closure $next): Response
     {
         $response = $next($request);
 
-        // Only log specific actions
         if ($this->shouldLog($request)) {
             $this->logActivity($request, $response);
         }
@@ -28,57 +41,62 @@ class AuditLog
     }
 
     /**
-     * Determine if the request should be logged
+     * Tentukan apakah request perlu dicatat
      */
     protected function shouldLog(Request $request): bool
     {
         $loggableMethods = ['POST', 'PUT', 'PATCH', 'DELETE'];
-        $loggableRoutes = [
-            'pelanggan.store',
-            'pelanggan.update',
-            'pelanggan.destroy',
-            'pelanggan.import',
-            'users.store',
-            'users.update',
-            'users.destroy',
-            'users.reset-password',
-            'users.password-reset.reject',
-        ];
+        $routeName = $request->route()?->getName();
 
         return in_array($request->method(), $loggableMethods) &&
-               (in_array($request->route()?->getName(), $loggableRoutes) ||
-                $request->is('*/edit') ||
-                $request->is('*/create'));
+               array_key_exists($routeName, $this->routeMap);
     }
 
     /**
-     * Log the activity
+     * Catat aktivitas ke database dan file log
      */
     protected function logActivity(Request $request, Response $response): void
     {
-        $user = Auth::user();
-        $userId = $user?->id ?? 'guest';
+        $user     = Auth::user();
+        $userId   = $user?->id;
         $username = $user?->username ?? 'guest';
-        $role = $user?->role?->name ?? 'none';
+        $role     = $user?->role?->name ?? '-';
 
-        $logData = [
-            'user_id' => $userId,
-            'username' => $username,
-            'role' => $role,
-            'action' => $request->method(),
-            'route' => $request->route()?->getName(),
-            'url' => $request->fullUrl(),
-            'ip' => $request->ip(),
-            'user_agent' => $request->userAgent(),
-            'status_code' => $response->getStatusCode(),
-            'input_keys' => array_keys($request->except(['password', 'password_confirmation', '_token'])),
-        ];
+        $routeName = $request->route()?->getName();
+        [$action, $module, $description] = $this->routeMap[$routeName] ?? ['action', 'system', 'Aktivitas sistem'];
 
-        // Log successful operations
+        // Hanya catat jika request berhasil (sukses atau redirect)
         if ($response->isSuccessful() || $response->isRedirection()) {
-            Log::channel('audit')->info('User action performed', $logData);
+            // Simpan ke database
+            ActivityLog::record(
+                action:      $action,
+                module:      $module,
+                description: $description,
+                userId:      $userId,
+                username:    $username,
+                role:        $role,
+                ipAddress:   $request->ip(),
+                userAgent:   $request->userAgent(),
+            );
+
+            // Tetap simpan ke file log sebagai backup
+            Log::channel('audit')->info('User action performed', [
+                'user_id'  => $userId,
+                'username' => $username,
+                'role'     => $role,
+                'action'   => $action,
+                'module'   => $module,
+                'route'    => $routeName,
+                'ip'       => $request->ip(),
+            ]);
         } else {
-            Log::channel('audit')->warning('User action failed or returned error', $logData);
+            Log::channel('audit')->warning('User action failed', [
+                'user_id'     => $userId,
+                'username'    => $username,
+                'route'       => $routeName,
+                'status_code' => $response->getStatusCode(),
+                'ip'          => $request->ip(),
+            ]);
         }
     }
 }

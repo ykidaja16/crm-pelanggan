@@ -16,7 +16,7 @@ class EnsureUserIsAdmin
      */
     public function handle(Request $request, Closure $next): Response
     {
-        if (Auth::check() && Auth::user()->role->name === 'Admin') {
+        if (Auth::check() && in_array(Auth::user()->role->name, ['Admin', 'Super Admin'])) {
             return $next($request);
         }
 
