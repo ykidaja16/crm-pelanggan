@@ -75,9 +75,16 @@
                     </tbody>
                 </table>
             </div>
-            <div class="d-flex justify-content-end mt-3 px-3">
-                {{ $users->links('pagination::bootstrap-5') }}
+            <!-- Pagination -->
+            <div class="d-flex justify-content-between align-items-center p-3 border-top bg-light small">
+                <div class="text-muted">
+                    Menampilkan <strong>{{ $users->firstItem() ?? 0 }} - {{ $users->lastItem() ?? 0 }}</strong> dari <strong>{{ $users->total() }}</strong> data
+                </div>
+                <div>
+                    {{ $users->links('pagination::bootstrap-5') }}
+                </div>
             </div>
+
         </div>
     </div>
 @endsection

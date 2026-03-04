@@ -168,14 +168,16 @@
             </div>
         </div>
 
-        @if($logs->hasPages())
-        <div class="card-footer d-flex justify-content-between align-items-center">
-            <small class="text-muted">
-                Menampilkan {{ $logs->firstItem() }}–{{ $logs->lastItem() }} dari {{ $logs->total() }} entri
-            </small>
-            {{ $logs->links() }}
+        <!-- Pagination -->
+        <div class="d-flex justify-content-between align-items-center p-3 border-top bg-light small">
+            <div class="text-muted">
+                Menampilkan <strong>{{ $logs->firstItem() ?? 0 }} - {{ $logs->lastItem() ?? 0 }}</strong> dari <strong>{{ $logs->total() }}</strong> entri
+            </div>
+            <div>
+                {{ $logs->links('pagination::bootstrap-5') }}
+            </div>
         </div>
-        @endif
+
     </div>
 </div>
 @endsection

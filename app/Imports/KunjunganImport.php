@@ -8,27 +8,97 @@ use App\Models\Cabang;
 use Illuminate\Support\Collection;
 use Illuminate\Support\Facades\Log;
 use Illuminate\Support\Facades\DB;
+use Illuminate\Support\Facades\Auth;
 use Carbon\Carbon;
 use PhpOffice\PhpSpreadsheet\Shared\Date;
 use Maatwebsite\Excel\Concerns\ToCollection;
 use Maatwebsite\Excel\Concerns\WithStartRow;
 
+/**
+ * Class untuk mengimport data kunjungan/pelanggan dari file Excel
+ * Menggunakan Maatwebsite/Excel package dengan ToCollection concern
+ * 
+ * CARA KERJA DUPLICATE HANDLING:
+ * Jika dalam 1 file ada multiple baris dengan PID yang sama:
+ * - Total Kedatangan: dijumlahkan dari semua baris
+ * - Total Biaya: dijumlahkan dari semua baris  
+ * - Tanggal Kedatangan: diambil yang paling terbaru
+ * - No: diambil dari baris dengan tanggal terbaru
+ * 
+ * TRANSACTION SAFETY:
+ * Seluruh import dibungkus dalam 1 DB transaction
+ * Jika ada error di baris manapun, SELURUH import di-rollback (all or nothing)
+ */
 class KunjunganImport implements ToCollection, WithStartRow
 {
+    /**
+     * Tentukan baris mulai pembacaan data (skip header)
+     * Baris 1 = header, Baris 2 = data pertama
+     */
     public function startRow(): int
     {
         return 2; // Skip header row
     }
 
+    /**
+     * Method utama yang dipanggil oleh Maatwebsite/Excel
+     * Cara kerja:
+     * 1. Pre-load data cabang ke memory untuk lookup cepat
+     * 2. Bungkus seluruh proses dalam DB transaction
+     * 3. Panggil processAllRows() untuk proses data
+     * 4. Jika sukses → commit, jika error → rollback semua
+     */
     public function collection(Collection $rows)
     {
-        $processedCount = 0;
-        $errorCount = 0;
-        
         Log::info('Starting KunjunganImport collection processing', ['total_rows' => $rows->count()]);
         
         // Pre-load cabangs for faster lookup
         $cabangs = Cabang::all()->keyBy('kode');
+        
+        // ALL OR NOTHING: Wrap entire import in single transaction
+        // Jika ada error di baris manapun, SELURUH import akan di-rollback
+        try {
+            DB::transaction(function () use ($rows, $cabangs) {
+                $this->processAllRows($rows, $cabangs);
+            });
+            
+            Log::info('KunjunganImport completed successfully - All rows committed');
+            
+        } catch (\Exception $e) {
+            Log::error('KunjunganImport FAILED - All rows rolled back', [
+                'error' => $e->getMessage(),
+                'trace' => $e->getTraceAsString()
+            ]);
+            
+            // Re-throw exception agar user tahu import gagal
+            throw $e;
+        }
+    }
+    
+    /**
+     * Memproses semua baris data dalam transaction
+     * 
+     * ALGORITMA 2-STEP:
+     * STEP 1 - AGGREGATE: Loop semua baris, kelompokkan by PID, jumlahkan data duplicate
+     * STEP 2 - PROCESS: Loop data aggregated, simpan ke database per unique PID
+     * 
+     * DUPLICATE HANDLING (Penanganan Data Duplikat):
+     * Jika dalam 1 file ada multiple baris dengan PID yang sama:
+     * - Total Kedatangan: dijumlahkan (contoh: 2 + 3 = 5)
+     * - Total Biaya: dijumlahkan (contoh: 500000 + 700000 = 1200000)
+     * - Tanggal Kedatangan: diambil yang paling terbaru menggunakan Carbon->gt()
+     * - No: diambil dari baris dengan tanggal terbaru
+     * 
+     * Keuntungan: Data duplicate di file tidak membuat record ganda di database
+     */
+    private function processAllRows(Collection $rows, $cabangs): void
+    {
+        $processedCount = 0;
+        $errorCount = 0;
+        
+        // STEP 1: Aggregate data by PID (handle duplicates within file)
+        // Array untuk menyimpan data yang sudah digabung per PID
+        $aggregatedData = []; // Key: PID, Value: aggregated data
         
         foreach ($rows as $index => $row) {
             $rowNumber = $index + 2; // +2 because we start from row 2
@@ -75,126 +145,253 @@ class KunjunganImport implements ToCollection, WithStartRow
                 
                 // Validate cabang kode
                 if (!isset($cabangs[$cabangKode])) {
-                    Log::warning("Row $rowNumber skipped: invalid cabang code in PID", [
+                    Log::warning("Row $rowNumber error: invalid cabang code in PID", [
                         'pid' => $pid,
                         'cabang_kode' => $cabangKode
                     ]);
-                    $errorCount++;
-                    continue;
+                    throw new \Exception("Baris $rowNumber: Kode cabang '$cabangKode' tidak valid untuk PID '$pid'");
                 }
                 
-                $cabang = $cabangs[$cabangKode];
-
-                Log::debug("Processing row $rowNumber", [
-                    'no' => $no,
-                    'pid' => $pid,
-                    'nama' => $namaPasien,
-                    'cabang' => $cabangKode,
-                    'tanggal_raw' => $tanggalKedatangan,
-                    'biaya_raw' => $totalBiaya
-                ]);
-
-                // Process dates
-                $tanggalKedatangan = $this->processDate($tanggalKedatangan, $rowNumber);
-                $dob = $this->processDate($dob, $rowNumber);
-                
-                // Process biaya
+                // Process dates and biaya for aggregation
+                $tanggalKedatanganObj = $this->processDate($tanggalKedatangan, $rowNumber);
+                $dobObj = $this->processDate($dob, $rowNumber);
                 $biaya = $this->processBiaya($totalBiaya, $rowNumber);
 
-                // Skip if date or biaya is invalid
-                if (!$tanggalKedatangan) {
-                    Log::warning("Row $rowNumber skipped: invalid tanggal kedatangan", [
+                // Validate required fields
+                if (!$tanggalKedatanganObj) {
+                    Log::warning("Row $rowNumber error: invalid tanggal kedatangan", [
                         'pid' => $pid,
                         'tanggal_raw' => $rowArray[3] ?? null
                     ]);
-                    $errorCount++;
-                    continue;
+                    throw new \Exception("Baris $rowNumber: Tanggal kedatangan tidak valid untuk PID '$pid'");
                 }
 
                 if ($biaya === null) {
-                    Log::warning("Row $rowNumber skipped: invalid biaya", [
+                    Log::warning("Row $rowNumber error: invalid biaya", [
                         'pid' => $pid,
                         'biaya_raw' => $rowArray[4] ?? null
                     ]);
-                    $errorCount++;
-                    continue;
+                    throw new \Exception("Baris $rowNumber: Biaya tidak valid untuk PID '$pid'");
                 }
 
-                // Process in transaction
-                DB::transaction(function () use (
-                    $no, $pid, $namaPasien, $totalKedatangan, $tanggalKedatangan,
-                    $biaya, $noTelp, $dob, $alamat, $kota, $cabang, &$processedCount
-                ) {
-                    // Find or create pelanggan by PID
-                    $pelanggan = Pelanggan::firstOrNew(['pid' => $pid]);
+                // AGGREGATE DATA: Jika PID sudah ada, jumlahkan data; jika belum, buat entry baru
+                if (isset($aggregatedData[$pid])) {
+                    // Jumlahkan Total Kedatangan dari semua baris dengan PID sama
+                    $aggregatedData[$pid]['total_kedatangan'] += $totalKedatangan;
                     
-                    // Set/update pelanggan data
-                    $pelanggan->cabang_id = $cabang->id;
-                    $pelanggan->nama = $namaPasien;
-                    $pelanggan->no_telp = $noTelp;
-                    $pelanggan->dob = $dob;
-                    $pelanggan->alamat = $alamat;
-                    $pelanggan->kota = $kota;
+                    // Jumlahkan Total Biaya dari semua baris dengan PID sama
+                    $aggregatedData[$pid]['total_biaya'] += $biaya;
                     
-                    // Save total_kedatangan and total_biaya from Excel (PRESERVE EXCEL VALUES)
-                    // Jangan panggil updateStats() agar nilai dari Excel tidak ditimpa dengan perhitungan ulang
-                    $pelanggan->total_kedatangan = $totalKedatangan;
-                    $pelanggan->total_biaya = $biaya;
+                    // Ambil tanggal yang paling terbaru menggunakan Carbon->gt() (greater than)
+                    if ($tanggalKedatanganObj->gt($aggregatedData[$pid]['tanggal_kunjungan'])) {
+                        $aggregatedData[$pid]['tanggal_kunjungan'] = $tanggalKedatanganObj;
+                        // Update 'no' ke yang terbaru juga
+                        $aggregatedData[$pid]['no'] = $no;
+                    }
                     
-                    // Calculate class based on Excel data
-                    $pelanggan->class = Pelanggan::calculateClass($totalKedatangan, $biaya);
+                    // Catat jumlah duplicate untuk logging
+                    $aggregatedData[$pid]['duplicate_count']++;
                     
-                    // Save pelanggan first to get ID
-                    $pelanggan->save();
-
-                    Log::debug("Pelanggan created/updated", [
-                        'pelanggan_id' => $pelanggan->id, 
-                        'pid' => $pid,
-                        'total_kedatangan' => $totalKedatangan,
-                        'total_biaya' => $biaya,
-                        'class' => $pelanggan->class
+                    Log::debug("Aggregating duplicate PID: $pid", [
+                        'row' => $rowNumber,
+                        'total_kedatangan_sum' => $aggregatedData[$pid]['total_kedatangan'],
+                        'total_biaya_sum' => $aggregatedData[$pid]['total_biaya'],
+                        'latest_tanggal' => $aggregatedData[$pid]['tanggal_kunjungan']->format('Y-m-d')
                     ]);
-
-                    // Create kunjungan record
-                    $kunjungan = Kunjungan::create([
+                } else {
+                    // Entry pertama untuk PID ini - simpan data awal
+                    $aggregatedData[$pid] = [
                         'no' => $no,
-                        'pelanggan_id' => $pelanggan->id,
-                        'cabang_id' => $cabang->id,
-                        'tanggal_kunjungan' => $tanggalKedatangan,
-                        'biaya' => $biaya
-                    ]);
-
-                    Log::debug("Kunjungan created", [
-                        'kunjungan_id' => $kunjungan->id,
-                        'no' => $no
-                    ]);
-                    
-                    $processedCount++;
-                });
-
-                Log::info("Row $rowNumber processed successfully", [
-                    'pid' => $pid, 
-                    'pelanggan_id' => $pelanggan->id ?? null
-                ]);
+                        'pid' => $pid,
+                        'nama' => $namaPasien,
+                        'total_kedatangan' => $totalKedatangan,
+                        'tanggal_kunjungan' => $tanggalKedatanganObj,
+                        'total_biaya' => $biaya,
+                        'no_telp' => $noTelp,
+                        'dob' => $dobObj,
+                        'alamat' => $alamat,
+                        'kota' => $kota,
+                        'cabang_kode' => $cabangKode,
+                        'duplicate_count' => 1
+                    ];
+                }
 
             } catch (\Exception $e) {
                 $errorCount++;
                 Log::error("Error processing row $rowNumber", [
                     'error' => $e->getMessage(),
-                    'row_data' => $row->toArray(),
-                    'trace' => $e->getTraceAsString()
+                    'row_data' => $row->toArray()
                 ]);
+                
+                // Re-throw untuk trigger rollback seluruh transaction
+                throw $e;
             }
         }
         
-        Log::info('KunjunganImport completed', [
+        // STEP 2: Process aggregated data
+        // Proses data yang sudah digabung, simpan ke database
+        Log::info('Processing aggregated data', [
+            'unique_pids' => count($aggregatedData),
+            'duplicates_found' => array_sum(array_column($aggregatedData, 'duplicate_count')) - count($aggregatedData)
+        ]);
+        
+        foreach ($aggregatedData as $pid => $data) {
+            try {
+                $cabang = $cabangs[$data['cabang_kode']];
+                
+                // Proses baris aggregated - simpan ke database
+                $this->processRow(
+                    $data['no'],
+                    $data['pid'],
+                    $data['nama'],
+                    $data['total_kedatangan'],
+                    $data['tanggal_kunjungan'],
+                    $data['total_biaya'],
+                    $data['no_telp'],
+                    $data['dob'],
+                    $data['alamat'],
+                    $data['kota'],
+                    $cabang
+                );
+                
+                $processedCount++;
+
+                Log::info("Aggregated row processed successfully", [
+                    'pid' => $pid,
+                    'total_kedatangan' => $data['total_kedatangan'],
+                    'total_biaya' => $data['total_biaya'],
+                    'duplicate_count' => $data['duplicate_count']
+                ]);
+                
+            } catch (\Exception $e) {
+                $errorCount++;
+                Log::error("Error processing aggregated PID: $pid", [
+                    'error' => $e->getMessage(),
+                    'data' => $data
+                ]);
+                
+                throw $e;
+            }
+        }
+        
+        Log::info('All rows processed within transaction', [
             'processed' => $processedCount,
-            'errors' => $errorCount
+            'errors' => $errorCount,
+            'duplicates_merged' => array_sum(array_column($aggregatedData, 'duplicate_count')) - count($aggregatedData)
+        ]);
+    }
+    
+    /**
+     * Memproses satu baris data - buat/update pelanggan dan kunjungan
+     * Cara kerja:
+     * 1. Cari pelanggan by PID, jika tidak ada buat baru (firstOrNew)
+     * 2. Set data pelanggan dari Excel (nama, telp, alamat, dll)
+     * 3. AKUMULASI: Jika pelanggan sudah ada, tambahkan total_kedatangan dan total_biaya
+     *    Jika pelanggan baru, set nilai dari Excel
+     * 4. Hitung class otomatis berdasarkan total_kedatangan dan biaya yang sudah diakumulasi
+     * 5. Simpan pelanggan untuk dapatkan ID
+     * 6. Buat record kunjungan dengan biaya dari Excel
+     */
+    private function processRow(
+        $no, $pid, $namaPasien, $totalKedatangan, $tanggalKedatangan,
+        $biaya, $noTelp, $dob, $alamat, $kota, $cabang
+    ): void {
+        // Cari pelanggan by PID, jika tidak ada buat baru
+        $pelanggan = Pelanggan::firstOrNew(['pid' => $pid]);
+        
+        // Simpan class lama untuk tracking perubahan
+        $oldClass = $pelanggan->class;
+        $isExisting = $pelanggan->exists;
+        
+        // Set/update data pelanggan
+        $pelanggan->cabang_id = $cabang->id;
+        $pelanggan->nama = $namaPasien;
+        $pelanggan->no_telp = $noTelp;
+        $pelanggan->dob = $dob;
+        $pelanggan->alamat = $alamat;
+        $pelanggan->kota = $kota;
+        
+        // AKUMULASI: Jika pelanggan sudah ada, tambahkan nilai dari Excel ke nilai existing
+        // Jika pelanggan baru, set nilai dari Excel
+        if ($isExisting) {
+            // Pelanggan lama: akumulasi (tambahkan)
+            $pelanggan->total_kedatangan += $totalKedatangan;
+            $pelanggan->total_biaya += $biaya;
+            Log::debug("Pelanggan existing diakumulasi", [
+                'pid' => $pid,
+                'added_kedatangan' => $totalKedatangan,
+                'added_biaya' => $biaya,
+                'new_total_kedatangan' => $pelanggan->total_kedatangan,
+                'new_total_biaya' => $pelanggan->total_biaya
+            ]);
+        } else {
+            // Pelanggan baru: set nilai dari Excel
+            $pelanggan->total_kedatangan = $totalKedatangan;
+            $pelanggan->total_biaya = $biaya;
+            Log::debug("Pelanggan baru dibuat", [
+                'pid' => $pid,
+                'total_kedatangan' => $totalKedatangan,
+                'total_biaya' => $biaya
+            ]);
+        }
+        
+        // Hitung class berdasarkan total yang sudah diakumulasi
+        $newClass = Pelanggan::calculateClass($pelanggan->total_kedatangan, $pelanggan->total_biaya);
+        $pelanggan->class = $newClass;
+        
+        // Simpan pelanggan untuk dapatkan ID
+        $pelanggan->save();
+        
+        // Catat riwayat perubahan kelas jika berbeda (hanya untuk pelanggan existing)
+        if ($isExisting && $oldClass !== $newClass) {
+            $pelanggan->classHistories()->create([
+                'previous_class' => $oldClass,
+                'new_class'      => $newClass,
+                'changed_at'     => now(),
+                'changed_by'     => Auth::check() ? Auth::id() : null,
+                'reason'         => 'Perubahan dari import data Excel',
+            ]);
+            
+            Log::info("Class change recorded during import", [
+                'pid' => $pid,
+                'old_class' => $oldClass,
+                'new_class' => $newClass
+            ]);
+        }
+
+        Log::debug("Pelanggan created/updated", [
+            'pelanggan_id' => $pelanggan->id, 
+            'pid' => $pid,
+            'total_kedatangan' => $totalKedatangan,
+            'total_biaya' => $biaya,
+            'class' => $pelanggan->class
+        ]);
+
+        // Buat record kunjungan
+        $kunjungan = Kunjungan::create([
+            'no' => $no,
+            'pelanggan_id' => $pelanggan->id,
+            'cabang_id' => $cabang->id,
+            'tanggal_kunjungan' => $tanggalKedatangan,
+            'biaya' => $biaya,
+            'total_kedatangan' => $totalKedatangan,
+        ]);
+
+        Log::debug("Kunjungan created", [
+            'kunjungan_id' => $kunjungan->id,
+            'no' => $no
         ]);
     }
 
     /**
-     * Process date from Excel - handle serial dates and various string formats
+     * Parse tanggal dari berbagai format Excel/CSV
+     * Support format:
+     * - Excel serial date (numeric)
+     * - String format: Y-m-d, d/m/Y, d-m-Y, d/m/y, d-m-y, Y/m/d, d F Y, d M Y
+     * - Carbon instance
+     * - DateTime object
+     * 
+     * Return null jika format tidak valid atau tahun tidak masuk akal (< 1900 atau > 2100)
      */
     private function processDate($value, $rowNumber): ?Carbon
     {
@@ -264,7 +461,12 @@ class KunjunganImport implements ToCollection, WithStartRow
     }
 
     /**
-     * Process biaya - handle various number formats from Excel
+     * Parse biaya dari berbagai format Excel/CSV
+     * Membersihkan format: Rp, spasi, titik ribuan, koma desimal
+     * Handle format Indonesia: 1.234,56 → 1234.56
+     * Contoh: "Rp 1.500.000,00" → 1500000
+     * 
+     * Return null jika nilai negatif atau tidak valid
      */
     private function processBiaya($value, $rowNumber): ?float
     {

@@ -10,6 +10,7 @@ class Kunjungan extends Model
 {
     protected $fillable = [
         'no',
+        'total_kedatangan',
         'pelanggan_id',
         'cabang_id',
         'tanggal_kunjungan',
@@ -19,6 +20,7 @@ class Kunjungan extends Model
     protected $casts = [
         'tanggal_kunjungan' => 'date',
         'no' => 'integer',
+        'total_kedatangan' => 'integer',
     ];
 
     public function pelanggan()

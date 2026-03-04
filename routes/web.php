@@ -111,8 +111,14 @@ Route::middleware(['auth'])->group(function () {
             
             // API untuk mencari pelanggan berdasarkan PID
             Route::get('/api/pelanggan/search', [PelangganController::class, 'searchByPid'])->name('api.pelanggan.search');
+            
+            // Kunjungan Routes - Edit & Delete
+            Route::get('/kunjungan/{kunjungan}/edit', [PelangganController::class, 'editKunjungan'])->name('kunjungan.edit');
+            Route::put('/kunjungan/{kunjungan}', [PelangganController::class, 'updateKunjungan'])->name('kunjungan.update');
+            Route::delete('/kunjungan/{kunjungan}', [PelangganController::class, 'destroyKunjungan'])->name('kunjungan.destroy');
         }
         );
+
 
         Route::middleware([\App\Http\Middleware\EnsureUserIsSuperAdmin::class])->group(function () {
             Route::resource('users', \App\Http\Controllers\UserController::class);

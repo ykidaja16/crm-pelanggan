@@ -61,7 +61,7 @@
                     <div class="mb-3">
                         <label class="text-muted small fw-medium text-uppercase">Total Kunjungan</label>
                         <div class="fs-5 fw-semibold">
-                            <span class="badge bg-info bg-opacity-10 text-info border border-info px-3 py-2">{{ $kunjungans->count() }} kali</span>
+                            <span class="badge bg-info bg-opacity-10 text-info border border-info px-3 py-2">{{ $pelanggan->total_kedatangan }} kali</span>
                         </div>
                     </div>
                     <div class="mb-3">
@@ -132,11 +132,16 @@
                     </tbody>
                 </table>
             </div>
-            @if($classHistories->hasPages())
-                <div class="card-footer bg-white border-top d-flex justify-content-center py-3">
-                    {{ $classHistories->links('pagination::bootstrap-4') }}
+            <!-- Pagination Riwayat Perubahan Kelas -->
+            <div class="d-flex justify-content-between align-items-center p-3 border-top bg-light small">
+                <div class="text-muted">
+                    Menampilkan <strong>{{ $classHistories->firstItem() ?? 0 }} - {{ $classHistories->lastItem() ?? 0 }}</strong> dari <strong>{{ $classHistories->total() }}</strong> data
                 </div>
-            @endif
+                <div>
+                    {{ $classHistories->links('pagination::bootstrap-5') }}
+                </div>
+            </div>
+
         </div>
     </div>
 
@@ -158,36 +163,63 @@
                         <tr>
                             <th class="px-4 py-3">No</th>
                             <th class="py-3">Tanggal Kunjungan</th>
+                            <th class="py-3 text-center">Total Kedatangan</th>
                             <th class="py-3">Biaya</th>
                             <th class="py-3 text-center">Status</th>
+                            <th class="py-3 text-center">Aksi</th>
                         </tr>
                     </thead>
+
                     <tbody>
                         @forelse ($kunjungans as $index => $k)
                             <tr>
                                 <td class="px-4">{{ $index + 1 }}</td>
                                 <td>{{ \Carbon\Carbon::parse($k->tanggal_kunjungan)->format('d-m-Y') }}</td>
+                                <td class="text-center">
+                                    <span class="badge bg-info bg-opacity-10 text-info border border-info px-2 py-1">{{ $k->total_kedatangan }} kali</span>
+                                </td>
                                 <td class="fw-semibold">Rp {{ number_format($k->biaya, 0, ',', '.') }}</td>
                                 <td class="text-center">
                                     <span class="badge bg-success bg-opacity-10 text-success border border-success">Selesai</span>
                                 </td>
+                                <td class="text-center">
+                                    <div class="btn-group" role="group">
+                                        <a href="{{ route('kunjungan.edit', $k->id) }}" class="btn btn-sm btn-warning" title="Edit">
+                                            <i class="fas fa-edit"></i>
+                                        </a>
+                                        <form action="{{ route('kunjungan.destroy', $k->id) }}" method="POST" class="d-inline" onsubmit="return confirm('Apakah Anda yakin ingin menghapus kunjungan ini? Data yang dihapus tidak dapat dikembalikan.');">
+                                            @csrf
+                                            @method('DELETE')
+                                            <button type="submit" class="btn btn-sm btn-danger" title="Hapus">
+                                                <i class="fas fa-trash"></i>
+                                            </button>
+                                        </form>
+                                    </div>
+                                </td>
                             </tr>
+
                         @empty
                             <tr>
-                                <td colspan="4" class="text-center py-5 text-muted">
+                                <td colspan="6" class="text-center py-5 text-muted">
                                     <i class="fas fa-inbox fa-2x mb-3 text-secondary opacity-50"></i>
                                     <p class="mb-0">Tidak ada riwayat kunjungan.</p>
                                 </td>
                             </tr>
+
                         @endforelse
                     </tbody>
                 </table>
             </div>
-            @if($kunjungans->hasPages())
-                <div class="card-footer bg-white border-top d-flex justify-content-center py-3">
-                    {{ $kunjungans->links('pagination::bootstrap-4') }}
+            <!-- Pagination Riwayat Kunjungan -->
+            <div class="d-flex justify-content-between align-items-center p-3 border-top bg-light small">
+                <div class="text-muted">
+                    Menampilkan <strong>{{ $kunjungans->firstItem() ?? 0 }} - {{ $kunjungans->lastItem() ?? 0 }}</strong> dari <strong>{{ $kunjungans->total() }}</strong> data
                 </div>
-            @endif
+                <div>
+                    {{ $kunjungans->links('pagination::bootstrap-5') }}
+                </div>
+            </div>
+
         </div>
     </div>
 @endsection

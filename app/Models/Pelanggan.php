@@ -110,10 +110,12 @@ class Pelanggan extends Model
     {
         $oldClass = $this->class;
 
-        // Single query untuk count dan sum sekaligus (lebih efisien dari 2 query terpisah)
+        // Single query untuk sum total_kedatangan dan sum biaya sekaligus
+        // Menggunakan SUM(total_kedatangan) bukan COUNT(*) karena setiap record kunjungan
+        // bisa mewakili lebih dari 1 kunjungan (misal: import data historis)
         $stats = DB::table('kunjungans')
             ->where('pelanggan_id', $this->id)
-            ->selectRaw('COUNT(*) as total_kedatangan, COALESCE(SUM(biaya), 0) as total_biaya')
+            ->selectRaw('COALESCE(SUM(total_kedatangan), 0) as total_kedatangan, COALESCE(SUM(biaya), 0) as total_biaya')
             ->first();
 
         $this->total_kedatangan = (int) $stats->total_kedatangan;
@@ -125,7 +127,7 @@ class Pelanggan extends Model
             $this->classHistories()->create([
                 'previous_class' => $oldClass,
                 'new_class'      => $newClass,
-                'changed_at'     => $visitDate ?? now(),
+                'changed_at'     => now(),
                 'changed_by'     => Auth::check() ? Auth::id() : null,
                 'reason'         => 'Perubahan otomatis berdasarkan statistik kunjungan',
             ]);
@@ -143,9 +145,46 @@ class Pelanggan extends Model
         $this->classHistories()->create([
             'previous_class' => null,
             'new_class'      => $this->class,
-            'changed_at'     => $visitDate ?? now(),
+            'changed_at'     => now(),
             'changed_by'     => Auth::check() ? Auth::id() : null,
             'reason'         => 'Kelas awal pelanggan baru',
         ]);
+    }
+
+    /**
+     * Update biaya dan class tanpa mengubah total_kedatangan
+     * Digunakan saat edit kunjungan agar total_kedatangan tetap (sesuai data import)
+     * 
+     * @param float $biayaDifference Selisih biaya (biaya_baru - biaya_lama)
+     * @param \Carbon\Carbon|null $visitDate Tanggal kunjungan untuk riwayat
+     */
+    public function updateBiayaAndClass(float $biayaDifference, ?\Carbon\Carbon $visitDate = null): void
+    {
+        $oldClass = $this->class;
+
+        // Update total_biaya dengan selisih
+        $this->total_biaya += $biayaDifference;
+        
+        // Pastikan total_biaya tidak negatif
+        if ($this->total_biaya < 0) {
+            $this->total_biaya = 0;
+        }
+
+        // Hitung class baru berdasarkan total_kedatangan (tetap) dan total_biaya (baru)
+        $newClass = self::calculateClass($this->total_kedatangan, $this->total_biaya);
+
+        // Catat perubahan kelas jika berbeda
+        if ($oldClass !== $newClass) {
+            $this->classHistories()->create([
+                'previous_class' => $oldClass,
+                'new_class'      => $newClass,
+                'changed_at'     => now(),
+                'changed_by'     => Auth::check() ? Auth::id() : null,
+                'reason'         => 'Perubahan dari edit kunjungan',
+            ]);
+        }
+
+        $this->class = $newClass;
+        $this->save();
     }
 }

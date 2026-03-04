@@ -11,13 +11,29 @@ use Illuminate\Support\Facades\Auth;
 use App\Models\Pelanggan;
 use App\Models\Kunjungan;
 use App\Models\Cabang;
+use App\Models\ActivityLog;
 use App\Imports\KunjunganImport;
 use Maatwebsite\Excel\Facades\Excel;
 
+
+/**
+ * Controller untuk mengelola data pelanggan
+ * Menangani CRUD pelanggan, import/export, dan pencarian
+ */
 class PelangganController extends Controller
 {
+    /**
+     * Menyimpan data pelanggan baru atau kunjungan ke pelanggan existing
+     * Cara kerja:
+     * 1. Loop melalui semua input dari form (bisa multiple pelanggan)
+     * 2. Jika mode 'existing' → tambah kunjungan ke pelanggan yang sudah ada
+     * 3. Jika mode 'new' → buat pelanggan baru + kunjungan pertama
+     * 4. Validasi setiap input sebelum disimpan
+     * 5. Return pesan sukses/error sesuai hasil
+     */
     public function store(Request $request)
     {
+
         $inputs = $request->inputs ?? [];
         $errors = [];
         $createdCount = 0;
@@ -59,6 +75,7 @@ class PelangganController extends Controller
                             'cabang_id' => $input['existing_cabang_id'] ?? $pelanggan->cabang_id,
                             'tanggal_kunjungan' => $input['tanggal_kunjungan'],
                             'biaya' => $input['biaya'],
+                            'total_kedatangan' => 1,
                         ]);
 
                         // Update stats pelanggan dengan tanggal kunjungan
@@ -130,6 +147,7 @@ class PelangganController extends Controller
                         'cabang_id' => $input['cabang_id'],
                         'tanggal_kunjungan' => $input['tanggal_kunjungan'],
                         'biaya' => $input['biaya'],
+                        'total_kedatangan' => 1,
                     ]);
 
                     $pelanggan->updateStats($visitDate);
@@ -175,9 +193,12 @@ class PelangganController extends Controller
 
     /**
      * API endpoint untuk mencari pelanggan berdasarkan PID
+     * Digunakan saat autocomplete di form tambah kunjungan
+     * Return: JSON dengan data pelanggan jika ditemukan
      */
     public function searchByPid(Request $request)
     {
+
         $pid = $request->query('pid');
         
         if (empty($pid)) {
@@ -204,9 +225,21 @@ class PelangganController extends Controller
     }
 
 
+    /**
+     * Menampilkan daftar pelanggan dengan filter dan sorting
+     * Cara kerja:
+     * 1. Ambil parameter filter dari request (bulan, tahun, search, dll)
+     * 2. Jika tidak ada filter → tampilkan halaman kosong (belum klik filter)
+     * 3. Build query dengan subquery untuk tanggal kunjungan terakhir
+     * 4. Terapkan filter: periode, cabang, kelas, range omset/kedatangan
+     * 5. Sorting di level database (bukan collection)
+     * 6. Paginate hasil (30 per halaman)
+     */
     public function index(Request $request)
     {
+        // Ambil semua parameter filter dari URL/form
         $bulan          = $request->bulan;
+
         $tahun          = $request->tahun;
         $type           = $request->type;
         $search         = $request->search;
@@ -372,10 +405,22 @@ class PelangganController extends Controller
         ]);
     }
 
+    /**
+     * Mengimport data pelanggan dari file Excel/CSV
+     * Cara kerja:
+     * 1. Validasi file (harus xlsx, xls, csv, atau txt)
+     * 2. Baca file sesuai extension (CSV pakai readCsvFile, Excel pakai Excel::toArray)
+     * 3. Validasi setiap baris: cek kolom cukup, PID valid, nama tidak mismatch dengan DB
+     * 4. Jika ada error → return error tanpa import apa pun
+     * 5. Jika valid → panggil processCsvImport atau KunjunganImport untuk proses data
+     * 6. Return pesan sukses dengan jumlah data yang diproses
+     */
     public function import(Request $request)
     {
+        // Catat user yang melakukan import untuk keperluan log
         $userId = Auth::check() ? Auth::user()->id : 'guest';
         Log::info('Import process started', ['user' => $userId]);
+
 
         $request->validate([
             'file' => 'required|file|mimes:xlsx,xls,csv,txt'
@@ -400,6 +445,7 @@ class PelangganController extends Controller
             $rowNumber = 0;
             $totalRows = 0;
             $validRows = 0;
+
             
             if (empty($rows) || empty($rows[0])) {
                 Log::warning('Empty or invalid file');
@@ -456,6 +502,7 @@ class PelangganController extends Controller
             }
             
             Log::info('Validation completed', ['total_rows' => $totalRows, 'valid_rows' => $validRows, 'errors' => count($errors)]);
+
             
             if (!empty($errors)) {
                 Log::warning('Import failed due to validation errors', ['error_count' => count($errors)]);
@@ -476,8 +523,14 @@ class PelangganController extends Controller
                 Excel::import(new KunjunganImport, $file);
             }
             
-            Log::info('Import completed successfully');
-            return back()->with('success', "Import berhasil! $validRows data telah diproses.");
+            $filename = $file->getClientOriginalName();
+            Log::info('Import completed successfully', ['filename' => $filename]);
+            return back()->with('success', "Import berhasil! File '$filename' dengan $validRows data telah diproses.");
+
+
+
+
+
 
         } catch (\Exception $e) {
             Log::error('Import exception', [
@@ -488,9 +541,14 @@ class PelangganController extends Controller
         }
     }
 
+    /**
+     * Export data pelanggan ke Excel berdasarkan filter yang aktif
+     * Filename dibuat dinamis sesuai filter (contoh: pelanggan_01_2024_Potensial.xlsx)
+     */
     public function export(Request $request)
     {
         $bulan = $request->bulan ?? date('m');
+
         $tahun = $request->tahun ?? date('Y');
         $type = $request->type ?? 'perbulan';
         $search = $request->search;
@@ -524,8 +582,14 @@ class PelangganController extends Controller
         return Excel::download(new \App\Exports\PelangganExport($bulan, $tahun, $type, $search, $cabangId, $omsetRange, $kedatanganRange, $kelas), $filename);
     }
 
+    /**
+     * Download template Excel untuk import pelanggan
+     * Template berisi header dan 5 baris contoh data
+     * Memudahkan user mengisi data dengan format yang benar
+     */
     public function downloadTemplate()
     {
+        // Header kolom sesuai format import
         $headers = [
             'No',
             'Nama Pasien',
@@ -538,6 +602,7 @@ class PelangganController extends Controller
             'Alamat',
             'Kota'
         ];
+
 
 
         // Data dummy sebagai contoh
@@ -637,10 +702,12 @@ class PelangganController extends Controller
     }
 
     /**
-     * Hapus multiple pelanggan sekaligus
+     * Hapus multiple pelanggan sekaligus (bulk delete)
+     * Menerima array ID dari checkbox di halaman index
      */
     public function bulkDelete(Request $request)
     {
+
         $ids = $request->input('ids', []);
 
         if (empty($ids)) {
@@ -662,9 +729,11 @@ class PelangganController extends Controller
 
     /**
      * Export multiple pelanggan terpilih ke Excel
+     * Menerima array ID dari checkbox, export hanya pelanggan yang dipilih
      */
     public function bulkExport(Request $request)
     {
+
         $ids = $request->input('ids', []);
 
         if (empty($ids)) {
@@ -706,10 +775,31 @@ class PelangganController extends Controller
 
 
 
+    /**
+     * Memproses import data dari file CSV/Excel
+     * 
+     * DUPLICATE HANDLING (Penanganan Data Duplikat):
+     * Jika dalam 1 file ada multiple baris dengan PID yang sama:
+     * - Total Kedatangan: dijumlahkan dari semua baris (contoh: 2 + 3 = 5)
+     * - Total Biaya: dijumlahkan dari semua baris (contoh: 500000 + 700000 = 1200000)
+     * - Tanggal Kedatangan: diambil yang paling terbaru
+     * - No: diambil dari baris yang tanggalnya terbaru
+     * 
+     * Cara kerja:
+     * 1. STEP 1 - AGGREGATE: Loop semua baris, kelompokkan by PID, jumlahkan data
+     * 2. STEP 2 - PROCESS: Loop data yang sudah di-aggregate, simpan ke database
+     * 3. Setiap pelanggan baru dicatat riwayat kelas awalnya
+     */
     private function processCsvImport(array $rows): void
     {
         $processedCount = 0;
+        // Load semua cabang ke memory untuk lookup cepat (hindari query berulang)
         $cabangs = Cabang::all()->keyBy('kode');
+        
+        // STEP 1: Aggregate data by PID (handle duplicates within file)
+        // Array untuk menyimpan data yang sudah digabung per PID
+        $aggregatedData = [];
+
         
         foreach ($rows as $index => $row) {
             $rowNumber = $index + 2;
@@ -724,6 +814,7 @@ class PelangganController extends Controller
             
             $no = isset($row[0]) ? (int) $row[0] : null;
             $nama = trim($row[1] ?? '');
+            $totalKedatangan = isset($row[2]) ? (int) $row[2] : 0;
             $tanggalKedatangan = $row[3] ?? null;
             $biaya = $row[4] ?? null;
             $noTelp = trim($row[5] ?? '');
@@ -740,7 +831,6 @@ class PelangganController extends Controller
             if (!isset($cabangs[$cabangKode])) {
                 continue;
             }
-            $cabang = $cabangs[$cabangKode];
             
             $tanggal = $this->parseCsvDate($tanggalKedatangan);
             if (!$tanggal) {
@@ -753,46 +843,149 @@ class PelangganController extends Controller
                 continue;
             }
             
-            DB::transaction(function () use ($no, $pid, $nama, $noTelp, $dobDate, $alamat, $kota, $cabang, $tanggal, $biayaValue, &$processedCount) {
-                $isNewPelanggan = !Pelanggan::where('pid', $pid)->exists();
-                $pelanggan = Pelanggan::firstOrNew(['pid' => $pid]);
+            // AGGREGATE: Jika PID sudah ada, jumlahkan data; jika belum, buat entry baru
+            if (isset($aggregatedData[$pid])) {
+                // Jumlahkan total kedatangan dari semua baris dengan PID sama
+                $aggregatedData[$pid]['total_kedatangan'] += $totalKedatangan;
+                // Jumlahkan total biaya dari semua baris dengan PID sama
+                $aggregatedData[$pid]['total_biaya'] += $biayaValue;
                 
+                // Ambil tanggal yang paling terbaru
+                if ($tanggal->gt($aggregatedData[$pid]['tanggal_kunjungan'])) {
+                    $aggregatedData[$pid]['tanggal_kunjungan'] = $tanggal;
+                    $aggregatedData[$pid]['no'] = $no; // Update No ke yang terbaru juga
+                }
+                
+                // Catat jumlah duplicate untuk logging
+                $aggregatedData[$pid]['duplicate_count']++;
+            } else {
+                // Entry pertama untuk PID ini
+
+                $aggregatedData[$pid] = [
+                    'no' => $no,
+                    'pid' => $pid,
+                    'nama' => $nama,
+                    'total_kedatangan' => $totalKedatangan,
+                    'tanggal_kunjungan' => $tanggal,
+                    'total_biaya' => $biayaValue,
+                    'no_telp' => $noTelp,
+                    'dob' => $dobDate,
+                    'alamat' => $alamat,
+                    'kota' => $kota,
+                    'cabang_kode' => $cabangKode,
+                    'duplicate_count' => 1
+                ];
+            }
+        }
+        
+        // STEP 2: Process aggregated data
+        // Proses data yang sudah digabung, simpan ke database
+        Log::info('CSV import processing aggregated data', [
+            'unique_pids' => count($aggregatedData),
+            'duplicates_merged' => array_sum(array_column($aggregatedData, 'duplicate_count')) - count($aggregatedData)
+        ]);
+        
+        foreach ($aggregatedData as $pid => $data) {
+            $cabang = $cabangs[$data['cabang_kode']];
+            
+            // Simpan dalam transaction untuk menjaga konsistensi data
+            DB::transaction(function () use ($data, $cabang, &$processedCount) {
+                // Cek apakah pelanggan baru atau sudah ada di database
+                $isNewPelanggan = !Pelanggan::where('pid', $data['pid'])->exists();
+                // firstOrNew: ambil existing jika ada, atau buat baru jika belum ada
+                $pelanggan = Pelanggan::firstOrNew(['pid' => $data['pid']]);
+                
+                // Simpan class lama untuk tracking perubahan
+                $oldClass = $pelanggan->class;
+                
+                // Set data pelanggan dari file CSV
                 $pelanggan->cabang_id = $cabang->id;
-                $pelanggan->nama = $nama;
-                $pelanggan->no_telp = $noTelp;
-                $pelanggan->dob = $dobDate;
-                $pelanggan->alamat = $alamat;
-                $pelanggan->kota = $kota;
+                $pelanggan->nama = $data['nama'];
+                $pelanggan->no_telp = $data['no_telp'];
+                $pelanggan->dob = $data['dob'];
+                $pelanggan->alamat = $data['alamat'];
+                $pelanggan->kota = $data['kota'];
+                
+                // AKUMULASI: Jika pelanggan sudah ada, tambahkan nilai dari CSV ke nilai existing
+                // Jika pelanggan baru, set nilai dari CSV
+                if ($pelanggan->exists) {
+                    // Pelanggan lama: akumulasi (tambahkan)
+                    $pelanggan->total_kedatangan += $data['total_kedatangan'];
+                    $pelanggan->total_biaya += $data['total_biaya'];
+                    Log::debug("CSV Import - Pelanggan existing diakumulasi", [
+                        'pid' => $data['pid'],
+                        'added_kedatangan' => $data['total_kedatangan'],
+                        'added_biaya' => $data['total_biaya'],
+                        'new_total_kedatangan' => $pelanggan->total_kedatangan,
+                        'new_total_biaya' => $pelanggan->total_biaya
+                    ]);
+                } else {
+                    // Pelanggan baru: set nilai dari CSV
+                    $pelanggan->total_kedatangan = $data['total_kedatangan'];
+                    $pelanggan->total_biaya = $data['total_biaya'];
+                }
+                
+                // Hitung class otomatis berdasarkan total yang sudah diakumulasi
+                $newClass = Pelanggan::calculateClass($pelanggan->total_kedatangan, $pelanggan->total_biaya);
+                $pelanggan->class = $newClass;
+
+                
                 $pelanggan->save();
                 
+                // Buat record kunjungan dengan biaya aggregated
                 Kunjungan::create([
-                    'no' => $no,
+                    'no' => $data['no'],
                     'pelanggan_id' => $pelanggan->id,
                     'cabang_id' => $cabang->id,
-                    'tanggal_kunjungan' => $tanggal,
-                    'biaya' => $biayaValue
+                    'tanggal_kunjungan' => $data['tanggal_kunjungan'],
+                    'biaya' => $data['total_biaya'],
+                    'total_kedatangan' => $data['total_kedatangan'],
                 ]);
                 
-                // Update stats dengan tanggal kunjungan
-                $pelanggan->updateStats($tanggal);
-                
-                // Jika pelanggan baru, catat kelas awal dengan tanggal kunjungan
+                // Catat riwayat kelas awal jika pelanggan baru
                 if ($isNewPelanggan) {
-                    $pelanggan->recordInitialClass($tanggal);
+                    $pelanggan->recordInitialClass($data['tanggal_kunjungan']);
+                } elseif ($oldClass !== $newClass) {
+                    // Catat perubahan kelas untuk pelanggan existing
+                    $pelanggan->classHistories()->create([
+                        'previous_class' => $oldClass,
+                        'new_class'      => $newClass,
+                        'changed_at'     => now(),
+                        'changed_by'     => Auth::check() ? Auth::id() : null,
+                        'reason'         => 'Perubahan dari import data CSV',
+                    ]);
+                    
+                    Log::info("Class change recorded during CSV import", [
+                        'pid' => $data['pid'],
+                        'old_class' => $oldClass,
+                        'new_class' => $newClass
+                    ]);
                 }
                 
                 $processedCount++;
             });
+
         }
         
-        Log::info('CSV import completed', ['processed' => $processedCount]);
+        Log::info('CSV import completed', [
+            'processed' => $processedCount,
+            'duplicates_merged' => array_sum(array_column($aggregatedData, 'duplicate_count')) - count($aggregatedData)
+        ]);
     }
+
+
     
+    /**
+     * Parse tanggal dari berbagai format CSV/Excel
+     * Support format: Y-m-d, d/m/Y, d-m-Y, d/m/y, d-m-y, Y/m/d
+     * Return null jika format tidak valid
+     */
     private function parseCsvDate($value): ?\Carbon\Carbon
     {
         if (empty($value)) {
             return null;
         }
+
         
         try {
             $dateString = trim((string) $value);
@@ -828,11 +1021,18 @@ class PelangganController extends Controller
         }
     }
     
+    /**
+     * Parse biaya dari berbagai format CSV/Excel
+     * Membersihkan format: Rp, spasi, titik ribuan, koma desimal
+     * Contoh: "Rp 1.500.000,00" → 1500000
+     * Return null jika nilai negatif atau tidak valid
+     */
     private function parseCsvBiaya($value): ?float
     {
         if (empty($value) && $value !== 0 && $value !== '0') {
             return null;
         }
+
         
         try {
             if (is_numeric($value)) {
@@ -861,10 +1061,20 @@ class PelangganController extends Controller
         }
     }
 
+    /**
+     * Membaca file CSV dengan auto-detect delimiter
+     * Cara kerja:
+     * 1. Baca file dan hapus BOM (Byte Order Mark) jika ada
+     * 2. Convert encoding ke UTF-8 jika perlu
+     * 3. Deteksi delimiter (koma, titik koma, atau tab) berdasarkan jumlah kolom
+     * 4. Parse setiap baris menjadi array
+     * Return: Array 2D dengan format [ [baris1], [baris2], ... ]
+     */
     private function readCsvFile($file)
     {
         $path = $file->getPathname();
         $content = file_get_contents($path);
+
         
         $bom = pack('CCC', 0xEF, 0xBB, 0xBF);
         if (substr($content, 0, 3) === $bom) {
@@ -902,5 +1112,117 @@ class PelangganController extends Controller
         }
         
         return [$rows];
+    }
+
+    /**
+     * Menampilkan form edit kunjungan
+     * Method: GET /kunjungan/{kunjungan}/edit
+     */
+    public function editKunjungan($id)
+    {
+        $kunjungan = Kunjungan::with('pelanggan')->findOrFail($id);
+        
+        return view('pelanggan.edit-kunjungan', compact('kunjungan'));
+    }
+
+
+    /**
+     * Update data kunjungan
+     * Method: PUT /kunjungan/{kunjungan}
+     * Setelah update, update biaya dan class pelanggan (total_kedatangan tetap)
+     */
+    public function updateKunjungan(Request $request, $id)
+    {
+        $request->validate([
+            'tanggal_kunjungan' => 'required|date',
+            'biaya' => 'required|numeric|min:0',
+        ], [
+            'tanggal_kunjungan.required' => 'Tanggal kunjungan wajib diisi.',
+            'tanggal_kunjungan.date' => 'Format tanggal tidak valid.',
+            'biaya.required' => 'Biaya wajib diisi.',
+            'biaya.numeric' => 'Biaya harus berupa angka.',
+            'biaya.min' => 'Biaya tidak boleh negatif.',
+        ]);
+
+
+        $kunjungan = Kunjungan::with('pelanggan')->findOrFail($id);
+        $pelanggan = $kunjungan->pelanggan;
+        
+        // Simpan data lama untuk log
+        $oldData = [
+            'tanggal' => $kunjungan->tanggal_kunjungan,
+            'biaya' => $kunjungan->biaya,
+        ];
+
+        // Hitung selisih biaya untuk update total_biaya pelanggan
+        $biayaDifference = $request->biaya - $kunjungan->biaya;
+
+        DB::transaction(function () use ($kunjungan, $pelanggan, $request, $biayaDifference) {
+            // Update kunjungan
+            $kunjungan->update([
+                'tanggal_kunjungan' => $request->tanggal_kunjungan,
+                'biaya' => $request->biaya,
+            ]);
+
+            // Update biaya dan class pelanggan (total_kedatangan tetap, tidak dihitung ulang)
+            $pelanggan->updateBiayaAndClass($biayaDifference, \Carbon\Carbon::parse($request->tanggal_kunjungan));
+        });
+
+
+        // Catat di activity log
+        ActivityLog::record(
+            'update',
+            'Kunjungan',
+            "Mengubah kunjungan {$pelanggan->pid}: tanggal {$oldData['tanggal']} → {$request->tanggal_kunjungan}, biaya " . number_format($oldData['biaya'], 0, ',', '.') . " → " . number_format($request->biaya, 0, ',', '.'),
+            Auth::id(),
+            Auth::user()->username ?? 'unknown',
+            Auth::user()->role->name ?? '-',
+            $request->ip(),
+            $request->userAgent()
+        );
+
+        return redirect()->route('pelanggan.show', $pelanggan->id)
+            ->with('success', 'Data kunjungan berhasil diperbarui.');
+    }
+
+
+    /**
+     * Hapus kunjungan
+     * Method: DELETE /kunjungan/{kunjungan}
+     * Setelah hapus, recalculate stats pelanggan
+     */
+    public function destroyKunjungan($id)
+    {
+        $kunjungan = Kunjungan::with('pelanggan')->findOrFail($id);
+        $pelanggan = $kunjungan->pelanggan;
+        
+        // Simpan data untuk log
+        $logData = [
+            'pid' => $pelanggan->pid,
+            'tanggal' => $kunjungan->tanggal_kunjungan,
+            'biaya' => $kunjungan->biaya,
+        ];
+
+        DB::transaction(function () use ($kunjungan, $pelanggan) {
+            $kunjungan->delete();
+            
+            // Recalculate stats pelanggan setelah hapus
+            $pelanggan->updateStats();
+        });
+
+        // Catat di activity log
+        ActivityLog::record(
+            'delete',
+            'Kunjungan',
+            "Menghapus kunjungan {$logData['pid']} tanggal {$logData['tanggal']} (Rp " . number_format($logData['biaya'], 0, ',', '.') . ")",
+            Auth::id(),
+            Auth::user()->username ?? 'unknown',
+            Auth::user()->role->name ?? '-',
+            request()->ip(),
+            request()->userAgent()
+        );
+
+        return redirect()->route('pelanggan.show', $pelanggan->id)
+            ->with('success', 'Data kunjungan berhasil dihapus.');
     }
 }
