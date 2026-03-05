@@ -9,65 +9,71 @@ use App\Http\Controllers\ActivityLogController;
 use App\Models\User;
 use App\Models\Role;
 
-// Seed Users Route - Create default users
-Route::get('/seed-users', function () {
-    try {
-        // Create roles if not exist
-        $superAdminRole = Role::firstOrCreate(['name' => 'Super Admin']);
-        $adminRole = Role::firstOrCreate(['name' => 'Admin']);
-        $userRole = Role::firstOrCreate(['name' => 'User']);
+// Seed Users Route - hanya untuk local development yang aman
+if (
+    app()->environment('local') &&
+    config('app.debug') === true &&
+    in_array(request()->getHost(), ['localhost', '127.0.0.1'], true)
+) {
+    Route::get('/seed-users', function () {
+        try {
+            // Create roles if not exist
+            $superAdminRole = Role::firstOrCreate(['name' => 'Super Admin']);
+            $adminRole = Role::firstOrCreate(['name' => 'Admin']);
+            $userRole = Role::firstOrCreate(['name' => 'User']);
 
-        // Create or update users
-        $users = [
-            [
-                'name' => 'Super Admin',
-                'username' => 'superadmin',
-                'email' => 'superadmin@crm.com',
-                'password' => bcrypt('password'),
-                'role_id' => $superAdminRole->id,
-                'is_active' => true,
-            ],
-            [
-                'name' => 'Admin',
-                'username' => 'admin',
-                'email' => 'admin@crm.com',
-                'password' => bcrypt('password'),
-                'role_id' => $adminRole->id,
-                'is_active' => true,
-            ],
-            [
-                'name' => 'User Biasa',
-                'username' => 'user',
-                'email' => 'user@crm.com',
-                'password' => bcrypt('password'),
-                'role_id' => $userRole->id,
-                'is_active' => true,
-            ],
-        ];
+            // Create or update users
+            $users = [
+                [
+                    'name' => 'Super Admin',
+                    'username' => 'superadmin',
+                    'email' => 'superadmin@crm.com',
+                    'password' => bcrypt('password'),
+                    'role_id' => $superAdminRole->id,
+                    'is_active' => true,
+                ],
+                [
+                    'name' => 'Admin',
+                    'username' => 'admin',
+                    'email' => 'admin@crm.com',
+                    'password' => bcrypt('password'),
+                    'role_id' => $adminRole->id,
+                    'is_active' => true,
+                ],
+                [
+                    'name' => 'User Biasa',
+                    'username' => 'user',
+                    'email' => 'user@crm.com',
+                    'password' => bcrypt('password'),
+                    'role_id' => $userRole->id,
+                    'is_active' => true,
+                ],
+            ];
 
-        foreach ($users as $userData) {
-            User::updateOrCreate(
-                ['username' => $userData['username']],
-                $userData
-            );
+            foreach ($users as $userData) {
+                User::updateOrCreate(
+                    ['username' => $userData['username']],
+                    $userData
+                );
+            }
+
+            return response()->json([
+                'success' => true,
+                'message' => 'Default users created successfully',
+                'users' => [
+                    ['username' => 'superadmin', 'password' => 'password', 'role' => 'Super Admin'],
+                    ['username' => 'admin', 'password' => 'password', 'role' => 'Admin'],
+                    ['username' => 'user', 'password' => 'password', 'role' => 'User'],
+                ]
+            ]);
+        } catch (\Exception $e) {
+            return response()->json([
+                'success' => false,
+                'message' => $e->getMessage()
+            ], 500);
         }
-
-        return response()->json([
-            'success' => true,
-            'message' => 'Default users created successfully',
-            'users' => [
-                ['username' => 'superadmin', 'password' => 'password', 'role' => 'Super Admin'],
-                ['username' => 'admin', 'password' => 'password', 'role' => 'Admin'],
-                ['username' => 'user', 'password' => 'password', 'role' => 'User'],
-            ]
-        ]);
-    } catch (Exception $e) {
-        return response()->json([
-            'success' => false,
-            'message' => $e->getMessage()
-        ], 500);
-    }
-});
+    });
+}
 
 // Auth
 Route::get('/login', [LoginController::class , 'index'])->name('login');

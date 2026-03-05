@@ -32,18 +32,24 @@ class SecurityHeaders
         // Permissions Policy
         $response->headers->set('Permissions-Policy', 'geolocation=(), microphone=(), camera=()');
 
-        // Content Security Policy (CSP) - Disabled temporarily to fix display issues
-        // TODO: Re-enable with proper configuration after testing
-        // $csp = "default-src 'self'; ";
-        // $csp .= "script-src 'self' 'unsafe-inline' 'unsafe-eval' https://cdn.jsdelivr.net https://cdnjs.cloudflare.com; ";
-        // $csp .= "style-src 'self' 'unsafe-inline' https://fonts.bunny.net https://cdnjs.cloudflare.com; ";
-        // $csp .= "font-src 'self' https://fonts.bunny.net https://cdnjs.cloudflare.com; ";
-        // $csp .= "img-src 'self' data: https: blob:; ";
-        // $csp .= "connect-src 'self'; ";
-        // $csp .= "frame-ancestors 'none'; ";
-        // $csp .= "base-uri 'self'; ";
-        // $csp .= "form-action 'self';";
-        // $response->headers->set('Content-Security-Policy', $csp);
+        // Content Security Policy (CSP) - baseline aman dan kompatibel UI existing
+        // Tidak mengubah flow bisnis, hanya menambah proteksi browser
+        $csp = "default-src 'self'; ";
+        $csp .= "script-src 'self' 'unsafe-inline' 'unsafe-eval' https://cdn.jsdelivr.net https://cdnjs.cloudflare.com; ";
+        $csp .= "style-src 'self' 'unsafe-inline' https://cdn.jsdelivr.net https://fonts.bunny.net https://cdnjs.cloudflare.com; ";
+        $csp .= "font-src 'self' data: https://fonts.bunny.net https://cdnjs.cloudflare.com; ";
+        $csp .= "img-src 'self' data: https: blob:; ";
+        $csp .= "connect-src 'self'; ";
+        $csp .= "frame-ancestors 'none'; ";
+        $csp .= "base-uri 'self'; ";
+        $csp .= "form-action 'self';";
+        $response->headers->set('Content-Security-Policy', $csp);
+
+        // Additional modern hardening headers
+        $response->headers->set('Cross-Origin-Opener-Policy', 'same-origin');
+        $response->headers->set('Cross-Origin-Resource-Policy', 'same-origin');
+        $response->headers->set('X-Permitted-Cross-Domain-Policies', 'none');
+
 
 
 

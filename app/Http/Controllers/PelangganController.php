@@ -238,13 +238,14 @@ class PelangganController extends Controller
     public function index(Request $request)
     {
         // Ambil semua parameter filter dari URL/form
-        $bulan          = $request->bulan;
-
-        $tahun          = $request->tahun;
+        $bulan          = $request->filled('bulan') ? (int) $request->bulan : null;
+        $tahun          = $request->filled('tahun') ? (int) $request->tahun : null;
         $type           = $request->type;
         $search         = $request->search;
         $sort           = $request->sort ?? 'nama';
-        $direction      = in_array($request->direction, ['asc', 'desc']) ? $request->direction : 'asc';
+        $direction      = in_array(strtolower((string) $request->direction), ['asc', 'desc'], true)
+            ? strtolower((string) $request->direction)
+            : 'asc';
         $cabangId       = $request->cabang_id;
         $omsetRange     = $request->omset_range;
         $kedatanganRange = $request->kedatangan_range;
@@ -290,14 +291,17 @@ class PelangganController extends Controller
         // Subquery untuk tgl_kunjungan terakhir sesuai periode yang dipilih
         // Dihitung di DB level — tidak perlu load semua kunjungan ke memory
         if ($type === 'perbulan' && $bulan && $tahun) {
+            $safeBulan = (int) $bulan;
+            $safeTahun = (int) $tahun;
             $tglSubquery = "SELECT MAX(tanggal_kunjungan) FROM kunjungans
                 WHERE kunjungans.pelanggan_id = pelanggans.id
-                AND MONTH(tanggal_kunjungan) = {$bulan}
-                AND YEAR(tanggal_kunjungan) = {$tahun}";
+                AND MONTH(tanggal_kunjungan) = {$safeBulan}
+                AND YEAR(tanggal_kunjungan) = {$safeTahun}";
         } elseif ($type === 'pertahun' && $tahun) {
+            $safeTahun = (int) $tahun;
             $tglSubquery = "SELECT MAX(tanggal_kunjungan) FROM kunjungans
                 WHERE kunjungans.pelanggan_id = pelanggans.id
-                AND YEAR(tanggal_kunjungan) = {$tahun}";
+                AND YEAR(tanggal_kunjungan) = {$safeTahun}";
         } else {
             $tglSubquery = "SELECT MAX(tanggal_kunjungan) FROM kunjungans
                 WHERE kunjungans.pelanggan_id = pelanggans.id";
@@ -950,7 +954,7 @@ class PelangganController extends Controller
                     $pelanggan->classHistories()->create([
                         'previous_class' => $oldClass,
                         'new_class'      => $newClass,
-                        'changed_at'     => now(),
+                        'changed_at'     => $data['tanggal_kunjungan'] ?? now(),
                         'changed_by'     => Auth::check() ? Auth::id() : null,
                         'reason'         => 'Perubahan dari import data CSV',
                     ]);
@@ -1136,12 +1140,16 @@ class PelangganController extends Controller
         $request->validate([
             'tanggal_kunjungan' => 'required|date',
             'biaya' => 'required|numeric|min:0',
+            'alasan_perubahan' => 'required|string|max:500',
         ], [
             'tanggal_kunjungan.required' => 'Tanggal kunjungan wajib diisi.',
             'tanggal_kunjungan.date' => 'Format tanggal tidak valid.',
             'biaya.required' => 'Biaya wajib diisi.',
             'biaya.numeric' => 'Biaya harus berupa angka.',
             'biaya.min' => 'Biaya tidak boleh negatif.',
+            'alasan_perubahan.required' => 'Alasan perubahan wajib diisi.',
+            'alasan_perubahan.string' => 'Alasan perubahan harus berupa teks.',
+            'alasan_perubahan.max' => 'Alasan perubahan maksimal 500 karakter.',
         ]);
 
 
@@ -1165,7 +1173,11 @@ class PelangganController extends Controller
             ]);
 
             // Update biaya dan class pelanggan (total_kedatangan tetap, tidak dihitung ulang)
-            $pelanggan->updateBiayaAndClass($biayaDifference, \Carbon\Carbon::parse($request->tanggal_kunjungan));
+            $pelanggan->updateBiayaAndClass(
+                $biayaDifference,
+                \Carbon\Carbon::parse($request->tanggal_kunjungan),
+                'Perubahan dari edit kunjungan. Alasan user: ' . $request->alasan_perubahan
+            );
         });
 
 
@@ -1173,7 +1185,7 @@ class PelangganController extends Controller
         ActivityLog::record(
             'update',
             'Kunjungan',
-            "Mengubah kunjungan {$pelanggan->pid}: tanggal {$oldData['tanggal']} → {$request->tanggal_kunjungan}, biaya " . number_format($oldData['biaya'], 0, ',', '.') . " → " . number_format($request->biaya, 0, ',', '.'),
+            "Mengubah kunjungan {$pelanggan->pid}: tanggal {$oldData['tanggal']} → {$request->tanggal_kunjungan}, biaya " . number_format($oldData['biaya'], 0, ',', '.') . " → " . number_format($request->biaya, 0, ',', '.') . ". Alasan: {$request->alasan_perubahan}",
             Auth::id(),
             Auth::user()->username ?? 'unknown',
             Auth::user()->role->name ?? '-',
@@ -1191,8 +1203,16 @@ class PelangganController extends Controller
      * Method: DELETE /kunjungan/{kunjungan}
      * Setelah hapus, recalculate stats pelanggan
      */
-    public function destroyKunjungan($id)
+    public function destroyKunjungan(Request $request, $id)
     {
+        $request->validate([
+            'alasan_hapus' => 'required|string|max:500',
+        ], [
+            'alasan_hapus.required' => 'Alasan hapus wajib diisi.',
+            'alasan_hapus.string' => 'Alasan hapus harus berupa teks.',
+            'alasan_hapus.max' => 'Alasan hapus maksimal 500 karakter.',
+        ]);
+
         $kunjungan = Kunjungan::with('pelanggan')->findOrFail($id);
         $pelanggan = $kunjungan->pelanggan;
         
@@ -1203,18 +1223,23 @@ class PelangganController extends Controller
             'biaya' => $kunjungan->biaya,
         ];
 
-        DB::transaction(function () use ($kunjungan, $pelanggan) {
+        $deletedVisitDate = \Carbon\Carbon::parse($kunjungan->tanggal_kunjungan);
+
+        DB::transaction(function () use ($kunjungan, $pelanggan, $request, $deletedVisitDate) {
             $kunjungan->delete();
             
             // Recalculate stats pelanggan setelah hapus
-            $pelanggan->updateStats();
+            $pelanggan->updateStats(
+                $deletedVisitDate,
+                'Perubahan dari hapus kunjungan. Alasan user: ' . $request->alasan_hapus
+            );
         });
 
         // Catat di activity log
         ActivityLog::record(
             'delete',
             'Kunjungan',
-            "Menghapus kunjungan {$logData['pid']} tanggal {$logData['tanggal']} (Rp " . number_format($logData['biaya'], 0, ',', '.') . ")",
+            "Menghapus kunjungan {$logData['pid']} tanggal {$logData['tanggal']} (Rp " . number_format($logData['biaya'], 0, ',', '.') . "). Alasan: {$request->alasan_hapus}",
             Auth::id(),
             Auth::user()->username ?? 'unknown',
             Auth::user()->role->name ?? '-',

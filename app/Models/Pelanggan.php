@@ -106,7 +106,7 @@ class Pelanggan extends Model
      * Optimized: menggunakan 1 query (selectRaw) untuk count + sum sekaligus,
      * bukan 2 query terpisah.
      */
-    public function updateStats(?\Carbon\Carbon $visitDate = null): void
+    public function updateStats(?\Carbon\Carbon $visitDate = null, ?string $changeReason = null): void
     {
         $oldClass = $this->class;
 
@@ -127,9 +127,9 @@ class Pelanggan extends Model
             $this->classHistories()->create([
                 'previous_class' => $oldClass,
                 'new_class'      => $newClass,
-                'changed_at'     => now(),
+                'changed_at'     => $visitDate ?? now(),
                 'changed_by'     => Auth::check() ? Auth::id() : null,
-                'reason'         => 'Perubahan otomatis berdasarkan statistik kunjungan',
+                'reason'         => $changeReason ?? 'Perubahan otomatis berdasarkan statistik kunjungan',
             ]);
         }
 
@@ -145,7 +145,7 @@ class Pelanggan extends Model
         $this->classHistories()->create([
             'previous_class' => null,
             'new_class'      => $this->class,
-            'changed_at'     => now(),
+            'changed_at'     => $visitDate ?? now(),
             'changed_by'     => Auth::check() ? Auth::id() : null,
             'reason'         => 'Kelas awal pelanggan baru',
         ]);
@@ -158,7 +158,7 @@ class Pelanggan extends Model
      * @param float $biayaDifference Selisih biaya (biaya_baru - biaya_lama)
      * @param \Carbon\Carbon|null $visitDate Tanggal kunjungan untuk riwayat
      */
-    public function updateBiayaAndClass(float $biayaDifference, ?\Carbon\Carbon $visitDate = null): void
+    public function updateBiayaAndClass(float $biayaDifference, ?\Carbon\Carbon $visitDate = null, ?string $changeReason = null): void
     {
         $oldClass = $this->class;
 
@@ -178,9 +178,9 @@ class Pelanggan extends Model
             $this->classHistories()->create([
                 'previous_class' => $oldClass,
                 'new_class'      => $newClass,
-                'changed_at'     => now(),
+                'changed_at'     => $visitDate ?? now(),
                 'changed_by'     => Auth::check() ? Auth::id() : null,
-                'reason'         => 'Perubahan dari edit kunjungan',
+                'reason'         => $changeReason ?? 'Perubahan dari edit kunjungan',
             ]);
         }
 

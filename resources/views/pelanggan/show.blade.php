@@ -187,13 +187,60 @@
                                         <a href="{{ route('kunjungan.edit', $k->id) }}" class="btn btn-sm btn-warning" title="Edit">
                                             <i class="fas fa-edit"></i>
                                         </a>
-                                        <form action="{{ route('kunjungan.destroy', $k->id) }}" method="POST" class="d-inline" onsubmit="return confirm('Apakah Anda yakin ingin menghapus kunjungan ini? Data yang dihapus tidak dapat dikembalikan.');">
-                                            @csrf
-                                            @method('DELETE')
-                                            <button type="submit" class="btn btn-sm btn-danger" title="Hapus">
-                                                <i class="fas fa-trash"></i>
-                                            </button>
-                                        </form>
+                                        <button type="button"
+                                                class="btn btn-sm btn-danger"
+                                                title="Hapus"
+                                                data-bs-toggle="modal"
+                                                data-bs-target="#deleteKunjunganModal{{ $k->id }}">
+                                            <i class="fas fa-trash"></i>
+                                        </button>
+
+                                        <!-- Modal Hapus Kunjungan -->
+                                        <div class="modal fade" id="deleteKunjunganModal{{ $k->id }}" tabindex="-1" aria-hidden="true">
+                                            <div class="modal-dialog">
+                                                <div class="modal-content">
+                                                    <form action="{{ route('kunjungan.destroy', $k->id) }}" method="POST">
+                                                        @csrf
+                                                        @method('DELETE')
+
+                                                        <div class="modal-header">
+                                                            <h5 class="modal-title text-danger">
+                                                                <i class="fas fa-exclamation-triangle me-2"></i>Konfirmasi Hapus Kunjungan
+                                                            </h5>
+                                                            <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+                                                        </div>
+
+                                                        <div class="modal-body">
+                                                            <p class="mb-3">
+                                                                Anda akan menghapus kunjungan tanggal
+                                                                <strong>{{ \Carbon\Carbon::parse($k->tanggal_kunjungan)->format('d-m-Y') }}</strong>
+                                                                dengan biaya
+                                                                <strong>Rp {{ number_format($k->biaya, 0, ',', '.') }}</strong>.
+                                                            </p>
+
+                                                            <label for="alasan_hapus_{{ $k->id }}" class="form-label fw-semibold">
+                                                                Alasan Hapus <span class="text-danger">*</span>
+                                                            </label>
+                                                            <textarea
+                                                                id="alasan_hapus_{{ $k->id }}"
+                                                                name="alasan_hapus"
+                                                                class="form-control"
+                                                                rows="3"
+                                                                placeholder="Wajib diisi. Contoh: Data kunjungan duplikat / salah input."
+                                                                required></textarea>
+                                                            <div class="form-text">Alasan akan dicatat di activity log.</div>
+                                                        </div>
+
+                                                        <div class="modal-footer">
+                                                            <button type="button" class="btn btn-outline-secondary" data-bs-dismiss="modal">Batal</button>
+                                                            <button type="submit" class="btn btn-danger">
+                                                                <i class="fas fa-trash me-1"></i> Ya, Hapus
+                                                            </button>
+                                                        </div>
+                                                    </form>
+                                                </div>
+                                            </div>
+                                        </div>
                                     </div>
                                 </td>
                             </tr>

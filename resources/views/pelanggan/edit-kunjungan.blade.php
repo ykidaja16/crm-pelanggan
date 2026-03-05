@@ -81,6 +81,28 @@
 
                 </div>
 
+                <!-- Alasan Perubahan -->
+                <div class="row g-3 mt-1">
+                    <div class="col-12">
+                        <label for="alasan_perubahan" class="form-label fw-semibold">
+                            <i class="fas fa-comment-dots me-1 text-danger"></i> Alasan Perubahan <span class="text-danger">*</span>
+                        </label>
+                        <textarea
+                            class="form-control @error('alasan_perubahan') is-invalid @enderror"
+                            id="alasan_perubahan"
+                            name="alasan_perubahan"
+                            rows="3"
+                            placeholder="Wajib diisi. Contoh: Koreksi salah input biaya/tanggal kunjungan."
+                            required>{{ old('alasan_perubahan') }}</textarea>
+                        @error('alasan_perubahan')
+                            <div class="invalid-feedback">{{ $message }}</div>
+                        @enderror
+                        <div class="form-text text-muted">
+                            Alasan ini akan disimpan ke log aktivitas.
+                        </div>
+                    </div>
+                </div>
+
                 <hr class="my-4">
 
                 <div class="d-flex justify-content-between align-items-center">

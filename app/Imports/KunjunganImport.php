@@ -347,7 +347,7 @@ class KunjunganImport implements ToCollection, WithStartRow
             $pelanggan->classHistories()->create([
                 'previous_class' => $oldClass,
                 'new_class'      => $newClass,
-                'changed_at'     => now(),
+                'changed_at'     => $tanggalKedatangan ?? now(),
                 'changed_by'     => Auth::check() ? Auth::id() : null,
                 'reason'         => 'Perubahan dari import data Excel',
             ]);
