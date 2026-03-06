@@ -496,7 +496,7 @@ class PelangganController extends Controller
                     $dbNama = trim($pelanggan->nama ?? '');
                     
                     if (strtolower($nama) !== strtolower($dbNama)) {
-                        $errors[] = "Baris {$rowNumber}: PID {$pid} sudah terdaftar dengan nama '{$dbNama}'. Data Excel nama '{$nama}' tidak cocok.";
+                        $errors[] = "Baris {$rowNumber}: PID {$pid} sudah terdaftar dengan nama '{$dbNama}'. Data Excel nama '{$nama}' tidak sesuai.";
                     } else {
                         $validRows++;
                     }
@@ -510,7 +510,7 @@ class PelangganController extends Controller
             
             if (!empty($errors)) {
                 Log::warning('Import failed due to validation errors', ['error_count' => count($errors)]);
-                return back()->with('error', 'Import gagal! Beberapa data tidak cocok dengan database.')
+                return back()->with('error', 'Import gagal! Beberapa data tidak sesuai dengan database.')
                             ->with('import_errors', $errors);
             }
             
