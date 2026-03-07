@@ -65,9 +65,21 @@
                         <div class="col-md-6">
                             <div class="alert alert-light border mb-0">
                                 <small class="text-muted">
-                                    <strong>Format Excel (10 kolom):</strong><br>
-                                    No | Nama Pasien | Total Kedatangan | Tanggal Kedatangan Terakhir | Total (Biaya) | No Telpon | DOB | PID | Alamat | Kota
+                                    <strong>Format Excel (11 kolom):</strong><br>
+                                    No | Nama Pasien | Total Kedatangan | Tanggal Kedatangan Terakhir | Total (Biaya) | No Telpon | DOB | PID | Alamat | Kota | Kelompok Pelanggan (mandiri/klinisi)
                                 </small>
+                            </div>
+                        </div>
+
+                        <div class="col-12">
+                            <div id="importProgressContainer" class="mt-2 d-none">
+                                <div class="d-flex justify-content-between align-items-center mb-1">
+                                    <small class="text-muted fw-semibold">Progress Import</small>
+                                    <small class="text-muted"><span id="importProgressText">0%</span></small>
+                                </div>
+                                <div class="progress" style="height: 10px;">
+                                    <div id="importProgressBar" class="progress-bar progress-bar-striped progress-bar-animated bg-success" role="progressbar" style="width: 0%;" aria-valuemin="0" aria-valuemax="100" aria-valuenow="0"></div>
+                                </div>
                             </div>
                         </div>
                     </form>
@@ -454,39 +466,198 @@ document.addEventListener('DOMContentLoaded', function() {
     }
 
     
-    // Import form handling
+    // =============================================
+    // IMPORT FORM — AJAX + Real Progress Polling
+    // =============================================
     const importForm = document.getElementById('importForm');
     const importBtn = document.getElementById('importBtn');
     const fileInput = document.getElementById('fileInput');
     const btnText = document.getElementById('btnText');
     const btnLoading = document.getElementById('btnLoading');
-    
-    if (importForm && importBtn && fileInput) {
-        importForm.addEventListener('submit', function(e) {
-            const file = fileInput.files[0];
-            
-            if (file) {
-                const validExtensions = ['.xlsx', '.xls', '.csv'];
-                const fileName = file.name.toLowerCase();
-                const isValid = validExtensions.some(ext => fileName.endsWith(ext));
-                
-                if (!isValid) {
-                    e.preventDefault();
-                    fileInput.classList.add('is-invalid');
-                    alert('File harus berupa Excel (.xlsx, .xls) atau CSV (.csv)');
-                    return false;
-                }
-                
-                fileInput.classList.remove('is-invalid');
-            }
-            
-            if (btnText && btnLoading) {
-                importBtn.disabled = true;
-                btnText.style.display = 'none';
-                btnLoading.style.display = 'inline';
-            }
+    const progressContainer = document.getElementById('importProgressContainer');
+    const progressBar = document.getElementById('importProgressBar');
+    const progressText = document.getElementById('importProgressText');
+    let progressInterval = null;
+
+    /**
+     * Escape HTML untuk mencegah XSS pada pesan notifikasi
+     */
+    function escapeHtml(text) {
+        const div = document.createElement('div');
+        div.appendChild(document.createTextNode(String(text)));
+        return div.innerHTML;
+    }
+
+    /**
+     * Tampilkan notifikasi inline di atas import card
+     * type: 'success' | 'error'
+     * errors: array string (opsional, untuk daftar error detail)
+     */
+    function showImportNotification(type, message, errors) {
+        // Hapus notifikasi import sebelumnya
+        document.querySelectorAll('.import-notification').forEach(function(el) {
+            el.remove();
         });
-        
+
+        const alertClass = type === 'success' ? 'alert-success' : 'alert-danger';
+        const icon      = type === 'success' ? 'fa-check-circle' : 'fa-exclamation-circle';
+
+        let errorsHtml = '';
+        if (errors && errors.length > 0) {
+            errorsHtml = '<ul class="mb-0 mt-2">' +
+                errors.map(function(e) { return '<li>' + escapeHtml(e) + '</li>'; }).join('') +
+                '</ul>';
+        }
+
+        const alertDiv = document.createElement('div');
+        alertDiv.className = 'alert ' + alertClass + ' alert-dismissible fade show shadow-sm import-notification';
+        alertDiv.setAttribute('role', 'alert');
+        alertDiv.innerHTML =
+            '<i class="fas ' + icon + ' me-2"></i>' + escapeHtml(message) +
+            errorsHtml +
+            '<button type="button" class="btn-close" data-bs-dismiss="alert" aria-label="Close"></button>';
+
+        // Sisipkan tepat sebelum import card (col-12 pertama dalam .row.g-4)
+        const rowContainer = document.querySelector('.row.g-4');
+        if (rowContainer) {
+            rowContainer.insertBefore(alertDiv, rowContainer.firstChild);
+        }
+
+        // Scroll ke atas agar notifikasi terlihat
+        window.scrollTo({ top: 0, behavior: 'smooth' });
+    }
+
+    /**
+     * Reset tampilan progress bar ke kondisi awal
+     */
+    function resetProgressBar() {
+        if (progressContainer) progressContainer.classList.add('d-none');
+        if (progressBar) { progressBar.style.width = '0%'; progressBar.setAttribute('aria-valuenow', '0'); }
+        if (progressText) progressText.textContent = '0%';
+    }
+
+    /**
+     * Reset tombol import ke kondisi normal
+     */
+    function resetImportBtn() {
+        if (importBtn) importBtn.disabled = false;
+        if (btnText) btnText.style.display = 'inline';
+        if (btnLoading) btnLoading.style.display = 'none';
+    }
+
+    if (importForm && importBtn && fileInput) {
+
+        importForm.addEventListener('submit', function(e) {
+            e.preventDefault(); // Selalu cegah submit normal — gunakan AJAX
+
+            const file = fileInput.files[0];
+
+            if (!file) {
+                showImportNotification('error', 'Pilih file terlebih dahulu.');
+                return;
+            }
+
+            const validExtensions = ['.xlsx', '.xls', '.csv'];
+            const fileName = file.name.toLowerCase();
+            const isValid = validExtensions.some(function(ext) { return fileName.endsWith(ext); });
+
+            if (!isValid) {
+                fileInput.classList.add('is-invalid');
+                showImportNotification('error', 'File harus berupa Excel (.xlsx, .xls) atau CSV (.csv)');
+                return;
+            }
+
+            fileInput.classList.remove('is-invalid');
+
+            // Hapus notifikasi lama
+            document.querySelectorAll('.import-notification').forEach(function(el) { el.remove(); });
+
+            // Tampilkan loading state
+            importBtn.disabled = true;
+            btnText.style.display = 'none';
+            btnLoading.style.display = 'inline-block';
+
+            // Tampilkan progress bar mulai dari 0%
+            progressContainer.classList.remove('d-none');
+            progressBar.style.width = '0%';
+            progressBar.setAttribute('aria-valuenow', '0');
+            progressText.textContent = '0%';
+
+            // Mulai polling progress setiap 500ms
+            // Ini bisa berjalan real-time karena AJAX request import
+            // diproses oleh PHP-FPM worker yang berbeda
+            if (progressInterval) clearInterval(progressInterval);
+            progressInterval = setInterval(async function() {
+                try {
+                    const resp = await fetch("{{ route('pelanggan.import.progress') }}", {
+                        headers: {
+                            'X-Requested-With': 'XMLHttpRequest',
+                            'Accept': 'application/json'
+                        }
+                    });
+                    if (!resp.ok) return;
+                    const data = await resp.json();
+                    const pct = Math.max(0, Math.min(100, parseInt(data.progress || 0)));
+                    progressBar.style.width = pct + '%';
+                    progressBar.setAttribute('aria-valuenow', pct.toString());
+                    progressText.textContent = pct + '%';
+                    if (pct >= 100) {
+                        clearInterval(progressInterval);
+                        progressInterval = null;
+                    }
+                } catch (err) { /* abaikan error polling sementara */ }
+            }, 500);
+
+            // Kirim form via AJAX (fetch)
+            const formData = new FormData(importForm);
+
+            fetch(importForm.action, {
+                method: 'POST',
+                body: formData,
+                headers: {
+                    'X-Requested-With': 'XMLHttpRequest',
+                    'Accept': 'application/json'
+                }
+            })
+            .then(async function(response) {
+                // Hentikan polling & set progress ke 100%
+                if (progressInterval) { clearInterval(progressInterval); progressInterval = null; }
+                progressBar.style.width = '100%';
+                progressBar.setAttribute('aria-valuenow', '100');
+                progressText.textContent = '100%';
+
+                resetImportBtn();
+
+                let data;
+                try {
+                    data = await response.json();
+                } catch (parseErr) {
+                    showImportNotification('error', 'Terjadi kesalahan tidak terduga. Silakan coba lagi.');
+                    resetProgressBar();
+                    return;
+                }
+
+                if (data.success) {
+                    // Sukses: tampilkan notifikasi hijau, reset file input
+                    showImportNotification('success', data.message || 'Import berhasil!');
+                    fileInput.value = '';
+                    // Biarkan progress bar tetap 100% sebagai konfirmasi visual
+                    // User bisa klik X notifikasi jika sudah selesai membaca
+                } else {
+                    // Gagal: tampilkan notifikasi merah + daftar error jika ada
+                    showImportNotification('error', data.message || 'Import gagal.', data.errors || []);
+                    // Reset progress bar setelah gagal
+                    setTimeout(function() { resetProgressBar(); }, 1500);
+                }
+            })
+            .catch(function(networkErr) {
+                if (progressInterval) { clearInterval(progressInterval); progressInterval = null; }
+                resetImportBtn();
+                resetProgressBar();
+                showImportNotification('error', 'Koneksi terputus atau server tidak merespons. Silakan coba lagi.');
+            });
+        });
+
         fileInput.addEventListener('change', function() {
             this.classList.remove('is-invalid');
         });

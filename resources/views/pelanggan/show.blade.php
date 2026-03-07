@@ -91,6 +91,7 @@
                     <thead class="table-light">
                         <tr>
                             <th class="px-4 py-3">No</th>
+                            <th class="py-3">Diubah User Tanggal</th>
                             <th class="py-3">Tanggal Perubahan</th>
                             <th class="py-3">Perubahan Kelas</th>
                             <th class="py-3">Keterangan</th>
@@ -100,7 +101,8 @@
                         @forelse ($classHistories as $index => $history)
                             <tr>
                                 <td class="px-4">{{ $index + 1 }}</td>
-                                <td>{{ $history->changed_at->format('d-m-Y H:i') }}</td>
+                                <td>{{ $history->created_at ? $history->created_at->format('d-m-Y H:i') : '-' }}</td>
+                                <td>{{ $history->changed_at ? $history->changed_at->format('d-m-Y H:i') : '-' }}</td>
                                 <td>
                                     @if ($history->previous_class)
                                         <span class="badge bg-secondary bg-opacity-10 text-secondary border border-secondary">{{ $history->previous_class }}</span>
@@ -123,7 +125,7 @@
                             </tr>
                         @empty
                             <tr>
-                                <td colspan="4" class="text-center py-5 text-muted">
+                                <td colspan="5" class="text-center py-5 text-muted">
                                     <i class="fas fa-inbox fa-2x mb-3 text-secondary opacity-50"></i>
                                     <p class="mb-0">Belum ada riwayat perubahan kelas.</p>
                                 </td>
@@ -165,6 +167,7 @@
                             <th class="py-3">Tanggal Kunjungan</th>
                             <th class="py-3 text-center">Total Kedatangan</th>
                             <th class="py-3">Biaya</th>
+                            <th class="py-3 text-center">Kelompok Pelanggan</th>
                             <th class="py-3 text-center">Status</th>
                             <th class="py-3 text-center">Aksi</th>
                         </tr>
@@ -172,6 +175,11 @@
 
                     <tbody>
                         @forelse ($kunjungans as $index => $k)
+                            @php
+                                $hasPending = $pendingApprovals->has($k->id);
+                                $pendingGroup = $hasPending ? $pendingApprovals->get($k->id) : collect();
+                                $pendingAction = $pendingGroup->first()?->action;
+                            @endphp
                             <tr>
                                 <td class="px-4">{{ $index + 1 }}</td>
                                 <td>{{ \Carbon\Carbon::parse($k->tanggal_kunjungan)->format('d-m-Y') }}</td>
@@ -180,28 +188,54 @@
                                 </td>
                                 <td class="fw-semibold">Rp {{ number_format($k->biaya, 0, ',', '.') }}</td>
                                 <td class="text-center">
-                                    <span class="badge bg-success bg-opacity-10 text-success border border-success">Selesai</span>
+                                    @php
+                                        $kelompokKode = strtolower($k->kelompokPelanggan->kode ?? 'mandiri');
+                                        $isKlinisi = $kelompokKode === 'klinisi';
+                                    @endphp
+                                    <span class="badge {{ $isKlinisi ? 'bg-primary bg-opacity-10 text-primary border border-primary' : 'bg-secondary bg-opacity-10 text-secondary border border-secondary' }}">
+                                        {{ $isKlinisi ? 'Klinisi' : 'Mandiri' }}
+                                    </span>
                                 </td>
                                 <td class="text-center">
-                                    <div class="btn-group" role="group">
-                                        <a href="{{ route('kunjungan.edit', $k->id) }}" class="btn btn-sm btn-warning" title="Edit">
-                                            <i class="fas fa-edit"></i>
-                                        </a>
-                                        <button type="button"
-                                                class="btn btn-sm btn-danger"
-                                                title="Hapus"
-                                                data-bs-toggle="modal"
-                                                data-bs-target="#deleteKunjunganModal{{ $k->id }}">
-                                            <i class="fas fa-trash"></i>
-                                        </button>
+                                    @if($hasPending)
+                                        @if($pendingAction === 'delete')
+                                            <span class="badge bg-danger bg-opacity-10 text-danger border border-danger">
+                                                <i class="fas fa-clock me-1"></i>Menunggu Hapus
+                                            </span>
+                                        @else
+                                            <span class="badge bg-warning bg-opacity-10 text-warning border border-warning">
+                                                <i class="fas fa-clock me-1"></i>Menunggu Edit
+                                            </span>
+                                        @endif
+                                    @else
+                                        <span class="badge bg-success bg-opacity-10 text-success border border-success">Selesai</span>
+                                    @endif
+                                </td>
+                                <td class="text-center">
+                                    @if($hasPending)
+                                        <span class="text-muted small">
+                                            <i class="fas fa-lock me-1"></i>Terkunci
+                                        </span>
+                                    @else
+                                        <div class="btn-group" role="group">
+                                            <a href="{{ route('kunjungan.edit', $k->id) }}" class="btn btn-sm btn-warning" title="Edit">
+                                                <i class="fas fa-edit"></i>
+                                            </a>
+                                            <button type="button"
+                                                    class="btn btn-sm btn-danger"
+                                                    title="Hapus"
+                                                    data-bs-toggle="modal"
+                                                    data-bs-target="#deleteKunjunganModal{{ $k->id }}">
+                                                <i class="fas fa-trash"></i>
+                                            </button>
+                                        </div>
 
                                         <!-- Modal Hapus Kunjungan -->
                                         <div class="modal fade" id="deleteKunjunganModal{{ $k->id }}" tabindex="-1" aria-hidden="true">
                                             <div class="modal-dialog">
                                                 <div class="modal-content">
-                                                    <form action="{{ route('kunjungan.destroy', $k->id) }}" method="POST">
+                                                    <form action="{{ route('approval.kunjungan.delete.store', $k->id) }}" method="POST">
                                                         @csrf
-                                                        @method('DELETE')
 
                                                         <div class="modal-header">
                                                             <h5 class="modal-title text-danger">
@@ -218,36 +252,36 @@
                                                                 <strong>Rp {{ number_format($k->biaya, 0, ',', '.') }}</strong>.
                                                             </p>
 
-                                                            <label for="alasan_hapus_{{ $k->id }}" class="form-label fw-semibold">
-                                                                Alasan Hapus <span class="text-danger">*</span>
+                                                            <label for="request_note_{{ $k->id }}" class="form-label fw-semibold">
+                                                                Alasan Pengajuan Hapus <span class="text-danger">*</span>
                                                             </label>
                                                             <textarea
-                                                                id="alasan_hapus_{{ $k->id }}"
-                                                                name="alasan_hapus"
+                                                                id="request_note_{{ $k->id }}"
+                                                                name="request_note"
                                                                 class="form-control"
                                                                 rows="3"
                                                                 placeholder="Wajib diisi. Contoh: Data kunjungan duplikat / salah input."
                                                                 required></textarea>
-                                                            <div class="form-text">Alasan akan dicatat di activity log.</div>
+                                                            <div class="form-text">Alasan akan dikirim sebagai pengajuan approval ke Superadmin dan dicatat di activity log.</div>
                                                         </div>
 
                                                         <div class="modal-footer">
                                                             <button type="button" class="btn btn-outline-secondary" data-bs-dismiss="modal">Batal</button>
                                                             <button type="submit" class="btn btn-danger">
-                                                                <i class="fas fa-trash me-1"></i> Ya, Hapus
+                                                                <i class="fas fa-paper-plane me-1"></i> Ajukan Hapus
                                                             </button>
                                                         </div>
                                                     </form>
                                                 </div>
                                             </div>
                                         </div>
-                                    </div>
+                                    @endif
                                 </td>
                             </tr>
 
                         @empty
                             <tr>
-                                <td colspan="6" class="text-center py-5 text-muted">
+                                <td colspan="7" class="text-center py-5 text-muted">
                                     <i class="fas fa-inbox fa-2x mb-3 text-secondary opacity-50"></i>
                                     <p class="mb-0">Tidak ada riwayat kunjungan.</p>
                                 </td>
@@ -267,6 +301,77 @@
                 </div>
             </div>
 
+        </div>
+    </div>
+
+    <!-- Approval History Card -->
+    <div class="card shadow-sm border-0 mt-4">
+        <div class="card-header bg-white py-3 border-bottom d-flex justify-content-between align-items-center">
+            <h5 class="mb-0 fw-semibold text-secondary">
+                <i class="fas fa-clipboard-list me-2"></i>Riwayat Pengajuan Perubahan
+            </h5>
+            <span class="badge bg-secondary bg-opacity-10 text-secondary border border-secondary px-3 py-2">
+                {{ $approvalHistories->count() }} Pengajuan
+            </span>
+        </div>
+        <div class="card-body p-0">
+            <div class="table-responsive">
+                <table class="table table-hover table-striped mb-0 align-middle">
+                    <thead class="table-light">
+                        <tr>
+                            <th class="px-4 py-3">No</th>
+                            <th class="py-3">Tanggal Pengajuan</th>
+                            <th class="py-3 text-center">Jenis</th>
+                            <th class="py-3">Diajukan Oleh</th>
+                            <th class="py-3 text-center">Status</th>
+                            <th class="py-3">Catatan Pengajuan</th>
+                            <th class="py-3">Catatan Keputusan</th>
+                            <th class="py-3">Diproses Oleh</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        @forelse($approvalHistories as $idx => $ar)
+                            <tr>
+                                <td class="px-4">{{ $idx + 1 }}</td>
+                                <td class="small">{{ $ar->created_at ? $ar->created_at->format('d-m-Y H:i') : '-' }}</td>
+                                <td class="text-center">
+                                    @if($ar->action === 'delete')
+                                        <span class="badge bg-danger bg-opacity-10 text-danger border border-danger">Hapus</span>
+                                    @else
+                                        <span class="badge bg-warning bg-opacity-10 text-warning border border-warning">Edit</span>
+                                    @endif
+                                </td>
+                                <td class="small">{{ $ar->requester?->name ?? $ar->requester?->username ?? '-' }}</td>
+                                <td class="text-center">
+                                    @if($ar->status === 'pending')
+                                        <span class="badge bg-warning bg-opacity-10 text-warning border border-warning">
+                                            <i class="fas fa-clock me-1"></i>Pending
+                                        </span>
+                                    @elseif($ar->status === 'approved')
+                                        <span class="badge bg-success bg-opacity-10 text-success border border-success">
+                                            <i class="fas fa-check me-1"></i>Disetujui
+                                        </span>
+                                    @else
+                                        <span class="badge bg-danger bg-opacity-10 text-danger border border-danger">
+                                            <i class="fas fa-times me-1"></i>Ditolak
+                                        </span>
+                                    @endif
+                                </td>
+                                <td class="small text-muted">{{ $ar->request_note ?? '-' }}</td>
+                                <td class="small text-muted">{{ $ar->decision_note ?? '-' }}</td>
+                                <td class="small">{{ $ar->reviewer?->name ?? $ar->reviewer?->username ?? '-' }}</td>
+                            </tr>
+                        @empty
+                            <tr>
+                                <td colspan="8" class="text-center py-5 text-muted">
+                                    <i class="fas fa-inbox fa-2x mb-3 text-secondary opacity-50"></i>
+                                    <p class="mb-0">Belum ada riwayat pengajuan perubahan.</p>
+                                </td>
+                            </tr>
+                        @endforelse
+                    </tbody>
+                </table>
+            </div>
         </div>
     </div>
 @endsection

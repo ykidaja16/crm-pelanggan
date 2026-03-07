@@ -6,6 +6,7 @@ use App\Http\Controllers\DashboardController;
 use App\Http\Controllers\Auth\LoginController;
 use App\Http\Controllers\ForgotPasswordController;
 use App\Http\Controllers\ActivityLogController;
+use App\Http\Controllers\ApprovalRequestController;
 use App\Models\User;
 use App\Models\Role;
 
@@ -93,6 +94,7 @@ Route::middleware(['auth'])->group(function () {
         );
 
         Route::post('/import', [PelangganController::class , 'import'])->name('pelanggan.import')->middleware('throttle:import');
+        Route::get('/import/progress', [PelangganController::class, 'importProgress'])->name('pelanggan.import.progress');
         Route::get('/export', [PelangganController::class , 'export'])->name('pelanggan.export');
         Route::get('/download-template', [PelangganController::class , 'downloadTemplate'])->name('pelanggan.download-template');
 
@@ -118,10 +120,16 @@ Route::middleware(['auth'])->group(function () {
             // API untuk mencari pelanggan berdasarkan PID
             Route::get('/api/pelanggan/search', [PelangganController::class, 'searchByPid'])->name('api.pelanggan.search');
             
-            // Kunjungan Routes - Edit & Delete
+            // Kunjungan Routes - Edit hanya form pengajuan approval (tanpa direct update/delete)
             Route::get('/kunjungan/{kunjungan}/edit', [PelangganController::class, 'editKunjungan'])->name('kunjungan.edit');
-            Route::put('/kunjungan/{kunjungan}', [PelangganController::class, 'updateKunjungan'])->name('kunjungan.update');
-            Route::delete('/kunjungan/{kunjungan}', [PelangganController::class, 'destroyKunjungan'])->name('kunjungan.destroy');
+
+            // Pengajuan approval
+            Route::get('/pelanggan-khusus', [PelangganController::class, 'khusus'])->name('pelanggan.khusus.index');
+            Route::get('/download-template-khusus', [ApprovalRequestController::class, 'downloadTemplateKhusus'])->name('pelanggan.download-template-khusus');
+            Route::post('/approval/pelanggan-khusus', [ApprovalRequestController::class, 'storeSpecialCustomerRequest'])->name('approval.special.store');
+            Route::post('/approval/pelanggan-khusus/import', [ApprovalRequestController::class, 'storeSpecialCustomerImportRequest'])->name('approval.special.import.store');
+            Route::post('/approval/kunjungan/{kunjungan}/edit', [ApprovalRequestController::class, 'storeKunjunganEditRequest'])->name('approval.kunjungan.edit.store');
+            Route::post('/approval/kunjungan/{kunjungan}/delete', [ApprovalRequestController::class, 'storeKunjunganDeleteRequest'])->name('approval.kunjungan.delete.store');
         }
         );
 
@@ -138,5 +146,10 @@ Route::middleware(['auth'])->group(function () {
             // Activity Log routes
             Route::get('/activity-log', [ActivityLogController::class, 'index'])->name('activity-log.index');
             Route::get('/activity-log/export', [ActivityLogController::class, 'export'])->name('activity-log.export');
+
+            // Approval requests
+            Route::get('/approval-requests', [ApprovalRequestController::class, 'index'])->name('approval.index');
+            Route::post('/approval-requests/{id}/approve', [ApprovalRequestController::class, 'approve'])->name('approval.approve');
+            Route::post('/approval-requests/{id}/reject', [ApprovalRequestController::class, 'reject'])->name('approval.reject');
         });
     });

@@ -20,6 +20,8 @@ class Pelanggan extends Model
         'alamat',
         'kota',
         'class',
+        'is_pelanggan_khusus',
+        'kategori_khusus',
         'total_kedatangan',
         'total_biaya'
     ];
@@ -27,6 +29,7 @@ class Pelanggan extends Model
     protected $casts = [
         'dob' => 'date',
         'total_biaya' => 'double',
+        'is_pelanggan_khusus' => 'boolean',
     ];
 
     public function kunjungans()
@@ -80,10 +83,19 @@ class Pelanggan extends Model
      * Loyal: Kedatangan minimal 5x dengan total biaya berapapun
      * Prioritas: 1x Kedatangan minimal 4 Juta OR total biaya sudah lebih dari 4 juta
      */
-    public static function calculateClass(int $totalKedatangan, float $totalBiaya): string
-    {
-        // Prioritas: 1x Kedatangan minimal 4 Juta OR total biaya > 4 juta
-        if ($totalKedatangan >= 1 && $totalBiaya >= 4000000) {
+    public static function calculateClass(
+        int $totalKedatangan,
+        float $totalBiaya,
+        bool $hasHighValueVisit = false,
+        bool $isPelangganKhusus = false
+    ): string {
+        // Pelanggan khusus selalu Prioritas
+        if ($isPelangganKhusus) {
+            return 'Prioritas';
+        }
+
+        // Prioritas: minimal ada 1 kali kunjungan dengan biaya >= 4 juta
+        if ($hasHighValueVisit) {
             return 'Prioritas';
         }
 
@@ -120,7 +132,18 @@ class Pelanggan extends Model
 
         $this->total_kedatangan = (int) $stats->total_kedatangan;
         $this->total_biaya = (float) $stats->total_biaya;
-        $newClass = self::calculateClass($this->total_kedatangan, $this->total_biaya);
+
+        $hasHighValueVisit = DB::table('kunjungans')
+            ->where('pelanggan_id', $this->id)
+            ->where('biaya', '>=', 4000000)
+            ->exists();
+
+        $newClass = self::calculateClass(
+            $this->total_kedatangan,
+            $this->total_biaya,
+            $hasHighValueVisit,
+            (bool) $this->is_pelanggan_khusus
+        );
 
         // Catat perubahan kelas jika berbeda
         if ($oldClass !== $newClass) {
@@ -170,8 +193,19 @@ class Pelanggan extends Model
             $this->total_biaya = 0;
         }
 
-        // Hitung class baru berdasarkan total_kedatangan (tetap) dan total_biaya (baru)
-        $newClass = self::calculateClass($this->total_kedatangan, $this->total_biaya);
+        // Hitung class baru berdasarkan total_kedatangan (tetap), total_biaya (baru),
+        // dan rule kunjungan high-value
+        $hasHighValueVisit = DB::table('kunjungans')
+            ->where('pelanggan_id', $this->id)
+            ->where('biaya', '>=', 4000000)
+            ->exists();
+
+        $newClass = self::calculateClass(
+            $this->total_kedatangan,
+            $this->total_biaya,
+            $hasHighValueVisit,
+            (bool) $this->is_pelanggan_khusus
+        );
 
         // Catat perubahan kelas jika berbeda
         if ($oldClass !== $newClass) {

@@ -120,12 +120,24 @@
                     <i class="fas fa-users"></i> Data Pelanggan
                 </a>
             </li>
+            @if(Auth::user()->role?->name === 'Admin')
+            <li class="{{ request()->routeIs('pelanggan.khusus*') ? 'active' : '' }}">
+                <a href="{{ route('pelanggan.khusus.index') }}">
+                    <i class="fas fa-star"></i> Pelanggan Khusus
+                </a>
+            </li>
+            @endif
             <li class="{{ request()->routeIs('laporan.*') ? 'active' : '' }}">
                 <a href="{{ route('laporan.index') }}">
                     <i class="fas fa-file-alt"></i> Laporan
                 </a>
             </li>
             @if(Auth::user()->role?->name === 'Super Admin')
+            <li class="{{ request()->routeIs('approval.*') ? 'active' : '' }}">
+                <a href="{{ route('approval.index') }}">
+                    <i class="fas fa-check-double"></i> Approval
+                </a>
+            </li>
             <li class="{{ request()->routeIs('users*') ? 'active' : '' }}">
                 <a href="{{ route('users.index') }}">
                     <i class="fas fa-user-cog"></i> Manajemen User

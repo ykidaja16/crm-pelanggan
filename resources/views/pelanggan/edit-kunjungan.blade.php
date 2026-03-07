@@ -36,9 +36,8 @@
             </h5>
         </div>
         <div class="card-body p-4">
-            <form action="{{ route('kunjungan.update', $kunjungan->id) }}" method="POST">
+            <form action="{{ route('approval.kunjungan.edit.store', $kunjungan->id) }}" method="POST">
                 @csrf
-                @method('PUT')
 
                 <div class="row g-3">
                     <!-- Tanggal Kunjungan -->
@@ -79,6 +78,30 @@
                         </div>
                     </div>
 
+                    <!-- Kelompok Pelanggan -->
+                    <div class="col-md-6">
+                        <label for="kelompok_pelanggan" class="form-label fw-semibold">
+                            <i class="fas fa-users me-1 text-info"></i> Kelompok Pelanggan <span class="text-danger">*</span>
+                        </label>
+                        <select class="form-select form-select-lg @error('kelompok_pelanggan') is-invalid @enderror"
+                                id="kelompok_pelanggan"
+                                name="kelompok_pelanggan"
+                                required>
+                            <option value="mandiri" {{ old('kelompok_pelanggan', $kunjungan->kelompokPelanggan?->kode ?? 'mandiri') === 'mandiri' ? 'selected' : '' }}>
+                                Mandiri
+                            </option>
+                            <option value="klinisi" {{ old('kelompok_pelanggan', $kunjungan->kelompokPelanggan?->kode ?? 'mandiri') === 'klinisi' ? 'selected' : '' }}>
+                                Klinisi
+                            </option>
+                        </select>
+                        @error('kelompok_pelanggan')
+                            <div class="invalid-feedback">{{ $message }}</div>
+                        @enderror
+                        <div class="form-text text-muted">
+                            Pilih jenis kelompok pelanggan untuk kunjungan ini.
+                        </div>
+                    </div>
+
                 </div>
 
                 <!-- Alasan Perubahan -->
@@ -88,17 +111,17 @@
                             <i class="fas fa-comment-dots me-1 text-danger"></i> Alasan Perubahan <span class="text-danger">*</span>
                         </label>
                         <textarea
-                            class="form-control @error('alasan_perubahan') is-invalid @enderror"
-                            id="alasan_perubahan"
-                            name="alasan_perubahan"
+                            class="form-control @error('request_note') is-invalid @enderror"
+                            id="request_note"
+                            name="request_note"
                             rows="3"
                             placeholder="Wajib diisi. Contoh: Koreksi salah input biaya/tanggal kunjungan."
-                            required>{{ old('alasan_perubahan') }}</textarea>
-                        @error('alasan_perubahan')
+                            required>{{ old('request_note') }}</textarea>
+                        @error('request_note')
                             <div class="invalid-feedback">{{ $message }}</div>
                         @enderror
                         <div class="form-text text-muted">
-                            Alasan ini akan disimpan ke log aktivitas.
+                            Alasan ini akan dikirim sebagai pengajuan approval ke Superadmin dan dicatat ke log aktivitas.
                         </div>
                     </div>
                 </div>
@@ -108,14 +131,14 @@
                 <div class="d-flex justify-content-between align-items-center">
                     <div class="text-muted small">
                         <i class="fas fa-info-circle me-1"></i>
-                        Setelah mengubah data kunjungan, sistem akan otomatis menghitung ulang total kunjungan dan klasifikasi pelanggan.
+                        Perubahan tidak langsung diterapkan. Data akan diproses setelah disetujui Superadmin.
                     </div>
                     <div class="d-flex gap-2">
                         <a href="{{ route('pelanggan.show', $kunjungan->pelanggan_id) }}" class="btn btn-outline-secondary btn-lg">
                             <i class="fas fa-times me-2"></i> Batal
                         </a>
                         <button type="submit" class="btn btn-warning btn-lg">
-                            <i class="fas fa-save me-2"></i> Simpan Perubahan
+                            <i class="fas fa-paper-plane me-2"></i> Ajukan Perubahan
                         </button>
                     </div>
                 </div>

@@ -4,6 +4,7 @@ namespace App\Models;
 
 use App\Models\Pelanggan;
 use App\Models\Cabang;
+use App\Models\KelompokPelanggan;
 use Illuminate\Database\Eloquent\Model;
 
 class Kunjungan extends Model
@@ -14,7 +15,8 @@ class Kunjungan extends Model
         'pelanggan_id',
         'cabang_id',
         'tanggal_kunjungan',
-        'biaya'
+        'biaya',
+        'kelompok_pelanggan_id',
     ];
 
     protected $casts = [
@@ -31,5 +33,10 @@ class Kunjungan extends Model
     public function cabang()
     {
         return $this->belongsTo(Cabang::class);
+    }
+
+    public function kelompokPelanggan()
+    {
+        return $this->belongsTo(KelompokPelanggan::class, 'kelompok_pelanggan_id');
     }
 }

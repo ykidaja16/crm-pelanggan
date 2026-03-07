@@ -140,6 +140,7 @@
                                     placeholder="Masukkan kota">
                             </div>
 
+
                             <div class="col-12">
                                 <label class="form-label fw-medium">Alamat</label>
                                 <textarea name="inputs[0][alamat]" id="alamat_new"
@@ -199,6 +200,20 @@
                         </h6>
                         
                         <div class="row g-3">
+                            <div class="col-md-6">
+                                <label class="form-label fw-medium">Kelompok Pelanggan <span class="text-danger">*</span></label>
+                                <select name="inputs[0][kelompok_pelanggan]" id="kelompok_pelanggan_kunjungan"
+                                    class="form-select form-select-lg {{ isset($errors[0]) && collect($errors[0])->contains(fn($e) => str_contains(strtolower($e), 'kelompok')) ? 'is-invalid' : '' }}" required>
+                                    <option value="mandiri" {{ old('inputs.0.kelompok_pelanggan', $oldInputs[0]['kelompok_pelanggan'] ?? 'mandiri') == 'mandiri' ? 'selected' : '' }}>Mandiri</option>
+                                    <option value="klinisi" {{ old('inputs.0.kelompok_pelanggan', $oldInputs[0]['kelompok_pelanggan'] ?? '') == 'klinisi' ? 'selected' : '' }}>Klinisi</option>
+                                </select>
+                                @if(isset($errors[0]) && collect($errors[0])->contains(fn($e) => str_contains(strtolower($e), 'kelompok')))
+                                    <div class="invalid-feedback d-block">
+                                        {{ collect($errors[0])->first(fn($e) => str_contains(strtolower($e), 'kelompok')) }}
+                                    </div>
+                                @endif
+                            </div>
+
                             <div class="col-md-6">
                                 <label class="form-label fw-medium">Tanggal Kunjungan <span class="text-danger">*</span></label>
                                 <input type="date" name="inputs[0][tanggal_kunjungan]" id="tanggal_kunjungan"
