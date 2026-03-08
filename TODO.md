@@ -1,19 +1,23 @@
-# TODO Refactor Kelompok Pelanggan FK + Final Testing
+# TODO Revisi CRM Pelanggan (Batch Lanjutan)
 
-- [ ] Rapikan `PelangganController`:
-  - [ ] Hapus semua write `pelanggans.kelompok_pelanggan`
-  - [ ] Ubah create/update/edit kunjungan agar pakai `kelompok_pelanggan_id`
-  - [ ] Rapikan import CSV agar map kode -> ID master
-- [ ] Rapikan `KunjunganImport`:
-  - [ ] Map `kelompok_pelanggan` (mandiri/klinisi) -> `kelompok_pelanggan_id`
-  - [ ] Pastikan tidak ada assignment ke `pelanggans.kelompok_pelanggan`
-- [ ] Validasi `ApprovalRequestController`:
-  - [ ] Pastikan tidak ada write legacy kolom kelompok di pelanggan/kunjungan
-  - [ ] Pastikan syntax valid
-- [ ] Cek view/form terkait agar tetap kirim value kelompok pelanggan
-- [ ] Regression scan semua referensi `kelompok_pelanggan` (legacy)
-- [ ] Testing menyeluruh:
-  - [ ] import excel/csv
-  - [ ] tambah pelanggan + kunjungan
-  - [ ] pelanggan khusus + approval
-  - [ ] edit/hapus kunjungan via approval
+- [ ] Update `app/Http/Controllers/PelangganController.php`
+  - [ ] Tambah filter `kelompok_pelanggan` dan `tipe_pelanggan` di index
+  - [ ] Integrasi filter ke response view
+- [ ] Update `resources/views/pelanggan/index.blade.php`
+  - [ ] Sembunyikan card import untuk role User
+  - [ ] Tambah filter kelompok/tipe pelanggan
+  - [ ] Ubah hapus individual admin menjadi pengajuan (dengan catatan)
+  - [ ] Ubah hapus terpilih admin menjadi pengajuan (dengan catatan)
+  - [ ] Klik X notifikasi import => reload halaman
+  - [ ] Reset file input setelah import selesai (success/fail)
+- [ ] Update `resources/views/pelanggan/show.blade.php`
+  - [ ] Tampilkan pagination untuk riwayat pengajuan perubahan
+  - [ ] Batasi aksi edit/hapus kunjungan untuk role User
+- [ ] Update `resources/views/laporan/index.blade.php`
+  - [ ] Tambah UI filter kelompok pelanggan
+  - [ ] Tambah UI filter tipe pelanggan
+- [ ] Update `app/Imports/KunjunganImport.php`
+  - [ ] Progress import Excel realtime berdasarkan baris terproses/total
+  - [ ] Update cache progress per user saat proses berjalan
+- [ ] Verifikasi cepat consistency pada approval page (dropdown action + single note)
+- [ ] Uji syntax PHP blade/controller terkait perubahan

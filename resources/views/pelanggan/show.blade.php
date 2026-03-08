@@ -3,6 +3,7 @@
 @section('title', 'Detail Pelanggan - Medical Lab CRM')
 
 @section('content')
+@php $role = Auth::user()->role?->name; @endphp
     <div class="d-flex justify-content-between align-items-center mb-4">
         <h3 class="text-primary mb-0 fw-semibold">Detail Pelanggan</h3>
         <a href="{{ route('pelanggan.index') }}" class="btn btn-outline-secondary btn-lg">
@@ -212,7 +213,10 @@
                                     @endif
                                 </td>
                                 <td class="text-center">
-                                    @if($hasPending)
+                                @if($role === 'User')
+                                        {{-- Point 5: User tidak boleh edit/delete kunjungan --}}
+                                        <span class="text-muted small"><i class="fas fa-eye me-1"></i>View Only</span>
+                                    @elseif($hasPending)
                                         <span class="text-muted small">
                                             <i class="fas fa-lock me-1"></i>Terkunci
                                         </span>
@@ -372,6 +376,18 @@
                     </tbody>
                 </table>
             </div>
+            {{-- Point 2: Pagination Riwayat Pengajuan Perubahan --}}
+            @if($approvalHistories->hasPages())
+            <div class="d-flex justify-content-between align-items-center p-3 border-top bg-light small">
+                <div class="text-muted">
+                    Menampilkan <strong>{{ $approvalHistories->firstItem() ?? 0 }} - {{ $approvalHistories->lastItem() ?? 0 }}</strong>
+                    dari <strong>{{ $approvalHistories->total() }}</strong> pengajuan
+                </div>
+                <div>
+                    {{ $approvalHistories->links('pagination::bootstrap-5') }}
+                </div>
+            </div>
+            @endif
         </div>
     </div>
 @endsection

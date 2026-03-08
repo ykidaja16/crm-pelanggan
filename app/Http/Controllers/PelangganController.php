@@ -137,6 +137,17 @@ class PelangganController extends Controller
                     continue;
                 }
 
+                // Point 8: Validasi prefix PID harus sesuai dengan cabang yang dipilih
+                $selectedCabang = $cabangs->get($input['cabang_id']);
+                if ($selectedCabang) {
+                    $pidPrefix = strtoupper(substr($pid, 0, 2));
+                    $cabangKode = strtoupper($selectedCabang->kode);
+                    if ($pidPrefix !== $cabangKode) {
+                        $errors[$index][] = "PID \"{$pid}\" tidak sesuai dengan cabang \"{$selectedCabang->nama}\". Prefix PID harus \"{$cabangKode}\" untuk cabang ini.";
+                        continue;
+                    }
+                }
+
                 DB::transaction(function () use ($input, &$createdCount) {
                     $visitDate = \Carbon\Carbon::parse($input['tanggal_kunjungan']);
                     
@@ -262,35 +273,37 @@ class PelangganController extends Controller
         $omsetRange     = $request->omset_range;
         $kedatanganRange = $request->kedatangan_range;
         $kelas          = $request->kelas;
+        $kelompokPelanggan = $request->kelompok_pelanggan; // Point 4: filter mandiri/klinisi
+        $tipePelanggan  = $request->tipe_pelanggan;        // Point 4: filter biasa/khusus
 
         $cabangs = Cabang::all();
 
         // Set default periode ke "semua" jika tidak ada filter
         // Tapi tampilkan data kosong saat pertama kali masuk (belum klik filter)
-        if (!$type && !$search) {
+        if (!$type && !$search && !$kelompokPelanggan && !$tipePelanggan && !$cabangId && !$kelas && !$omsetRange && !$kedatanganRange) {
             $type  = 'semua';
             $bulan = null;
             $tahun = null;
-            
+
             // Return view dengan data kosong (belum klik filter)
             return view('pelanggan.index', [
-                'pelanggan'        => collect(),
-                'bulan'            => null,
-                'tahun'            => null,
-                'type'             => 'semua',
-                'search'           => null,
-                'cabang_id'        => null,
-                'omset_range'      => null,
-                'kedatangan_range' => null,
-                'kelas'            => null,
-                'cabangs'          => $cabangs,
-                'sort'             => $sort,
-                'direction'        => $direction,
-                'searchMode'       => false,
+                'pelanggan'          => collect(),
+                'bulan'              => null,
+                'tahun'              => null,
+                'type'               => 'semua',
+                'search'             => null,
+                'cabang_id'          => null,
+                'omset_range'        => null,
+                'kedatangan_range'   => null,
+                'kelas'              => null,
+                'kelompok_pelanggan' => null,
+                'tipe_pelanggan'     => null,
+                'cabangs'            => $cabangs,
+                'sort'               => $sort,
+                'direction'          => $direction,
+                'searchMode'         => false,
             ]);
         } elseif ($type === 'perbulan' && !$bulan) {
-
-
             $bulan = date('m');
         }
         
@@ -375,6 +388,23 @@ class PelangganController extends Controller
             }
         }
 
+        // Point 4: Filter kelompok pelanggan (mandiri/klinisi)
+        if ($kelompokPelanggan) {
+            $query->whereHas('kunjungans.kelompokPelanggan', function ($q) use ($kelompokPelanggan) {
+                $q->where('kode', $kelompokPelanggan);
+            });
+        }
+
+        // Point 4: Filter tipe pelanggan (biasa/khusus)
+        if ($tipePelanggan === 'khusus') {
+            $query->where('is_pelanggan_khusus', true);
+        } elseif ($tipePelanggan === 'biasa') {
+            $query->where(function ($q) {
+                $q->where('is_pelanggan_khusus', false)
+                  ->orWhereNull('is_pelanggan_khusus');
+            });
+        }
+
         // Sorting di DB level — tidak perlu sortBy() di collection
         if ($sort === 'tgl_kunjungan') {
             // MySQL: NULL values diletakkan di akhir (IS NULL = 0 untuk non-null, 1 untuk null)
@@ -414,6 +444,8 @@ class PelangganController extends Controller
             'omset_range'      => $omsetRange,
             'kedatangan_range' => $kedatanganRange,
             'kelas'            => $kelas,
+            'kelompok_pelanggan' => $kelompokPelanggan,
+            'tipe_pelanggan'   => $tipePelanggan,
             'cabangs'          => $cabangs,
             'sort'             => $sort,
             'direction'        => $direction,
@@ -739,38 +771,139 @@ class PelangganController extends Controller
         return redirect()->route('dashboard')->with('success', 'Pelanggan berhasil diperbarui');
     }
 
-    public function destroy($id)
+    /**
+     * Point 10: Hapus pelanggan
+     * - Super Admin: langsung hapus
+     * - Admin: buat approval request
+     */
+    public function destroy(Request $request, $id)
     {
         $pelanggan = Pelanggan::findOrFail($id);
-        $pelanggan->delete();
+        $role = Auth::user()->role?->name;
 
-        return redirect()->route('dashboard')->with('success', 'Pelanggan berhasil dihapus');
+        if ($role === 'Super Admin') {
+            // Super Admin: langsung hapus
+            $pid = $pelanggan->pid;
+            $nama = $pelanggan->nama;
+            $pelanggan->delete();
+
+            ActivityLog::record(
+                'delete',
+                'Pelanggan',
+                "Menghapus pelanggan {$pid} ({$nama})",
+                Auth::id(),
+                Auth::user()->username ?? 'unknown',
+                $role,
+                $request->ip(),
+                $request->userAgent()
+            );
+
+            return redirect()->route('pelanggan.index')->with('success', "Pelanggan {$pid} berhasil dihapus.");
+        }
+
+        // Admin: buat approval request
+        $request->validate([
+            'catatan_hapus' => 'required|string|max:500',
+        ], [
+            'catatan_hapus.required' => 'Catatan/alasan hapus wajib diisi.',
+        ]);
+
+        \App\Models\ApprovalRequest::create([
+            'type'        => 'pelanggan',
+            'action'      => 'delete',
+            'target_type' => Pelanggan::class,
+            'target_id'   => $pelanggan->id,
+            'payload'     => ['pid' => $pelanggan->pid, 'nama' => $pelanggan->nama],
+            'request_note' => $request->catatan_hapus,
+            'status'      => 'pending',
+            'requested_by' => Auth::id(),
+        ]);
+
+        ActivityLog::record(
+            'delete',
+            'ApprovalRequest',
+            "Mengajukan hapus pelanggan {$pelanggan->pid} ({$pelanggan->nama}) untuk approval Superadmin.",
+            Auth::id(),
+            Auth::user()->username ?? 'unknown',
+            $role,
+            $request->ip(),
+            $request->userAgent()
+        );
+
+        return redirect()->back()->with('success', "Pengajuan hapus pelanggan {$pelanggan->pid} berhasil dikirim untuk approval Superadmin.");
     }
 
     /**
-     * Hapus multiple pelanggan sekaligus (bulk delete)
-     * Menerima array ID dari checkbox di halaman index
+     * Point 10: Hapus multiple pelanggan sekaligus (bulk delete)
+     * - Super Admin: langsung hapus
+     * - Admin: buat approval request
      */
     public function bulkDelete(Request $request)
     {
-
         $ids = $request->input('ids', []);
+        $role = Auth::user()->role?->name;
 
         if (empty($ids)) {
             return redirect()->back()->with('error', 'Tidak ada pelanggan yang dipilih.');
         }
 
-        // Pastikan semua ID valid (integer)
         $ids = array_filter(array_map('intval', $ids));
 
         if (empty($ids)) {
             return redirect()->back()->with('error', 'ID pelanggan tidak valid.');
         }
 
-        $count = Pelanggan::whereIn('id', $ids)->count();
-        Pelanggan::whereIn('id', $ids)->delete();
+        if ($role === 'Super Admin') {
+            // Super Admin: langsung hapus
+            $count = Pelanggan::whereIn('id', $ids)->count();
+            Pelanggan::whereIn('id', $ids)->delete();
 
-        return redirect()->back()->with('success', "{$count} pelanggan berhasil dihapus.");
+            ActivityLog::record(
+                'delete',
+                'Pelanggan',
+                "Bulk delete {$count} pelanggan oleh Super Admin.",
+                Auth::id(),
+                Auth::user()->username ?? 'unknown',
+                $role,
+                $request->ip(),
+                $request->userAgent()
+            );
+
+            return redirect()->back()->with('success', "{$count} pelanggan berhasil dihapus.");
+        }
+
+        // Admin: buat approval request
+        $request->validate([
+            'catatan_hapus' => 'required|string|max:500',
+        ], [
+            'catatan_hapus.required' => 'Catatan/alasan hapus wajib diisi.',
+        ]);
+
+        $count = count($ids);
+
+        \App\Models\ApprovalRequest::create([
+            'type'        => 'pelanggan',
+            'action'      => 'bulk_delete',
+            'target_type' => Pelanggan::class,
+            'target_id'   => null,
+            'payload'     => ['ids' => array_values($ids), 'count' => $count],
+            'request_note' => $request->catatan_hapus,
+            'status'      => 'pending',
+            'requested_by' => Auth::id(),
+        ]);
+
+        ActivityLog::record(
+            'delete',
+            'ApprovalRequest',
+            "Mengajukan bulk delete {$count} pelanggan untuk approval Superadmin.",
+            Auth::id(),
+            Auth::user()->username ?? 'unknown',
+            $role,
+            $request->ip(),
+            $request->userAgent()
+        );
+
+        return redirect()->back()->with('success', "Pengajuan hapus {$count} pelanggan berhasil dikirim untuk approval Superadmin.");
     }
 
     /**
@@ -806,14 +939,12 @@ class PelangganController extends Controller
         $totalTransaksi = $pelanggan->kunjungans->sum('biaya');
 
         // Pagination untuk riwayat kunjungan (10 per halaman)
-        // Eager-load kelompokPelanggan agar tampilan di view menggunakan relasi, bukan kolom lama
         $kunjungans = $pelanggan->kunjungans()
             ->with('kelompokPelanggan')
             ->orderBy('tanggal_kunjungan', 'asc')
             ->paginate(10, ['*'], 'kunjungan_page');
 
-        // Load pending approvals untuk kunjungan di halaman ini (untuk lock tombol & badge status)
-        // groupBy agar bisa handle jika ada >1 pending per kunjungan
+        // Load pending approvals untuk kunjungan di halaman ini
         $kunjunganIds = $kunjungans->pluck('id')->toArray();
         $pendingApprovals = \App\Models\ApprovalRequest::whereIn('target_id', $kunjunganIds)
             ->where('target_type', \App\Models\Kunjungan::class)
@@ -821,16 +952,15 @@ class PelangganController extends Controller
             ->get()
             ->groupBy('target_id');
 
-        // Load semua approval histories untuk kunjungan pelanggan ini (section Riwayat Pengajuan)
+        // Point 2: Pagination untuk riwayat pengajuan perubahan (10 per halaman)
         $allKunjunganIds = $pelanggan->kunjungans->pluck('id')->toArray();
         $approvalHistories = \App\Models\ApprovalRequest::whereIn('target_id', $allKunjunganIds)
             ->where('target_type', \App\Models\Kunjungan::class)
             ->with(['requester', 'reviewer'])
             ->orderBy('created_at', 'desc')
-            ->get();
+            ->paginate(10, ['*'], 'approval_page');
 
         // Pagination untuk riwayat perubahan kelas (10 per halaman)
-        // Sort by created_at = waktu user melakukan action (bukan tanggal kunjungan)
         $classHistories = $pelanggan->classHistories()
             ->orderBy('created_at', 'asc')
             ->paginate(10, ['*'], 'class_page');
@@ -1303,9 +1433,14 @@ class PelangganController extends Controller
     {
         $userId = Auth::id() ?? 0;
         $progress = Cache::get("import_progress_{$userId}", 0);
+        $total    = Cache::get("import_total_{$userId}", 0);
+        $current  = Cache::get("import_current_{$userId}", 0);
 
         return response()->json([
-            'progress' => (int) $progress
+            'percent' => (int) $progress,
+            'current' => (int) $current,
+            'total'   => (int) $total,
+            'status'  => $progress >= 100 ? 'done' : 'processing',
         ]);
     }
 }

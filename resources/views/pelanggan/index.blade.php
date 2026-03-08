@@ -3,10 +3,12 @@
 @section('title', 'Dashboard - Medical Lab CRM')
 
 @section('content')
+@php $role = Auth::user()->role?->name; @endphp
+
     <div class="d-flex justify-content-between align-items-center mb-4">
         <h4 class="text-primary mb-0 fw-semibold">Dashboard Pelanggan</h4>
 
-        @if(Auth::user()->role?->name === 'Admin')
+        @if(in_array($role, ['Admin', 'Super Admin']))
             <a href="{{ route('pelanggan.create') }}" class="btn btn-primary btn-lg">
                 <i class="fas fa-plus me-2"></i> Tambah Pelanggan
             </a>
@@ -16,7 +18,7 @@
     @if (session('success'))
         <div class="alert alert-success alert-dismissible fade show shadow-sm" role="alert">
             <i class="fas fa-check-circle me-2"></i>{{ session('success') }}
-            <button type="button" class="btn-close" data-bs-dismiss="alert" aria-label="Close"></button>
+            <button type="button" class="btn-close" data-bs-dismiss="alert" aria-label="Close" onclick="window.location.reload()"></button>
         </div>
     @endif
 
@@ -30,12 +32,14 @@
                     @endforeach
                 </ul>
             @endif
-            <button type="button" class="btn-close" data-bs-dismiss="alert" aria-label="Close"></button>
+            <button type="button" class="btn-close" data-bs-dismiss="alert" aria-label="Close" onclick="window.location.reload()"></button>
         </div>
     @endif
 
     <div class="row g-4">
-        <!-- Import Card -->
+
+        {{-- Import Card: Point 5 - hanya Admin & Super Admin --}}
+        @if(in_array($role, ['Admin', 'Super Admin']))
         <div class="col-12">
             <div class="card shadow-sm border-0">
                 <div class="card-header bg-white py-3 border-bottom">
@@ -44,17 +48,15 @@
                     </h6>
                 </div>
                 <div class="card-body">
-                    <form method="POST" action="{{ route('pelanggan.import') }}" enctype="multipart/form-data" class="row align-items-end g-3" id="importForm">
-                        @csrf
+                    <div class="row align-items-end g-3">
                         <div class="col-md-4">
                             <label class="form-label fw-medium small">Format File: .xlsx, .xls, .csv</label>
-                            <input type="file" name="file" class="form-control" id="fileInput" required accept=".xlsx,.xls,.csv">                     
-                            <div class="invalid-feedback">File harus berupa Excel atau CSV</div> 
+                            <input type="file" class="form-control" id="fileInput" accept=".xlsx,.xls,.csv">
+                            <div class="invalid-feedback">File harus berupa Excel atau CSV</div>
                         </div>
                         <div class="col-auto">
-                             <button type="submit" class="btn btn-success" id="importBtn">
-                                <span id="btnText"><i class="fas fa-upload me-2"></i>Import</span>
-                                <span id="btnLoading" class="spinner-border spinner-border-sm" style="display: none;"></span>
+                            <button type="button" class="btn btn-success" id="importBtn" onclick="startImport()">
+                                <i class="fas fa-upload me-2"></i>Import
                             </button>
                         </div>
                         <div class="col-auto">
@@ -70,22 +72,27 @@
                                 </small>
                             </div>
                         </div>
+                    </div>
 
-                        <div class="col-12">
-                            <div id="importProgressContainer" class="mt-2 d-none">
-                                <div class="d-flex justify-content-between align-items-center mb-1">
-                                    <small class="text-muted fw-semibold">Progress Import</small>
-                                    <small class="text-muted"><span id="importProgressText">0%</span></small>
-                                </div>
-                                <div class="progress" style="height: 10px;">
-                                    <div id="importProgressBar" class="progress-bar progress-bar-striped progress-bar-animated bg-success" role="progressbar" style="width: 0%;" aria-valuemin="0" aria-valuemax="100" aria-valuenow="0"></div>
-                                </div>
-                            </div>
+                    {{-- Progress Bar real-time (Point 1) --}}
+                    <div id="importProgressContainer" class="mt-3 d-none">
+                        <div class="d-flex justify-content-between align-items-center mb-1">
+                            <small class="text-muted fw-semibold" id="importProgressLabel">Progress Import</small>
+                            <small class="text-muted"><span id="importProgressText">0%</span></small>
                         </div>
-                    </form>
+                        <div class="progress" style="height: 10px;">
+                            <div id="importProgressBar"
+                                 class="progress-bar progress-bar-striped progress-bar-animated bg-success"
+                                 role="progressbar"
+                                 style="width: 0%;"
+                                 aria-valuemin="0" aria-valuemax="100" aria-valuenow="0"></div>
+                        </div>
+                        <small class="text-muted mt-1 d-block" id="importProgressDetail">Sedang memvalidasi dan mengimpor data...</small>
+                    </div>
                 </div>
             </div>
         </div>
+        @endif
 
         <!-- Search Card -->
         <div class="col-12">
@@ -99,14 +106,14 @@
                     <form method="GET" action="{{ route('pelanggan.index') }}" class="row g-3 align-items-end">
                         <div class="col-md-4">
                             <label class="form-label fw-medium small">Cari (PID/Nama)</label>
-                            <input type="text" name="search" class="form-control" value="{{ $search }}" placeholder="Masukkan PID atau Nama...">
+                            <input type="text" name="search" class="form-control" value="{{ $search ?? '' }}" placeholder="Masukkan PID atau Nama...">
                         </div>
                         <div class="col-md-2">
                             <button type="submit" class="btn btn-primary w-100">
                                 <i class="fas fa-search me-2"></i>Cari
                             </button>
                         </div>
-                        @if($search)
+                        @if($search ?? '')
                         <div class="col-md-2">
                             <a href="{{ route('pelanggan.index') }}" class="btn btn-outline-secondary w-100">
                                 <i class="fas fa-times me-2"></i>Reset
@@ -134,7 +141,7 @@
                             <select name="cabang_id" class="form-select">
                                 <option value="">Semua Cabang</option>
                                 @foreach($cabangs as $cabang)
-                                    <option value="{{ $cabang->id }}" {{ $cabang_id == $cabang->id ? 'selected' : '' }}>
+                                    <option value="{{ $cabang->id }}" {{ ($cabang_id ?? '') == $cabang->id ? 'selected' : '' }}>
                                         {{ $cabang->nama }}
                                     </option>
                                 @endforeach
@@ -145,9 +152,9 @@
                             <label class="form-label fw-medium small">Kelas</label>
                             <select name="kelas" class="form-select">
                                 <option value="">Semua Kelas</option>
-                                <option value="Prioritas" {{ $kelas == 'Prioritas' ? 'selected' : '' }}>Prioritas</option>
-                                <option value="Loyal" {{ $kelas == 'Loyal' ? 'selected' : '' }}>Loyal</option>
-                                <option value="Potensial" {{ $kelas == 'Potensial' ? 'selected' : '' }}>Potensial</option>
+                                <option value="Prioritas" {{ ($kelas ?? '') == 'Prioritas' ? 'selected' : '' }}>Prioritas</option>
+                                <option value="Loyal" {{ ($kelas ?? '') == 'Loyal' ? 'selected' : '' }}>Loyal</option>
+                                <option value="Potensial" {{ ($kelas ?? '') == 'Potensial' ? 'selected' : '' }}>Potensial</option>
                             </select>
                         </div>
 
@@ -155,9 +162,9 @@
                             <label class="form-label fw-medium small">Range Omset</label>
                             <select name="omset_range" class="form-select">
                                 <option value="">Semua Omset</option>
-                                <option value="0" {{ $omset_range === '0' ? 'selected' : '' }}>0 - < 1 Juta</option>
-                                <option value="1" {{ $omset_range === '1' ? 'selected' : '' }}>1 Juta - < 4 Juta</option>
-                                <option value="2" {{ $omset_range === '2' ? 'selected' : '' }}>4 Juta - Lebih</option>
+                                <option value="0" {{ ($omset_range ?? '') === '0' ? 'selected' : '' }}>0 - &lt; 1 Juta</option>
+                                <option value="1" {{ ($omset_range ?? '') === '1' ? 'selected' : '' }}>1 Juta - &lt; 4 Juta</option>
+                                <option value="2" {{ ($omset_range ?? '') === '2' ? 'selected' : '' }}>4 Juta - Lebih</option>
                             </select>
                         </div>
 
@@ -165,42 +172,59 @@
                             <label class="form-label fw-medium small">Jumlah Kedatangan</label>
                             <select name="kedatangan_range" class="form-select">
                                 <option value="">Semua Kedatangan</option>
-                                <option value="0" {{ $kedatangan_range === '0' ? 'selected' : '' }}>≤ 2 Kali</option>
-                                <option value="1" {{ $kedatangan_range === '1' ? 'selected' : '' }}>3 - 4 Kali</option>
-                                <option value="2" {{ $kedatangan_range === '2' ? 'selected' : '' }}>> 4 Kali</option>
+                                <option value="0" {{ ($kedatangan_range ?? '') === '0' ? 'selected' : '' }}>&le; 2 Kali</option>
+                                <option value="1" {{ ($kedatangan_range ?? '') === '1' ? 'selected' : '' }}>3 - 4 Kali</option>
+                                <option value="2" {{ ($kedatangan_range ?? '') === '2' ? 'selected' : '' }}>&gt; 4 Kali</option>
                             </select>
                         </div>
 
-                        <!-- Row 2: Type, Bulan, Tahun, Button -->
+                        <!-- Row 2: Periode, Bulan, Tahun -->
                         <div class="col-md-3">
                             <label class="form-label fw-medium small">Periode</label>
                             <select name="type" id="typeSelect" class="form-select">
-                                <option value="semua" {{ $type == 'semua' ? 'selected' : '' }}>Semua Data</option>
-                                <option value="perbulan" {{ $type == 'perbulan' ? 'selected' : '' }}>Per Bulan</option>
-                                <option value="pertahun" {{ $type == 'pertahun' ? 'selected' : '' }}>Per Tahun</option>
+                                <option value="semua" {{ ($type ?? 'semua') == 'semua' ? 'selected' : '' }}>Semua Data</option>
+                                <option value="perbulan" {{ ($type ?? '') == 'perbulan' ? 'selected' : '' }}>Per Bulan</option>
+                                <option value="pertahun" {{ ($type ?? '') == 'pertahun' ? 'selected' : '' }}>Per Tahun</option>
                             </select>
                         </div>
 
-
-                        <!-- Row 2: Bulan, Tahun, Button -->
-                        <div class="col-md-3" id="bulanContainer" style="{{ !$type || $type == 'pertahun' || $type == 'semua' ? 'display:none;' : '' }}">
+                        <div class="col-md-3" id="bulanContainer" style="{{ !($type ?? '') || ($type ?? '') == 'pertahun' || ($type ?? '') == 'semua' ? 'display:none;' : '' }}">
                             <label class="form-label fw-medium small">Bulan</label>
                             <select name="bulan" class="form-select">
                                 @for($i = 1; $i <= 12; $i++)
-                                    <option value="{{ str_pad($i, 2, '0', STR_PAD_LEFT) }}" {{ $bulan == str_pad($i, 2, '0', STR_PAD_LEFT) ? 'selected' : '' }}>
+                                    <option value="{{ str_pad($i, 2, '0', STR_PAD_LEFT) }}" {{ ($bulan ?? '') == str_pad($i, 2, '0', STR_PAD_LEFT) ? 'selected' : '' }}>
                                         {{ DateTime::createFromFormat('!m', $i)->format('F') }}
                                     </option>
                                 @endfor
                             </select>
                         </div>
 
-                        <div class="col-md-3" id="tahunContainer" style="{{ !$type || $type == 'semua' ? 'display:none;' : '' }}">
-
+                        <div class="col-md-3" id="tahunContainer" style="{{ !($type ?? '') || ($type ?? '') == 'semua' ? 'display:none;' : '' }}">
                             <label class="form-label fw-medium small">Tahun</label>
                             <select name="tahun" class="form-select">
                                 @for($i = date('Y'); $i >= date('Y') - 5; $i--)
-                                    <option value="{{ $i }}" {{ $tahun == $i ? 'selected' : '' }}>{{ $i }}</option>
+                                    <option value="{{ $i }}" {{ ($tahun ?? date('Y')) == $i ? 'selected' : '' }}>{{ $i }}</option>
                                 @endfor
+                            </select>
+                        </div>
+
+                        {{-- Point 4: Kelompok Pelanggan --}}
+                        <div class="col-md-3">
+                            <label class="form-label fw-medium small">Kelompok Pelanggan</label>
+                            <select name="kelompok_pelanggan" class="form-select">
+                                <option value="">Semua Kelompok</option>
+                                <option value="mandiri" {{ ($kelompok_pelanggan ?? '') == 'mandiri' ? 'selected' : '' }}>Mandiri</option>
+                                <option value="klinisi" {{ ($kelompok_pelanggan ?? '') == 'klinisi' ? 'selected' : '' }}>Klinisi</option>
+                            </select>
+                        </div>
+
+                        {{-- Point 4: Tipe Pelanggan --}}
+                        <div class="col-md-3">
+                            <label class="form-label fw-medium small">Tipe Pelanggan</label>
+                            <select name="tipe_pelanggan" class="form-select">
+                                <option value="">Semua Tipe</option>
+                                <option value="biasa" {{ ($tipe_pelanggan ?? '') == 'biasa' ? 'selected' : '' }}>Pelanggan Biasa</option>
+                                <option value="khusus" {{ ($tipe_pelanggan ?? '') == 'khusus' ? 'selected' : '' }}>Pelanggan Khusus</option>
                             </select>
                         </div>
 
@@ -209,8 +233,8 @@
                                 <i class="fas fa-filter me-2"></i>Terapkan Filter
                             </button>
                         </div>
-                        
-                        @if($type || $cabang_id || $kelas || $omset_range || $kedatangan_range)
+
+                        @if(($type ?? '') || ($cabang_id ?? '') || ($kelas ?? '') || ($omset_range ?? '') !== '' || ($kedatangan_range ?? '') !== '' || ($kelompok_pelanggan ?? '') || ($tipe_pelanggan ?? ''))
                         <div class="col-md-3 d-flex align-items-end">
                             <a href="{{ route('pelanggan.index') }}" class="btn btn-outline-secondary w-100">
                                 <i class="fas fa-times me-2"></i>Reset Filter
@@ -231,12 +255,12 @@
                     </h6>
 
                     <div class="d-flex align-items-center gap-2 flex-wrap">
-                        {{-- Bulk Action Toolbar (muncul saat ada checkbox dipilih) --}}
-                        @if(in_array(Auth::user()->role?->name, ['Admin', 'Super Admin']))
+                        {{-- Bulk Action Toolbar --}}
+                        @if(in_array($role, ['Admin', 'Super Admin']))
                         <div id="bulkActionToolbar" class="d-none align-items-center gap-2">
                             <span class="badge bg-primary fs-6 px-3 py-2" id="selectedCount">0 dipilih</span>
 
-                            {{-- Form Export Terpilih --}}
+                            {{-- Export Terpilih --}}
                             <form id="bulkExportForm" method="POST" action="{{ route('pelanggan.bulk-export') }}" class="d-inline">
                                 @csrf
                                 <div id="bulkExportIds"></div>
@@ -245,104 +269,108 @@
                                 </button>
                             </form>
 
-                            {{-- Form Hapus Terpilih --}}
-                            <form id="bulkDeleteForm" method="POST" action="{{ route('pelanggan.bulk-delete') }}" class="d-inline" onsubmit="return confirmBulkDelete()">
-                                @csrf
-                                <div id="bulkDeleteIds"></div>
-                                <button type="submit" class="btn btn-danger btn-sm">
+                            {{-- Point 10: Hapus Terpilih - SA langsung, Admin perlu approval --}}
+                            @if($role === 'Super Admin')
+                                <form id="bulkDeleteFormSA" method="POST" action="{{ route('pelanggan.bulk-delete') }}" class="d-inline" onsubmit="return confirmBulkDeleteSA()">
+                                    @csrf
+                                    <div id="bulkDeleteIdsSA"></div>
+                                    <button type="submit" class="btn btn-danger btn-sm">
+                                        <i class="fas fa-trash me-1"></i>Hapus Terpilih
+                                    </button>
+                                </form>
+                            @elseif($role === 'Admin')
+                                {{-- Point 10: Admin → modal approval --}}
+                                <button type="button" class="btn btn-danger btn-sm" onclick="openBulkDeleteModal()">
                                     <i class="fas fa-trash me-1"></i>Hapus Terpilih
                                 </button>
-                            </form>
+                            @endif
+                            {{-- Point 5: User tidak tampil Hapus Terpilih --}}
                         </div>
                         @endif
 
-                        @if($pelanggan->count() > 0)
+                        @if(isset($pelanggan) && method_exists($pelanggan, 'count') && $pelanggan->count() > 0)
                         <a href="{{ route('pelanggan.export', [
-                            'bulan' => $bulan, 
-                            'tahun' => $tahun, 
-                            'type' => $type, 
-                            'search' => $search,
-                            'cabang_id' => $cabang_id,
-                            'kelas' => $kelas,
-                            'omset_range' => $omset_range,
-                            'kedatangan_range' => $kedatangan_range
+                            'bulan' => $bulan ?? '',
+                            'tahun' => $tahun ?? '',
+                            'type' => $type ?? '',
+                            'search' => $search ?? '',
+                            'cabang_id' => $cabang_id ?? '',
+                            'kelas' => $kelas ?? '',
+                            'omset_range' => $omset_range ?? '',
+                            'kedatangan_range' => $kedatangan_range ?? '',
+                            'kelompok_pelanggan' => $kelompok_pelanggan ?? '',
+                            'tipe_pelanggan' => $tipe_pelanggan ?? '',
                         ]) }}" class="btn btn-success btn-sm" id="exportAllBtn">
                             <i class="fas fa-file-excel me-2"></i>Export Excel
                         </a>
                         @endif
                     </div>
                 </div>
+
                 <div class="card-body p-0">
-                    @if($pelanggan->count() > 0)
+                    @if(isset($pelanggan) && method_exists($pelanggan, 'count') && $pelanggan->count() > 0)
                     <div class="table-responsive">
                         <table class="table table-hover table-striped mb-0 align-middle small" style="min-width: 1200px;">
                             <thead class="table-light">
                                 <tr>
-                                    @if(in_array(Auth::user()->role?->name, ['Admin', 'Super Admin']))
+                                    @if(in_array($role, ['Admin', 'Super Admin']))
                                     <th class="px-2 py-2 text-center" style="width: 40px;">
                                         <input type="checkbox" id="selectAll" class="form-check-input" title="Pilih Semua">
                                     </th>
                                     @endif
                                     <th class="px-2 py-2 text-center" style="width: 35px;">
-                                        <a href="{{ route('pelanggan.index', array_merge(request()->all(), ['sort' => 'id', 'direction' => $sort == 'id' && $direction == 'asc' ? 'desc' : 'asc'])) }}" class="text-decoration-none text-dark fw-semibold">
-                                            No <i class="fas fa-sort{{ $sort == 'id' ? ($direction == 'asc' ? '-up' : '-down') : '' }} text-muted ms-1"></i>
+                                        <a href="{{ route('pelanggan.index', array_merge(request()->all(), ['sort' => 'id', 'direction' => ($sort ?? '') == 'id' && ($direction ?? '') == 'asc' ? 'desc' : 'asc'])) }}" class="text-decoration-none text-dark fw-semibold">
+                                            No <i class="fas fa-sort{{ ($sort ?? '') == 'id' ? (($direction ?? '') == 'asc' ? '-up' : '-down') : '' }} text-muted ms-1"></i>
                                         </a>
                                     </th>
-
                                     <th class="py-2" style="width: 100px;">
-                                        <a href="{{ route('pelanggan.index', array_merge(request()->all(), ['sort' => 'pid', 'direction' => $sort == 'pid' && $direction == 'asc' ? 'desc' : 'asc'])) }}" class="text-decoration-none text-dark fw-semibold">
-                                            PID <i class="fas fa-sort{{ $sort == 'pid' ? ($direction == 'asc' ? '-up' : '-down') : '' }} text-muted ms-1"></i>
+                                        <a href="{{ route('pelanggan.index', array_merge(request()->all(), ['sort' => 'pid', 'direction' => ($sort ?? '') == 'pid' && ($direction ?? '') == 'asc' ? 'desc' : 'asc'])) }}" class="text-decoration-none text-dark fw-semibold">
+                                            PID <i class="fas fa-sort{{ ($sort ?? '') == 'pid' ? (($direction ?? '') == 'asc' ? '-up' : '-down') : '' }} text-muted ms-1"></i>
                                         </a>
                                     </th>
                                     <th class="py-2" style="min-width: 200px;">
-                                        <a href="{{ route('pelanggan.index', array_merge(request()->all(), ['sort' => 'nama', 'direction' => $sort == 'nama' && $direction == 'asc' ? 'desc' : 'asc'])) }}" class="text-decoration-none text-dark fw-semibold">
-                                            Nama Pasien <i class="fas fa-sort{{ $sort == 'nama' ? ($direction == 'asc' ? '-up' : '-down') : '' }} text-muted ms-1"></i>
+                                        <a href="{{ route('pelanggan.index', array_merge(request()->all(), ['sort' => 'nama', 'direction' => ($sort ?? '') == 'nama' && ($direction ?? '') == 'asc' ? 'desc' : 'asc'])) }}" class="text-decoration-none text-dark fw-semibold">
+                                            Nama Pasien <i class="fas fa-sort{{ ($sort ?? '') == 'nama' ? (($direction ?? '') == 'asc' ? '-up' : '-down') : '' }} text-muted ms-1"></i>
                                         </a>
                                     </th>
                                     <th class="py-2 text-center" style="width: 100px;">
-                                        <a href="{{ route('pelanggan.index', array_merge(request()->all(), ['sort' => 'cabang_id', 'direction' => $sort == 'cabang_id' && $direction == 'asc' ? 'desc' : 'asc'])) }}" class="text-decoration-none text-dark fw-semibold">
-                                            Cabang <i class="fas fa-sort{{ $sort == 'cabang_id' ? ($direction == 'asc' ? '-up' : '-down') : '' }} text-muted ms-1"></i>
+                                        <a href="{{ route('pelanggan.index', array_merge(request()->all(), ['sort' => 'cabang_id', 'direction' => ($sort ?? '') == 'cabang_id' && ($direction ?? '') == 'asc' ? 'desc' : 'asc'])) }}" class="text-decoration-none text-dark fw-semibold">
+                                            Cabang <i class="fas fa-sort{{ ($sort ?? '') == 'cabang_id' ? (($direction ?? '') == 'asc' ? '-up' : '-down') : '' }} text-muted ms-1"></i>
                                         </a>
                                     </th>
-
                                     <th class="py-2" style="width: 100px;">
-                                        <a href="{{ route('pelanggan.index', array_merge(request()->all(), ['sort' => 'no_telp', 'direction' => $sort == 'no_telp' && $direction == 'asc' ? 'desc' : 'asc'])) }}" class="text-decoration-none text-dark fw-semibold">
-                                            No Telp <i class="fas fa-sort{{ $sort == 'no_telp' ? ($direction == 'asc' ? '-up' : '-down') : '' }} text-muted ms-1"></i>
+                                        <a href="{{ route('pelanggan.index', array_merge(request()->all(), ['sort' => 'no_telp', 'direction' => ($sort ?? '') == 'no_telp' && ($direction ?? '') == 'asc' ? 'desc' : 'asc'])) }}" class="text-decoration-none text-dark fw-semibold">
+                                            No Telp <i class="fas fa-sort{{ ($sort ?? '') == 'no_telp' ? (($direction ?? '') == 'asc' ? '-up' : '-down') : '' }} text-muted ms-1"></i>
                                         </a>
                                     </th>
-
                                     <th class="py-2 text-center" style="width: 85px;">
-                                        <a href="{{ route('pelanggan.index', array_merge(request()->all(), ['sort' => 'dob', 'direction' => $sort == 'dob' && $direction == 'asc' ? 'desc' : 'asc'])) }}" class="text-decoration-none text-dark fw-semibold">
-                                            DOB <i class="fas fa-sort{{ $sort == 'dob' ? ($direction == 'asc' ? '-up' : '-down') : '' }} text-muted ms-1"></i>
+                                        <a href="{{ route('pelanggan.index', array_merge(request()->all(), ['sort' => 'dob', 'direction' => ($sort ?? '') == 'dob' && ($direction ?? '') == 'asc' ? 'desc' : 'asc'])) }}" class="text-decoration-none text-dark fw-semibold">
+                                            DOB <i class="fas fa-sort{{ ($sort ?? '') == 'dob' ? (($direction ?? '') == 'asc' ? '-up' : '-down') : '' }} text-muted ms-1"></i>
                                         </a>
                                     </th>
-
                                     <th class="py-2" style="min-width: 120px; max-width: 180px;">
-                                        <a href="{{ route('pelanggan.index', array_merge(request()->all(), ['sort' => 'alamat', 'direction' => $sort == 'alamat' && $direction == 'asc' ? 'desc' : 'asc'])) }}" class="text-decoration-none text-dark fw-semibold">
-                                            Alamat <i class="fas fa-sort{{ $sort == 'alamat' ? ($direction == 'asc' ? '-up' : '-down') : '' }} text-muted ms-1"></i>
+                                        <a href="{{ route('pelanggan.index', array_merge(request()->all(), ['sort' => 'alamat', 'direction' => ($sort ?? '') == 'alamat' && ($direction ?? '') == 'asc' ? 'desc' : 'asc'])) }}" class="text-decoration-none text-dark fw-semibold">
+                                            Alamat <i class="fas fa-sort{{ ($sort ?? '') == 'alamat' ? (($direction ?? '') == 'asc' ? '-up' : '-down') : '' }} text-muted ms-1"></i>
                                         </a>
                                     </th>
-
                                     <th class="py-2 text-center" style="width: 65px;">
-                                        <a href="{{ route('pelanggan.index', array_merge(request()->all(), ['sort' => 'total_kedatangan', 'direction' => $sort == 'total_kedatangan' && $direction == 'asc' ? 'desc' : 'asc'])) }}" class="text-decoration-none text-dark fw-semibold">
-                                            Kunjungan <i class="fas fa-sort{{ $sort == 'total_kedatangan' ? ($direction == 'asc' ? '-up' : '-down') : '' }} text-muted ms-1"></i>
+                                        <a href="{{ route('pelanggan.index', array_merge(request()->all(), ['sort' => 'total_kedatangan', 'direction' => ($sort ?? '') == 'total_kedatangan' && ($direction ?? '') == 'asc' ? 'desc' : 'asc'])) }}" class="text-decoration-none text-dark fw-semibold">
+                                            Kunjungan <i class="fas fa-sort{{ ($sort ?? '') == 'total_kedatangan' ? (($direction ?? '') == 'asc' ? '-up' : '-down') : '' }} text-muted ms-1"></i>
                                         </a>
                                     </th>
-
                                     <th class="py-2 text-center" style="width: 100px;">
-                                        <a href="{{ route('pelanggan.index', array_merge(request()->all(), ['sort' => 'tgl_kunjungan', 'direction' => $sort == 'tgl_kunjungan' && $direction == 'asc' ? 'desc' : 'asc'])) }}" class="text-decoration-none text-dark fw-semibold">
-                                            Kunjungan Terakhir <i class="fas fa-sort{{ $sort == 'tgl_kunjungan' ? ($direction == 'asc' ? '-up' : '-down') : '' }} text-muted ms-1"></i>
+                                        <a href="{{ route('pelanggan.index', array_merge(request()->all(), ['sort' => 'tgl_kunjungan', 'direction' => ($sort ?? '') == 'tgl_kunjungan' && ($direction ?? '') == 'asc' ? 'desc' : 'asc'])) }}" class="text-decoration-none text-dark fw-semibold">
+                                            Kunjungan Terakhir <i class="fas fa-sort{{ ($sort ?? '') == 'tgl_kunjungan' ? (($direction ?? '') == 'asc' ? '-up' : '-down') : '' }} text-muted ms-1"></i>
                                         </a>
                                     </th>
                                     <th class="py-2 text-end" style="width: 100px;">
-                                        <a href="{{ route('pelanggan.index', array_merge(request()->all(), ['sort' => 'total_biaya', 'direction' => $sort == 'total_biaya' && $direction == 'asc' ? 'desc' : 'asc'])) }}" class="text-decoration-none text-dark fw-semibold">
-                                            Total Biaya <i class="fas fa-sort{{ $sort == 'total_biaya' ? ($direction == 'asc' ? '-up' : '-down') : '' }} text-muted ms-1"></i>
+                                        <a href="{{ route('pelanggan.index', array_merge(request()->all(), ['sort' => 'total_biaya', 'direction' => ($sort ?? '') == 'total_biaya' && ($direction ?? '') == 'asc' ? 'desc' : 'asc'])) }}" class="text-decoration-none text-dark fw-semibold">
+                                            Total Biaya <i class="fas fa-sort{{ ($sort ?? '') == 'total_biaya' ? (($direction ?? '') == 'asc' ? '-up' : '-down') : '' }} text-muted ms-1"></i>
                                         </a>
                                     </th>
-
                                     <th class="py-2 text-center" style="width: 75px;">
-                                        <a href="{{ route('pelanggan.index', array_merge(request()->all(), ['sort' => 'class', 'direction' => $sort == 'class' && $direction == 'asc' ? 'desc' : 'asc'])) }}" class="text-decoration-none text-dark fw-semibold">
-                                            Kelas <i class="fas fa-sort{{ $sort == 'class' ? ($direction == 'asc' ? '-up' : '-down') : '' }} text-muted ms-1"></i>
+                                        <a href="{{ route('pelanggan.index', array_merge(request()->all(), ['sort' => 'class', 'direction' => ($sort ?? '') == 'class' && ($direction ?? '') == 'asc' ? 'desc' : 'asc'])) }}" class="text-decoration-none text-dark fw-semibold">
+                                            Kelas <i class="fas fa-sort{{ ($sort ?? '') == 'class' ? (($direction ?? '') == 'asc' ? '-up' : '-down') : '' }} text-muted ms-1"></i>
                                         </a>
                                     </th>
                                     <th class="py-2 text-center fw-semibold" style="width: 110px;">Aksi</th>
@@ -352,7 +380,7 @@
                             <tbody>
                                 @foreach($pelanggan as $index => $p)
                                 <tr>
-                                    @if(in_array(Auth::user()->role?->name, ['Admin', 'Super Admin']))
+                                    @if(in_array($role, ['Admin', 'Super Admin']))
                                     <td class="px-2 py-2 text-center">
                                         <input type="checkbox" class="form-check-input row-checkbox" value="{{ $p->id }}" data-nama="{{ $p->nama }}">
                                     </td>
@@ -387,33 +415,79 @@
                                             <a href="{{ route('pelanggan.show', $p->id) }}" class="btn btn-info btn-sm" title="Detail">
                                                 <i class="fas fa-eye"></i>
                                             </a>
-                                            @if(Auth::user()->role?->name === 'Admin')
-                                            <a href="{{ route('pelanggan.edit', $p->id) }}" class="btn btn-warning btn-sm" title="Edit">
-                                                <i class="fas fa-edit"></i>
-                                            </a>
-                                            <form action="{{ route('pelanggan.destroy', $p->id) }}" method="POST" class="d-inline" onsubmit="return confirm('Yakin ingin menghapus?')">
-                                                @csrf
-                                                @method('DELETE')
-                                                <button type="submit" class="btn btn-danger btn-sm" title="Hapus">
+                                            {{-- Point 5: User tidak boleh edit/delete --}}
+                                            @if($role === 'Super Admin')
+                                                <a href="{{ route('pelanggan.edit', $p->id) }}" class="btn btn-warning btn-sm" title="Edit">
+                                                    <i class="fas fa-edit"></i>
+                                                </a>
+                                                <form action="{{ route('pelanggan.destroy', $p->id) }}" method="POST" class="d-inline"
+                                                      onsubmit="return confirm('Yakin ingin menghapus pelanggan ini?')">
+                                                    @csrf
+                                                    @method('DELETE')
+                                                    <button type="submit" class="btn btn-danger btn-sm" title="Hapus">
+                                                        <i class="fas fa-trash"></i>
+                                                    </button>
+                                                </form>
+                                            @elseif($role === 'Admin')
+                                                <a href="{{ route('pelanggan.edit', $p->id) }}" class="btn btn-warning btn-sm" title="Edit">
+                                                    <i class="fas fa-edit"></i>
+                                                </a>
+                                                {{-- Point 10: Admin hapus → perlu approval --}}
+                                                <button type="button" class="btn btn-danger btn-sm" title="Hapus"
+                                                        data-bs-toggle="modal"
+                                                        data-bs-target="#deleteModal{{ $p->id }}">
                                                     <i class="fas fa-trash"></i>
                                                 </button>
-                                            </form>
                                             @endif
                                         </div>
                                     </td>
                                 </tr>
+
+                                {{-- Modal Hapus untuk Admin (Point 10) --}}
+                                @if($role === 'Admin')
+                                <div class="modal fade" id="deleteModal{{ $p->id }}" tabindex="-1" aria-hidden="true">
+                                    <div class="modal-dialog">
+                                        <div class="modal-content">
+                                            <form action="{{ route('pelanggan.destroy', $p->id) }}" method="POST">
+                                                @csrf
+                                                @method('DELETE')
+                                                <div class="modal-header">
+                                                    <h5 class="modal-title text-danger">
+                                                        <i class="fas fa-exclamation-triangle me-2"></i>Ajukan Hapus Pelanggan
+                                                    </h5>
+                                                    <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+                                                </div>
+                                                <div class="modal-body">
+                                                    <p>Anda akan mengajukan penghapusan pelanggan <strong>{{ $p->nama }}</strong> ({{ $p->pid }}) ke Superadmin.</p>
+                                                    <label class="form-label fw-semibold">Catatan / Alasan Hapus <span class="text-danger">*</span></label>
+                                                    <textarea name="catatan_hapus" class="form-control" rows="3"
+                                                              placeholder="Wajib diisi. Contoh: Data duplikat / pelanggan tidak aktif." required></textarea>
+                                                </div>
+                                                <div class="modal-footer">
+                                                    <button type="button" class="btn btn-outline-secondary" data-bs-dismiss="modal">Batal</button>
+                                                    <button type="submit" class="btn btn-danger">
+                                                        <i class="fas fa-paper-plane me-1"></i>Ajukan Hapus
+                                                    </button>
+                                                </div>
+                                            </form>
+                                        </div>
+                                    </div>
+                                </div>
+                                @endif
+
                                 @endforeach
                             </tbody>
                         </table>
                     </div>
-                    
+
                     <!-- Pagination -->
                     <div class="d-flex justify-content-between align-items-center p-3 border-top bg-light small">
                         <div class="text-muted">
-                            Menampilkan <strong>{{ $pelanggan->firstItem() ?? 0 }} - {{ $pelanggan->lastItem() ?? 0 }}</strong> dari <strong>{{ $pelanggan->total() }}</strong> data
+                            Menampilkan <strong>{{ $pelanggan->firstItem() ?? 0 }} - {{ $pelanggan->lastItem() ?? 0 }}</strong>
+                            dari <strong>{{ $pelanggan->total() }}</strong> data
                         </div>
                         <div>
-                            {{ $pelanggan->links('pagination::bootstrap-5') }}
+                            {{ $pelanggan->appends(request()->query())->links('pagination::bootstrap-5') }}
                         </div>
                     </div>
 
@@ -427,264 +501,77 @@
             </div>
         </div>
     </div>
+
+    {{-- Modal Bulk Delete untuk Admin (Point 10) --}}
+    @if($role === 'Admin')
+    <div class="modal fade" id="bulkDeleteModal" tabindex="-1" aria-hidden="true">
+        <div class="modal-dialog">
+            <div class="modal-content">
+                <form id="bulkDeleteFormAdmin" method="POST" action="{{ route('pelanggan.bulk-delete') }}">
+                    @csrf
+                    <div id="bulkDeleteIdsAdmin"></div>
+                    <div class="modal-header">
+                        <h5 class="modal-title text-danger">
+                            <i class="fas fa-exclamation-triangle me-2"></i>Ajukan Hapus Terpilih
+                        </h5>
+                        <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+                    </div>
+                    <div class="modal-body">
+                        <p>Anda akan mengajukan penghapusan <strong id="bulkDeleteCount">0</strong> pelanggan terpilih ke Superadmin.</p>
+                        <label class="form-label fw-semibold">Catatan / Alasan Hapus <span class="text-danger">*</span></label>
+                        <textarea name="catatan_hapus" class="form-control" rows="3"
+                                  placeholder="Wajib diisi. Contoh: Data duplikat / pelanggan tidak aktif." required></textarea>
+                    </div>
+                    <div class="modal-footer">
+                        <button type="button" class="btn btn-outline-secondary" data-bs-dismiss="modal">Batal</button>
+                        <button type="submit" class="btn btn-danger">
+                            <i class="fas fa-paper-plane me-1"></i>Ajukan Hapus
+                        </button>
+                    </div>
+                </form>
+            </div>
+        </div>
+    </div>
+    @endif
+
 @endsection
 
 @section('scripts')
 <script>
 document.addEventListener('DOMContentLoaded', function() {
-    const typeSelect = document.getElementById('typeSelect');
-    const bulanContainer = document.getElementById('bulanContainer');
-    const tahunContainer = document.getElementById('tahunContainer');
-    
-    /**
-     * Update visibility of Bulan and Tahun containers based on selected type
-     */
+
+    // =============================================
+    // PERIODE FILTER - Show/Hide Bulan & Tahun
+    // =============================================
+    const typeSelect      = document.getElementById('typeSelect');
+    const bulanContainer  = document.getElementById('bulanContainer');
+    const tahunContainer  = document.getElementById('tahunContainer');
+
     function updatePeriodContainers() {
         if (!typeSelect) return;
-        
-        const selectedType = typeSelect.value;
-        
-        if (selectedType === 'pertahun' || selectedType === 'semua') {
-            bulanContainer.style.display = 'none';
-        } else {
-            bulanContainer.style.display = 'block';
-        }
-        
-        if (selectedType === 'semua') {
-            tahunContainer.style.display = 'none';
-        } else {
-            tahunContainer.style.display = 'block';
-        }
+        const val = typeSelect.value;
+        if (bulanContainer) bulanContainer.style.display = (val === 'perbulan') ? 'block' : 'none';
+        if (tahunContainer) tahunContainer.style.display = (val === 'semua') ? 'none' : 'block';
     }
-    
-    // Set initial state on page load
     updatePeriodContainers();
-    
-    // Update on change
-    if (typeSelect) {
-        typeSelect.addEventListener('change', updatePeriodContainers);
-    }
-
-    
-    // =============================================
-    // IMPORT FORM — AJAX + Real Progress Polling
-    // =============================================
-    const importForm = document.getElementById('importForm');
-    const importBtn = document.getElementById('importBtn');
-    const fileInput = document.getElementById('fileInput');
-    const btnText = document.getElementById('btnText');
-    const btnLoading = document.getElementById('btnLoading');
-    const progressContainer = document.getElementById('importProgressContainer');
-    const progressBar = document.getElementById('importProgressBar');
-    const progressText = document.getElementById('importProgressText');
-    let progressInterval = null;
-
-    /**
-     * Escape HTML untuk mencegah XSS pada pesan notifikasi
-     */
-    function escapeHtml(text) {
-        const div = document.createElement('div');
-        div.appendChild(document.createTextNode(String(text)));
-        return div.innerHTML;
-    }
-
-    /**
-     * Tampilkan notifikasi inline di atas import card
-     * type: 'success' | 'error'
-     * errors: array string (opsional, untuk daftar error detail)
-     */
-    function showImportNotification(type, message, errors) {
-        // Hapus notifikasi import sebelumnya
-        document.querySelectorAll('.import-notification').forEach(function(el) {
-            el.remove();
-        });
-
-        const alertClass = type === 'success' ? 'alert-success' : 'alert-danger';
-        const icon      = type === 'success' ? 'fa-check-circle' : 'fa-exclamation-circle';
-
-        let errorsHtml = '';
-        if (errors && errors.length > 0) {
-            errorsHtml = '<ul class="mb-0 mt-2">' +
-                errors.map(function(e) { return '<li>' + escapeHtml(e) + '</li>'; }).join('') +
-                '</ul>';
-        }
-
-        const alertDiv = document.createElement('div');
-        alertDiv.className = 'alert ' + alertClass + ' alert-dismissible fade show shadow-sm import-notification';
-        alertDiv.setAttribute('role', 'alert');
-        alertDiv.innerHTML =
-            '<i class="fas ' + icon + ' me-2"></i>' + escapeHtml(message) +
-            errorsHtml +
-            '<button type="button" class="btn-close" data-bs-dismiss="alert" aria-label="Close"></button>';
-
-        // Sisipkan tepat sebelum import card (col-12 pertama dalam .row.g-4)
-        const rowContainer = document.querySelector('.row.g-4');
-        if (rowContainer) {
-            rowContainer.insertBefore(alertDiv, rowContainer.firstChild);
-        }
-
-        // Scroll ke atas agar notifikasi terlihat
-        window.scrollTo({ top: 0, behavior: 'smooth' });
-    }
-
-    /**
-     * Reset tampilan progress bar ke kondisi awal
-     */
-    function resetProgressBar() {
-        if (progressContainer) progressContainer.classList.add('d-none');
-        if (progressBar) { progressBar.style.width = '0%'; progressBar.setAttribute('aria-valuenow', '0'); }
-        if (progressText) progressText.textContent = '0%';
-    }
-
-    /**
-     * Reset tombol import ke kondisi normal
-     */
-    function resetImportBtn() {
-        if (importBtn) importBtn.disabled = false;
-        if (btnText) btnText.style.display = 'inline';
-        if (btnLoading) btnLoading.style.display = 'none';
-    }
-
-    if (importForm && importBtn && fileInput) {
-
-        importForm.addEventListener('submit', function(e) {
-            e.preventDefault(); // Selalu cegah submit normal — gunakan AJAX
-
-            const file = fileInput.files[0];
-
-            if (!file) {
-                showImportNotification('error', 'Pilih file terlebih dahulu.');
-                return;
-            }
-
-            const validExtensions = ['.xlsx', '.xls', '.csv'];
-            const fileName = file.name.toLowerCase();
-            const isValid = validExtensions.some(function(ext) { return fileName.endsWith(ext); });
-
-            if (!isValid) {
-                fileInput.classList.add('is-invalid');
-                showImportNotification('error', 'File harus berupa Excel (.xlsx, .xls) atau CSV (.csv)');
-                return;
-            }
-
-            fileInput.classList.remove('is-invalid');
-
-            // Hapus notifikasi lama
-            document.querySelectorAll('.import-notification').forEach(function(el) { el.remove(); });
-
-            // Tampilkan loading state
-            importBtn.disabled = true;
-            btnText.style.display = 'none';
-            btnLoading.style.display = 'inline-block';
-
-            // Tampilkan progress bar mulai dari 0%
-            progressContainer.classList.remove('d-none');
-            progressBar.style.width = '0%';
-            progressBar.setAttribute('aria-valuenow', '0');
-            progressText.textContent = '0%';
-
-            // Mulai polling progress setiap 500ms
-            // Ini bisa berjalan real-time karena AJAX request import
-            // diproses oleh PHP-FPM worker yang berbeda
-            if (progressInterval) clearInterval(progressInterval);
-            progressInterval = setInterval(async function() {
-                try {
-                    const resp = await fetch("{{ route('pelanggan.import.progress') }}", {
-                        headers: {
-                            'X-Requested-With': 'XMLHttpRequest',
-                            'Accept': 'application/json'
-                        }
-                    });
-                    if (!resp.ok) return;
-                    const data = await resp.json();
-                    const pct = Math.max(0, Math.min(100, parseInt(data.progress || 0)));
-                    progressBar.style.width = pct + '%';
-                    progressBar.setAttribute('aria-valuenow', pct.toString());
-                    progressText.textContent = pct + '%';
-                    if (pct >= 100) {
-                        clearInterval(progressInterval);
-                        progressInterval = null;
-                    }
-                } catch (err) { /* abaikan error polling sementara */ }
-            }, 500);
-
-            // Kirim form via AJAX (fetch)
-            const formData = new FormData(importForm);
-
-            fetch(importForm.action, {
-                method: 'POST',
-                body: formData,
-                headers: {
-                    'X-Requested-With': 'XMLHttpRequest',
-                    'Accept': 'application/json'
-                }
-            })
-            .then(async function(response) {
-                // Hentikan polling & set progress ke 100%
-                if (progressInterval) { clearInterval(progressInterval); progressInterval = null; }
-                progressBar.style.width = '100%';
-                progressBar.setAttribute('aria-valuenow', '100');
-                progressText.textContent = '100%';
-
-                resetImportBtn();
-
-                let data;
-                try {
-                    data = await response.json();
-                } catch (parseErr) {
-                    showImportNotification('error', 'Terjadi kesalahan tidak terduga. Silakan coba lagi.');
-                    resetProgressBar();
-                    return;
-                }
-
-                if (data.success) {
-                    // Sukses: tampilkan notifikasi hijau, reset file input
-                    showImportNotification('success', data.message || 'Import berhasil!');
-                    fileInput.value = '';
-                    // Biarkan progress bar tetap 100% sebagai konfirmasi visual
-                    // User bisa klik X notifikasi jika sudah selesai membaca
-                } else {
-                    // Gagal: tampilkan notifikasi merah + daftar error jika ada
-                    showImportNotification('error', data.message || 'Import gagal.', data.errors || []);
-                    // Reset progress bar setelah gagal
-                    setTimeout(function() { resetProgressBar(); }, 1500);
-                }
-            })
-            .catch(function(networkErr) {
-                if (progressInterval) { clearInterval(progressInterval); progressInterval = null; }
-                resetImportBtn();
-                resetProgressBar();
-                showImportNotification('error', 'Koneksi terputus atau server tidak merespons. Silakan coba lagi.');
-            });
-        });
-
-        fileInput.addEventListener('change', function() {
-            this.classList.remove('is-invalid');
-        });
-    }
+    if (typeSelect) typeSelect.addEventListener('change', updatePeriodContainers);
 
     // =============================================
-    // BULK ACTION — Checkbox Logic
+    // BULK ACTION - Checkbox Logic
     // =============================================
-    const selectAll       = document.getElementById('selectAll');
-    const bulkToolbar     = document.getElementById('bulkActionToolbar');
-    const selectedCount   = document.getElementById('selectedCount');
-    const bulkExportIds   = document.getElementById('bulkExportIds');
-    const bulkDeleteIds   = document.getElementById('bulkDeleteIds');
+    const selectAll          = document.getElementById('selectAll');
+    const bulkToolbar        = document.getElementById('bulkActionToolbar');
+    const selectedCount      = document.getElementById('selectedCount');
+    const bulkExportIds      = document.getElementById('bulkExportIds');
+    const bulkDeleteIdsSA    = document.getElementById('bulkDeleteIdsSA');
+    const bulkDeleteIdsAdmin = document.getElementById('bulkDeleteIdsAdmin');
 
-    // Hanya jalankan jika elemen ada (role Admin/SuperAdmin)
     if (!selectAll || !bulkToolbar) return;
 
-    /**
-     * Ambil semua checkbox yang sedang dicentang
-     */
     function getChecked() {
         return Array.from(document.querySelectorAll('.row-checkbox:checked'));
     }
 
-    /**
-     * Update toolbar: tampilkan/sembunyikan, update counter, sync hidden inputs
-     */
     function updateBulkToolbar() {
         const checked = getChecked();
         const count   = checked.length;
@@ -698,76 +585,191 @@ document.addEventListener('DOMContentLoaded', function() {
             bulkToolbar.classList.remove('d-flex');
         }
 
-        // Sync hidden input IDs ke kedua form
         const ids = checked.map(cb => cb.value);
 
-        // Export form
         if (bulkExportIds) {
             bulkExportIds.innerHTML = '';
             ids.forEach(id => {
-                const input = document.createElement('input');
-                input.type  = 'hidden';
-                input.name  = 'ids[]';
-                input.value = id;
-                bulkExportIds.appendChild(input);
+                const inp = document.createElement('input');
+                inp.type = 'hidden'; inp.name = 'ids[]'; inp.value = id;
+                bulkExportIds.appendChild(inp);
             });
         }
 
-        // Delete form
-        if (bulkDeleteIds) {
-            bulkDeleteIds.innerHTML = '';
+        if (bulkDeleteIdsSA) {
+            bulkDeleteIdsSA.innerHTML = '';
             ids.forEach(id => {
-                const input = document.createElement('input');
-                input.type  = 'hidden';
-                input.name  = 'ids[]';
-                input.value = id;
-                bulkDeleteIds.appendChild(input);
+                const inp = document.createElement('input');
+                inp.type = 'hidden'; inp.name = 'ids[]'; inp.value = id;
+                bulkDeleteIdsSA.appendChild(inp);
             });
         }
 
-        // Update state selectAll checkbox
-        const allCheckboxes = document.querySelectorAll('.row-checkbox');
-        if (allCheckboxes.length > 0) {
-            selectAll.indeterminate = count > 0 && count < allCheckboxes.length;
-            selectAll.checked       = count === allCheckboxes.length;
+        if (bulkDeleteIdsAdmin) {
+            bulkDeleteIdsAdmin.innerHTML = '';
+            ids.forEach(id => {
+                const inp = document.createElement('input');
+                inp.type = 'hidden'; inp.name = 'ids[]'; inp.value = id;
+                bulkDeleteIdsAdmin.appendChild(inp);
+            });
+        }
+
+        const countEl = document.getElementById('bulkDeleteCount');
+        if (countEl) countEl.textContent = count;
+
+        const allCbs = document.querySelectorAll('.row-checkbox');
+        if (allCbs.length > 0) {
+            selectAll.indeterminate = count > 0 && count < allCbs.length;
+            selectAll.checked       = count === allCbs.length;
         }
     }
 
-    // Select All / Deselect All
     selectAll.addEventListener('change', function() {
         document.querySelectorAll('.row-checkbox').forEach(cb => {
             cb.checked = this.checked;
-            // Highlight baris yang dipilih
             cb.closest('tr').classList.toggle('table-active', this.checked);
         });
         updateBulkToolbar();
     });
 
-    // Individual checkbox
     document.querySelectorAll('.row-checkbox').forEach(cb => {
         cb.addEventListener('change', function() {
             this.closest('tr').classList.toggle('table-active', this.checked);
             updateBulkToolbar();
         });
     });
-
-
 });
 
-/**
- * Konfirmasi hapus bulk — dipanggil dari onsubmit form
- */
-function confirmBulkDelete() {
+// =============================================
+// BULK DELETE HELPERS
+// =============================================
+function confirmBulkDeleteSA() {
     const checked = document.querySelectorAll('.row-checkbox:checked');
-    const count   = checked.length;
-    if (count === 0) {
-        alert('Tidak ada pelanggan yang dipilih.');
-        return false;
+    if (checked.length === 0) { alert('Tidak ada pelanggan yang dipilih.'); return false; }
+    return confirm('Yakin ingin menghapus ' + checked.length + ' pelanggan terpilih?\nData tidak dapat dikembalikan!');
+}
+
+function openBulkDeleteModal() {
+    const checked = document.querySelectorAll('.row-checkbox:checked');
+    if (checked.length === 0) { alert('Tidak ada pelanggan yang dipilih.'); return; }
+    const modal = new bootstrap.Modal(document.getElementById('bulkDeleteModal'));
+    modal.show();
+}
+
+// =============================================
+// IMPORT - Real-time Progress Bar (Point 1)
+// =============================================
+function startImport() {
+    const fileInput         = document.getElementById('fileInput');
+    const importBtn         = document.getElementById('importBtn');
+    const progressContainer = document.getElementById('importProgressContainer');
+    const progressBar       = document.getElementById('importProgressBar');
+    const progressText      = document.getElementById('importProgressText');
+    const progressLabel     = document.getElementById('importProgressLabel');
+    const progressDetail    = document.getElementById('importProgressDetail');
+
+    if (!fileInput || !fileInput.files[0]) {
+        alert('Pilih file terlebih dahulu.');
+        return;
     }
-    return confirm(
-        'Yakin ingin menghapus ' + count + ' pelanggan terpilih?\n\n' +
-        'Data yang dihapus tidak dapat dikembalikan!'
-    );
+
+    const file     = fileInput.files[0];
+    const validExt = ['.xlsx', '.xls', '.csv'];
+    const isValid  = validExt.some(ext => file.name.toLowerCase().endsWith(ext));
+    if (!isValid) {
+        fileInput.classList.add('is-invalid');
+        alert('File harus berupa Excel (.xlsx, .xls) atau CSV (.csv)');
+        return;
+    }
+    fileInput.classList.remove('is-invalid');
+
+    importBtn.disabled = true;
+    importBtn.innerHTML = '<span class="spinner-border spinner-border-sm me-2"></span>Mengimpor...';
+    progressContainer.classList.remove('d-none');
+    progressBar.style.width = '0%';
+    progressBar.setAttribute('aria-valuenow', 0);
+    progressText.textContent = '0%';
+    progressLabel.textContent = 'Progress Import';
+    progressDetail.textContent = 'Sedang memvalidasi dan mengimpor data...';
+
+    // Polling progress setiap 800ms
+    let pollInterval = setInterval(async function() {
+        try {
+            const resp = await fetch('{{ route("pelanggan.import.progress") }}', {
+                headers: { 'X-Requested-With': 'XMLHttpRequest', 'Accept': 'application/json' }
+            });
+            if (!resp.ok) return;
+            const data = await resp.json();
+            const pct  = Math.max(0, Math.min(99, parseInt(data.percent || 0)));
+            progressBar.style.width = pct + '%';
+            progressBar.setAttribute('aria-valuenow', pct);
+            progressText.textContent = pct + '%';
+            if (data.total > 0) {
+                progressDetail.textContent = 'Memproses baris ' + (data.current || 0) + ' dari ' + data.total + '...';
+            }
+        } catch(e) { /* abaikan */ }
+    }, 800);
+
+    const formData = new FormData();
+    formData.append('_token', '{{ csrf_token() }}');
+    formData.append('file', file);
+
+    fetch('{{ route("pelanggan.import") }}', {
+        method: 'POST',
+        body: formData,
+        headers: { 'X-Requested-With': 'XMLHttpRequest', 'Accept': 'application/json' }
+    })
+    .then(async function(response) {
+        clearInterval(pollInterval);
+        progressBar.style.width = '100%';
+        progressBar.setAttribute('aria-valuenow', 100);
+        progressText.textContent = '100%';
+        progressLabel.textContent = 'Import Selesai';
+        progressDetail.textContent = '';
+
+        // Reset file input (Point 1)
+        fileInput.value = '';
+        importBtn.disabled = false;
+        importBtn.innerHTML = '<i class="fas fa-upload me-2"></i>Import';
+
+        let data;
+        try { data = await response.json(); } catch(e) {
+            showImportAlert('error', 'Terjadi kesalahan tidak terduga. Silakan coba lagi.');
+            return;
+        }
+
+        if (data.success) {
+            showImportAlert('success', data.message || 'Import berhasil!', data.errors || []);
+        } else {
+            showImportAlert('error', data.message || 'Import gagal.', data.errors || []);
+        }
+        setTimeout(() => { progressContainer.classList.add('d-none'); }, 3000);
+    })
+    .catch(function() {
+        clearInterval(pollInterval);
+        importBtn.disabled = false;
+        importBtn.innerHTML = '<i class="fas fa-upload me-2"></i>Import';
+        progressContainer.classList.add('d-none');
+        showImportAlert('error', 'Koneksi terputus atau server tidak merespons. Silakan coba lagi.');
+    });
+}
+
+function showImportAlert(type, message, errors) {
+    document.querySelectorAll('.import-alert').forEach(el => el.remove());
+    const cls  = type === 'success' ? 'alert-success' : 'alert-danger';
+    const icon = type === 'success' ? 'fa-check-circle' : 'fa-exclamation-circle';
+    let errHtml = '';
+    if (errors && errors.length > 0) {
+        errHtml = '<ul class="mb-0 mt-2">' + errors.map(e => '<li>' + e + '</li>').join('') + '</ul>';
+    }
+    const div = document.createElement('div');
+    div.className = 'alert ' + cls + ' alert-dismissible fade show shadow-sm import-alert';
+    div.setAttribute('role', 'alert');
+    div.innerHTML = '<i class="fas ' + icon + ' me-2"></i>' + message + errHtml +
+        '<button type="button" class="btn-close" data-bs-dismiss="alert" aria-label="Close" onclick="window.location.reload()"></button>';
+    const row = document.querySelector('.row.g-4');
+    if (row) row.insertBefore(div, row.firstChild);
+    window.scrollTo({ top: 0, behavior: 'smooth' });
 }
 </script>
 @endsection

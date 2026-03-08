@@ -7,6 +7,7 @@ use App\Http\Controllers\Auth\LoginController;
 use App\Http\Controllers\ForgotPasswordController;
 use App\Http\Controllers\ActivityLogController;
 use App\Http\Controllers\ApprovalRequestController;
+use App\Http\Controllers\CabangController;
 use App\Models\User;
 use App\Models\Role;
 
@@ -151,5 +152,18 @@ Route::middleware(['auth'])->group(function () {
             Route::get('/approval-requests', [ApprovalRequestController::class, 'index'])->name('approval.index');
             Route::post('/approval-requests/{id}/approve', [ApprovalRequestController::class, 'approve'])->name('approval.approve');
             Route::post('/approval-requests/{id}/reject', [ApprovalRequestController::class, 'reject'])->name('approval.reject');
+            Route::post('/approval-requests/{id}/process', [ApprovalRequestController::class, 'process'])->name('approval.process');
+
+            // Cabang management
+            Route::get('/cabang', [CabangController::class, 'index'])->name('cabang.index');
+            Route::post('/cabang', [CabangController::class, 'store'])->name('cabang.store');
+            Route::put('/cabang/{id}', [CabangController::class, 'update'])->name('cabang.update');
+            Route::delete('/cabang/{id}', [CabangController::class, 'destroy'])->name('cabang.destroy');
+        });
+
+        // Pelanggan delete request (Admin → needs approval)
+        Route::middleware([\App\Http\Middleware\EnsureUserIsAdmin::class])->group(function () {
+            Route::post('/pelanggan/{id}/delete-request', [PelangganController::class, 'deleteRequest'])->name('pelanggan.delete-request');
+            Route::post('/pelanggan/bulk-delete-request', [PelangganController::class, 'bulkDeleteRequest'])->name('pelanggan.bulk-delete-request');
         });
     });

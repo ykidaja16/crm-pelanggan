@@ -37,6 +37,9 @@ class ApprovalRequestController extends Controller
         return view('approval-requests.index', compact('requests'));
     }
 
+    /**
+     * Point 6 & 8: Validasi PID duplikat dan prefix cabang untuk pelanggan khusus manual
+     */
     public function storeSpecialCustomerRequest(Request $request)
     {
         $validated = $request->validate([
@@ -54,6 +57,36 @@ class ApprovalRequestController extends Controller
             'request_note'       => 'required|string|max:500',
         ]);
 
+        $pid = strtoupper(trim($validated['pid']));
+
+        // Point 6: Cek PID duplikat di database
+        $existingPelanggan = Pelanggan::where('pid', $pid)->first();
+        if ($existingPelanggan) {
+            return back()
+                ->withInput()
+                ->with('error', "PID {$pid} sudah terdaftar atas nama \"{$existingPelanggan->nama}\". Tidak bisa mengajukan pelanggan khusus dengan PID yang sama.");
+        }
+
+        // Cek juga di approval request yang masih pending
+        $pendingRequest = ApprovalRequest::where('type', 'pelanggan_khusus')
+            ->where('status', 'pending')
+            ->whereJsonContains('payload->pid', $pid)
+            ->first();
+        if ($pendingRequest) {
+            return back()
+                ->withInput()
+                ->with('error', "PID {$pid} sudah ada dalam pengajuan yang sedang menunggu approval.");
+        }
+
+        // Point 8: Validasi prefix PID sesuai cabang yang dipilih
+        $cabang = Cabang::findOrFail($validated['cabang_id']);
+        $pidPrefix = strtoupper(substr($pid, 0, 2));
+        if ($pidPrefix !== strtoupper($cabang->kode)) {
+            return back()
+                ->withInput()
+                ->with('error', "PID \"{$pid}\" tidak sesuai dengan cabang \"{$cabang->nama}\". Prefix PID harus \"{$cabang->kode}\" untuk cabang ini.");
+        }
+
         $biayaValue = (float) preg_replace('/[^\d]/', '', (string) $validated['biaya']);
 
         ApprovalRequest::create([
@@ -62,7 +95,7 @@ class ApprovalRequestController extends Controller
             'target_type' => Pelanggan::class,
             'target_id'   => null,
             'payload'     => [
-                'pid'                => $validated['pid'],
+                'pid'                => $pid,
                 'cabang_id'          => $validated['cabang_id'],
                 'nama'               => $validated['nama'],
                 'no_telp'            => $validated['no_telp'] ?? null,
@@ -82,7 +115,7 @@ class ApprovalRequestController extends Controller
         ActivityLog::record(
             'create',
             'ApprovalRequest',
-            'Mengajukan pelanggan khusus PID ' . $validated['pid'] . ' untuk approval.',
+            'Mengajukan pelanggan khusus PID ' . $pid . ' untuk approval.',
             Auth::id(),
             Auth::user()->username ?? 'unknown',
             Auth::user()->role->name ?? '-',
@@ -93,6 +126,9 @@ class ApprovalRequestController extends Controller
         return back()->with('success', 'Pengajuan pelanggan khusus berhasil dikirim untuk approval Superadmin.');
     }
 
+    /**
+     * Point 6 & 8: Validasi PID duplikat dan prefix cabang untuk import pelanggan khusus
+     */
     public function storeSpecialCustomerImportRequest(Request $request)
     {
         $validated = $request->validate([
@@ -111,10 +147,12 @@ class ApprovalRequestController extends Controller
 
         $cabangs = Cabang::all()->keyBy('kode');
         $created = 0;
+        $errors = [];
 
-        DB::transaction(function () use ($rows, $cabangs, $validated, &$created) {
+        DB::transaction(function () use ($rows, $cabangs, $validated, &$created, &$errors) {
             for ($i = 1; $i < count($rows); $i++) {
                 $row = $rows[$i] ?? [];
+                $rowNum = $i + 1;
 
                 // Format: No | Nama | Total Kedatangan | Tanggal | Biaya | No Telp | DOB | PID | Alamat | Kota | Kelompok | Kategori Khusus
                 $nama = trim((string) ($row[1] ?? ''));
@@ -122,7 +160,7 @@ class ApprovalRequestController extends Controller
                 $biaya = (float) preg_replace('/[^\d]/', '', (string) ($row[4] ?? '0'));
                 $noTelp = trim((string) ($row[5] ?? ''));
                 $dob = trim((string) ($row[6] ?? ''));
-                $pid = trim((string) ($row[7] ?? ''));
+                $pid = strtoupper(trim((string) ($row[7] ?? '')));
                 $alamat = trim((string) ($row[8] ?? ''));
                 $kota = trim((string) ($row[9] ?? ''));
                 $kelompokPelanggan = strtolower(trim((string) ($row[10] ?? 'mandiri')));
@@ -133,11 +171,32 @@ class ApprovalRequestController extends Controller
                     continue;
                 }
 
+                // Point 6: Cek PID duplikat di database
+                $existingPelanggan = Pelanggan::where('pid', $pid)->first();
+                if ($existingPelanggan) {
+                    $errors[] = "Baris {$rowNum}: PID {$pid} sudah terdaftar atas nama \"{$existingPelanggan->nama}\".";
+                    continue;
+                }
+
+                // Cek di pending approval
+                $pendingRequest = ApprovalRequest::where('type', 'pelanggan_khusus')
+                    ->where('status', 'pending')
+                    ->whereJsonContains('payload->pid', $pid)
+                    ->first();
+                if ($pendingRequest) {
+                    $errors[] = "Baris {$rowNum}: PID {$pid} sudah ada dalam pengajuan yang sedang menunggu approval.";
+                    continue;
+                }
+
                 $cabangKode = strtoupper(substr($pid, 0, 2));
                 $cabang = $cabangs->get($cabangKode);
                 if (!$cabang) {
+                    $errors[] = "Baris {$rowNum}: Kode cabang '{$cabangKode}' dalam PID '{$pid}' tidak valid.";
                     continue;
                 }
+
+                // Point 8: Validasi prefix PID sesuai cabang
+                // (Untuk import, cabang ditentukan dari prefix PID, jadi sudah otomatis sesuai)
 
                 ApprovalRequest::create([
                     'type' => 'pelanggan_khusus',
@@ -177,7 +236,16 @@ class ApprovalRequestController extends Controller
             $request->userAgent()
         );
 
-        return back()->with('success', "Pengajuan import pelanggan khusus berhasil dikirim ({$created} data pending approval).");
+        if (!empty($errors) && $created === 0) {
+            return back()->with('error', 'Import gagal. ' . implode(' ', $errors));
+        }
+
+        $msg = "Pengajuan import pelanggan khusus berhasil dikirim ({$created} data pending approval).";
+        if (!empty($errors)) {
+            $msg .= ' Beberapa baris dilewati: ' . implode(' ', $errors);
+        }
+
+        return back()->with('success', $msg);
     }
 
     public function downloadTemplateKhusus()
@@ -198,9 +266,9 @@ class ApprovalRequestController extends Controller
         ];
 
         $data = [
-            [1, 'Budi Santoso', 1, '2024-01-15', 2500000, '081234567890', '1990-05-20', 'JK00001', 'Jl. Sudirman No. 123', 'Jakarta', 'mandiri', 'Kepala Dinas'],
-            [2, 'Siti Aminah', 1, '2024-02-10', 4500000, '082345678901', '1985-08-12', 'BD00002', 'Jl. Ahmad Yani No. 45', 'Bandung', 'klinisi', 'PIC Perusahaan'],
-            [3, 'Ahmad Wijaya', 1, '2024-03-05', 1200000, '083456789012', '1992-11-03', 'SB00003', 'Jl. Gatot Subroto No. 78', 'Surabaya', 'mandiri', 'Lainnya'],
+            [1, 'Budi Santoso', 1, '2024-01-15', 2500000, '081234567890', '1990-05-20', 'LX00001', 'Jl. Sudirman No. 123', 'Jakarta', 'mandiri', 'Kepala Dinas'],
+            [2, 'Siti Aminah', 1, '2024-02-10', 4500000, '082345678901', '1985-08-12', 'LZ00002', 'Jl. Ahmad Yani No. 45', 'Bandung', 'klinisi', 'PIC Perusahaan'],
+            [3, 'Ahmad Wijaya', 1, '2024-03-05', 1200000, '083456789012', '1992-11-03', 'LX00003', 'Jl. Gatot Subroto No. 78', 'Surabaya', 'mandiri', 'Lainnya'],
         ];
 
         $spreadsheet = new Spreadsheet();
@@ -244,6 +312,9 @@ class ApprovalRequestController extends Controller
         ])->deleteFileAfterSend(true);
     }
 
+    /**
+     * Point 11: Redirect ke detail pelanggan setelah ajukan perubahan kunjungan
+     */
     public function storeKunjunganEditRequest(Request $request, $kunjunganId)
     {
         $validated = $request->validate([
@@ -277,7 +348,9 @@ class ApprovalRequestController extends Controller
             $request->userAgent()
         );
 
-        return back()->with('success', 'Pengajuan edit kunjungan berhasil dikirim untuk approval Superadmin.');
+        // Point 11: Redirect ke detail pelanggan (bukan back())
+        return redirect()->route('pelanggan.show', $kunjungan->pelanggan_id)
+            ->with('success', 'Pengajuan edit kunjungan berhasil dikirim untuk approval Superadmin.');
     }
 
     public function storeKunjunganDeleteRequest(Request $request, $kunjunganId)
@@ -313,6 +386,9 @@ class ApprovalRequestController extends Controller
         return back()->with('success', 'Pengajuan hapus kunjungan berhasil dikirim untuk approval Superadmin.');
     }
 
+    /**
+     * Point 10: Approve request — termasuk pelanggan_delete dan pelanggan_bulk_delete
+     */
     public function approve(Request $request, $id)
     {
         $validated = $request->validate([
@@ -326,6 +402,7 @@ class ApprovalRequestController extends Controller
         }
 
         DB::transaction(function () use ($approval, $validated, $request) {
+            // Pelanggan Khusus: buat pelanggan baru
             if ($approval->type === 'pelanggan_khusus' && $approval->action === 'create') {
                 $payload = $approval->payload ?? [];
                 $cabang = Cabang::findOrFail($payload['cabang_id']);
@@ -364,6 +441,7 @@ class ApprovalRequestController extends Controller
                 $approval->target_id = $pelanggan->id;
             }
 
+            // Kunjungan: edit atau delete
             if ($approval->type === 'kunjungan' && $approval->target_type === Kunjungan::class) {
                 $kunjungan = Kunjungan::with('pelanggan')->findOrFail($approval->target_id);
 
@@ -396,6 +474,23 @@ class ApprovalRequestController extends Controller
                     $deletedDate = \Carbon\Carbon::parse($kunjungan->tanggal_kunjungan);
                     $kunjungan->delete();
                     $pelanggan->updateStats($deletedDate, 'Perubahan dari approval hapus kunjungan');
+                }
+            }
+
+            // Point 10: Hapus pelanggan individual (dari Admin)
+            if ($approval->type === 'pelanggan' && $approval->action === 'delete') {
+                $pelanggan = Pelanggan::find($approval->target_id);
+                if ($pelanggan) {
+                    $pelanggan->delete();
+                }
+            }
+
+            // Point 10: Hapus pelanggan bulk (dari Admin)
+            if ($approval->type === 'pelanggan' && $approval->action === 'bulk_delete') {
+                $payload = $approval->payload ?? [];
+                $ids = $payload['ids'] ?? [];
+                if (!empty($ids)) {
+                    Pelanggan::whereIn('id', $ids)->delete();
                 }
             }
 
@@ -450,5 +545,30 @@ class ApprovalRequestController extends Controller
         );
 
         return back()->with('success', 'Request berhasil di-reject.');
+    }
+
+    /**
+     * Point 3: Process approval via dropdown (Approve/Reject + 1 textbox catatan)
+     */
+    public function process(Request $request, $id)
+    {
+        $validated = $request->validate([
+            'action'        => 'required|in:approve,reject',
+            'decision_note' => 'required|string|max:500',
+        ], [
+            'action.required'        => 'Pilih aksi (Approve atau Reject).',
+            'action.in'              => 'Aksi tidak valid.',
+            'decision_note.required' => 'Catatan keputusan wajib diisi.',
+        ]);
+
+        if ($validated['action'] === 'approve') {
+            return $this->approve(new Request([
+                'decision_note' => $validated['decision_note'],
+            ]), $id);
+        } else {
+            return $this->reject(new Request([
+                'decision_note' => $validated['decision_note'],
+            ]), $id);
+        }
     }
 }

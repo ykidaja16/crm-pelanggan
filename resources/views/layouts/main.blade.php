@@ -120,7 +120,7 @@
                     <i class="fas fa-users"></i> Data Pelanggan
                 </a>
             </li>
-            @if(Auth::user()->role?->name === 'Admin')
+            @if(in_array(Auth::user()->role?->name, ['Admin', 'Super Admin']))
             <li class="{{ request()->routeIs('pelanggan.khusus*') ? 'active' : '' }}">
                 <a href="{{ route('pelanggan.khusus.index') }}">
                     <i class="fas fa-star"></i> Pelanggan Khusus
@@ -136,6 +136,11 @@
             <li class="{{ request()->routeIs('approval.*') ? 'active' : '' }}">
                 <a href="{{ route('approval.index') }}">
                     <i class="fas fa-check-double"></i> Approval
+                </a>
+            </li>
+            <li class="{{ request()->routeIs('cabang.*') ? 'active' : '' }}">
+                <a href="{{ route('cabang.index') }}">
+                    <i class="fas fa-building"></i> Manajemen Cabang
                 </a>
             </li>
             <li class="{{ request()->routeIs('users*') ? 'active' : '' }}">

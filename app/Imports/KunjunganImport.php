@@ -55,7 +55,10 @@ class KunjunganImport implements ToCollection, WithStartRow
         Log::info('Starting KunjunganImport collection processing', ['total_rows' => $rows->count()]);
 
         $importUserId = Auth::id() ?? 0;
+        $totalRows = max($rows->count(), 1);
         Cache::put("import_progress_{$importUserId}", 0, now()->addMinutes(30));
+        Cache::put("import_total_{$importUserId}", $totalRows, now()->addMinutes(30));
+        Cache::put("import_current_{$importUserId}", 0, now()->addMinutes(30));
 
         // Pre-load cabangs for faster lookup
         $cabangs = Cabang::all()->keyBy('kode');
@@ -199,6 +202,7 @@ class KunjunganImport implements ToCollection, WithStartRow
                 if ($importUserId > 0) {
                     $percent = (int) floor(($current / $totalRows) * 100);
                     Cache::put("import_progress_{$importUserId}", min($percent, 99), now()->addMinutes(30));
+                    Cache::put("import_current_{$importUserId}", $current, now()->addMinutes(30));
                 }
             }
         }

@@ -17,6 +17,26 @@
         <div class="card-body">
             <form id="filterForm" class="row g-3">
                 @csrf
+                <!-- Point 4: Kelompok Pelanggan -->
+                <div class="col-md-3">
+                    <label class="form-label fw-medium small">Kelompok Pelanggan</label>
+                    <select name="kelompok_pelanggan" class="form-select">
+                        <option value="">Semua Kelompok</option>
+                        <option value="mandiri">Mandiri</option>
+                        <option value="klinisi">Klinisi</option>
+                    </select>
+                </div>
+
+                <!-- Point 4: Tipe Pelanggan -->
+                <div class="col-md-3">
+                    <label class="form-label fw-medium small">Tipe Pelanggan</label>
+                    <select name="tipe_pelanggan" class="form-select">
+                        <option value="">Semua Tipe</option>
+                        <option value="biasa">Pelanggan Biasa</option>
+                        <option value="khusus">Pelanggan Khusus</option>
+                    </select>
+                </div>
+
                 <!-- Periode -->
                 <div class="col-md-3">
                     <label class="form-label fw-medium small">Periode</label>

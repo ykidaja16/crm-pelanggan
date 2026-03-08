@@ -19,6 +19,17 @@ class LaporanController extends Controller
         return view('laporan.index', compact('cabangs'));
     }
 
+    /**
+     * Point 4: Helper untuk validasi prefix PID sesuai cabang
+     */
+    public static function validatePidCabang(string $pid, int $cabangId): bool
+    {
+        $cabang = Cabang::find($cabangId);
+        if (!$cabang) return false;
+        $pidPrefix = strtoupper(substr($pid, 0, 2));
+        return $pidPrefix === strtoupper($cabang->kode);
+    }
+
     public function preview(Request $request)
     {
         try {
@@ -144,6 +155,24 @@ class LaporanController extends Controller
             }
         }
         
+        // Point 4: Filter kelompok pelanggan (mandiri/klinisi)
+        if ($request->filled('kelompok_pelanggan')) {
+            $kelompok = $request->get('kelompok_pelanggan');
+            $query->whereHas('kunjungans.kelompokPelanggan', function ($q) use ($kelompok) {
+                $q->where('kode', $kelompok);
+            });
+        }
+
+        // Point 4: Filter tipe pelanggan (biasa/khusus)
+        if ($request->filled('tipe_pelanggan')) {
+            $tipe = $request->get('tipe_pelanggan');
+            if ($tipe === 'khusus') {
+                $query->where('is_pelanggan_khusus', true);
+            } elseif ($tipe === 'biasa') {
+                $query->where('is_pelanggan_khusus', false);
+            }
+        }
+
         // Sorting
         $sort = $request->get('sort', 'nama');
         $direction = $request->get('direction', 'asc');
