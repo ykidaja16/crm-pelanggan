@@ -65,6 +65,40 @@
             background: #e9ecef;
             border-right: 4px solid #0056b3;
         }
+        /* Submenu Approval */
+        #sidebar .submenu-approval {
+            background: #f8f9fa;
+            border-left: 3px solid #0056b3;
+            margin-left: 0;
+        }
+        #sidebar .submenu-approval li a {
+            padding: 10px 20px 10px 45px;
+            font-size: 0.92em;
+            color: #666;
+        }
+        #sidebar .submenu-approval li a:hover {
+            color: #0056b3;
+            background: #e9ecef;
+        }
+        #sidebar .submenu-approval li.active > a {
+            color: #0056b3;
+            background: #e9ecef;
+            border-right: 4px solid #0056b3;
+            font-weight: 600;
+        }
+        #sidebar .approval-toggle {
+            cursor: pointer;
+        }
+        #sidebar .approval-toggle .fa-chevron-down {
+            margin-left: auto;
+            margin-right: 0;
+            width: auto;
+            font-size: 0.75em;
+            transition: transform 0.3s;
+        }
+        #sidebar .approval-toggle[aria-expanded="true"] .fa-chevron-down {
+            transform: rotate(180deg);
+        }
         #content {
             width: 100%;
             padding: 20px;
@@ -133,10 +167,37 @@
                 </a>
             </li>
             @if(Auth::user()->role?->name === 'Super Admin')
-            <li class="{{ request()->routeIs('approval.*') ? 'active' : '' }}">
-                <a href="{{ route('approval.index') }}">
+            @php
+                $approvalActive = request()->routeIs('approval.pelanggan-khusus')
+                               || request()->routeIs('approval.kunjungan')
+                               || request()->routeIs('approval.pelanggan');
+            @endphp
+            <li class="{{ $approvalActive ? 'active' : '' }}">
+                <a href="#approvalSubmenu"
+                   data-bs-toggle="collapse"
+                   class="approval-toggle"
+                   aria-expanded="{{ $approvalActive ? 'true' : 'false' }}"
+                   aria-controls="approvalSubmenu">
                     <i class="fas fa-check-double"></i> Approval
+                    <i class="fas fa-chevron-down"></i>
                 </a>
+                <ul class="list-unstyled submenu-approval collapse {{ $approvalActive ? 'show' : '' }}" id="approvalSubmenu">
+                    <li class="{{ request()->routeIs('approval.pelanggan-khusus') ? 'active' : '' }}">
+                        <a href="{{ route('approval.pelanggan-khusus') }}">
+                            <i class="fas fa-star me-2"></i>Pelanggan Khusus
+                        </a>
+                    </li>
+                    <li class="{{ request()->routeIs('approval.kunjungan') ? 'active' : '' }}">
+                        <a href="{{ route('approval.kunjungan') }}">
+                            <i class="fas fa-calendar-check me-2"></i>Data Kunjungan
+                        </a>
+                    </li>
+                    <li class="{{ request()->routeIs('approval.pelanggan') ? 'active' : '' }}">
+                        <a href="{{ route('approval.pelanggan') }}">
+                            <i class="fas fa-users me-2"></i>Data Pelanggan
+                        </a>
+                    </li>
+                </ul>
             </li>
             <li class="{{ request()->routeIs('cabang.*') ? 'active' : '' }}">
                 <a href="{{ route('cabang.index') }}">

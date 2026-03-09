@@ -161,6 +161,9 @@ Route::middleware(['auth'])->group(function () {
 
         // Approval requests
         Route::get('/approval-requests', [ApprovalRequestController::class, 'index'])->name('approval.index');
+        Route::get('/approval-requests/pelanggan-khusus', [ApprovalRequestController::class, 'indexPelangganKhusus'])->name('approval.pelanggan-khusus');
+        Route::get('/approval-requests/kunjungan', [ApprovalRequestController::class, 'indexKunjungan'])->name('approval.kunjungan');
+        Route::get('/approval-requests/pelanggan', [ApprovalRequestController::class, 'indexPelanggan'])->name('approval.pelanggan');
         Route::post('/approval-requests/{id}/approve', [ApprovalRequestController::class, 'approve'])->name('approval.approve');
         Route::post('/approval-requests/{id}/reject', [ApprovalRequestController::class, 'reject'])->name('approval.reject');
         Route::post('/approval-requests/{id}/process', [ApprovalRequestController::class, 'process'])->name('approval.process');

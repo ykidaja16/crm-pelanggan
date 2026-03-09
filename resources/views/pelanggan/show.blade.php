@@ -376,18 +376,16 @@
                     </tbody>
                 </table>
             </div>
-            {{-- Point 2: Pagination Riwayat Pengajuan Perubahan --}}
-            @if($approvalHistories->hasPages())
+            {{-- Pagination Riwayat Pengajuan Perubahan --}}
             <div class="d-flex justify-content-between align-items-center p-3 border-top bg-light small">
                 <div class="text-muted">
                     Menampilkan <strong>{{ $approvalHistories->firstItem() ?? 0 }} - {{ $approvalHistories->lastItem() ?? 0 }}</strong>
                     dari <strong>{{ $approvalHistories->total() }}</strong> pengajuan
                 </div>
                 <div>
-                    {{ $approvalHistories->links('pagination::bootstrap-5') }}
+                    {{ $approvalHistories->appends(request()->query())->links('pagination::bootstrap-5') }}
                 </div>
             </div>
-            @endif
         </div>
     </div>
 @endsection

@@ -38,6 +38,65 @@ class ApprovalRequestController extends Controller
     }
 
     /**
+     * Submenu: Approval Pelanggan Khusus
+     */
+    public function indexPelangganKhusus(Request $request)
+    {
+        $query = ApprovalRequest::with(['requester', 'reviewer'])
+            ->where('type', 'pelanggan_khusus')
+            ->orderByDesc('id');
+
+        if ($request->filled('status')) {
+            $query->where('status', $request->status);
+        }
+
+        $requests = $query->paginate(20)->withQueryString();
+        $cabangs  = Cabang::all()->keyBy('id');
+
+        return view('approval-requests.pelanggan-khusus', compact('requests', 'cabangs'));
+    }
+
+    /**
+     * Submenu: Approval Data Kunjungan
+     */
+    public function indexKunjungan(Request $request)
+    {
+        $query = ApprovalRequest::with(['requester', 'reviewer'])
+            ->where('type', 'kunjungan')
+            ->orderByDesc('id');
+
+        if ($request->filled('status')) {
+            $query->where('status', $request->status);
+        }
+
+        $requests = $query->paginate(20)->withQueryString();
+
+        // Eager load kunjungan + pelanggan untuk popup informasi
+        $kunjunganIds = $requests->pluck('target_id')->filter()->unique()->toArray();
+        $kunjungans   = Kunjungan::with('pelanggan')->whereIn('id', $kunjunganIds)->get()->keyBy('id');
+
+        return view('approval-requests.kunjungan', compact('requests', 'kunjungans'));
+    }
+
+    /**
+     * Submenu: Approval Data Pelanggan (hapus)
+     */
+    public function indexPelanggan(Request $request)
+    {
+        $query = ApprovalRequest::with(['requester', 'reviewer'])
+            ->where('type', 'pelanggan')
+            ->orderByDesc('id');
+
+        if ($request->filled('status')) {
+            $query->where('status', $request->status);
+        }
+
+        $requests = $query->paginate(20)->withQueryString();
+
+        return view('approval-requests.pelanggan', compact('requests'));
+    }
+
+    /**
      * Point 6 & 8: Validasi PID duplikat dan prefix cabang untuk pelanggan khusus manual
      */
     public function storeSpecialCustomerRequest(Request $request)

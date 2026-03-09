@@ -228,19 +228,16 @@
                             </select>
                         </div>
 
-                        <div class="col-auto d-flex align-items-end">
-                            <button type="submit" class="btn btn-info">
+                        <div class="col-12 d-flex gap-2 mt-1">
+                            <button type="submit" class="btn btn-info px-4">
                                 <i class="fas fa-filter me-2"></i>Terapkan Filter
                             </button>
-                        </div>
-
-                        @if(($type ?? '') || ($cabang_id ?? '') || ($kelas ?? '') || ($omset_range ?? '') !== '' || ($kedatangan_range ?? '') !== '' || ($kelompok_pelanggan ?? '') || ($tipe_pelanggan ?? ''))
-                        <div class="col-md-3 d-flex align-items-end">
-                            <a href="{{ route('pelanggan.index') }}" class="btn btn-outline-secondary w-100">
+                            @if(($type ?? '') || ($cabang_id ?? '') || ($kelas ?? '') || ($omset_range ?? '') !== '' || ($kedatangan_range ?? '') !== '' || ($kelompok_pelanggan ?? '') || ($tipe_pelanggan ?? ''))
+                            <a href="{{ route('pelanggan.index') }}" class="btn btn-outline-secondary px-4">
                                 <i class="fas fa-times me-2"></i>Reset Filter
                             </a>
+                            @endif
                         </div>
-                        @endif
                     </form>
                 </div>
             </div>
