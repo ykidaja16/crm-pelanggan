@@ -166,6 +166,13 @@
                     <i class="fas fa-file-alt"></i> Laporan
                 </a>
             </li>
+            @if(in_array(Auth::user()->role?->name, ['Admin', 'Super Admin']))
+            <li class="{{ request()->routeIs('special-day.*') ? 'active' : '' }}">
+                <a href="{{ route('special-day.index') }}">
+                    <i class="fas fa-birthday-cake"></i> Special Day Member
+                </a>
+            </li>
+            @endif
             @if(Auth::user()->role?->name === 'Super Admin')
             @php
                 $approvalActive = request()->routeIs('approval.pelanggan-khusus')

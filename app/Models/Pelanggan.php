@@ -51,6 +51,14 @@ class Pelanggan extends Model
     }
 
     /**
+     * Relasi ke kunjungan terakhir (latest by tanggal_kunjungan)
+     */
+    public function latestKunjungan()
+    {
+        return $this->hasOne(Kunjungan::class)->latestOfMany('tanggal_kunjungan');
+    }
+
+    /**
      * Generate PID based on cabang kode
      * Format: {KodeCabang}{UniqNumber}
      * Example: LXB0049356, LZD0010534

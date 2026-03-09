@@ -10,6 +10,7 @@ use App\Http\Controllers\ForgotPasswordController;
 use App\Http\Controllers\ActivityLogController;
 use App\Http\Controllers\ApprovalRequestController;
 use App\Http\Controllers\CabangController;
+use App\Http\Controllers\SpecialDayController;
 use App\Models\User;
 use App\Models\Role;
 
@@ -105,6 +106,9 @@ Route::middleware(['auth'])->group(function () {
         ->name('pelanggan.export');
     Route::get('/download-template', [PelangganImportExportController::class, 'downloadTemplate'])
         ->name('pelanggan.download-template');
+
+    // ─── Special Day Member ───────────────────────────────────────────────────
+    Route::get('/special-day', [SpecialDayController::class, 'index'])->name('special-day.index');
 
     // ─── Laporan ─────────────────────────────────────────────────────────────
     Route::get('/laporan', [\App\Http\Controllers\LaporanController::class, 'index'])->name('laporan.index');
