@@ -88,7 +88,7 @@ class KunjunganController extends Controller
                 . number_format($request->biaya, 0, ',', '.') . ". Alasan: {$request->alasan_perubahan}",
             Auth::id(),
             Auth::user()->username ?? 'unknown',
-            Auth::user()->role->name ?? '-',
+            Auth::user()->role?->name ?? '-',
             $request->ip(),
             $request->userAgent()
         );
@@ -142,7 +142,7 @@ class KunjunganController extends Controller
                 . number_format($logData['biaya'], 0, ',', '.') . "). Alasan: {$request->alasan_hapus}",
             Auth::id(),
             Auth::user()->username ?? 'unknown',
-            Auth::user()->role->name ?? '-',
+            Auth::user()->role?->name ?? '-',
             request()->ip(),
             request()->userAgent()
         );

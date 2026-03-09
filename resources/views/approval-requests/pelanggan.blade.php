@@ -41,14 +41,12 @@
                     </select>
                 </div>
                 <div class="col-12 d-flex gap-2 mt-1">
-                    <button type="submit" class="btn btn-primary btn-sm px-4">
+                    <button type="submit" class="btn btn-primary btn-sm px-3">
                         <i class="fas fa-filter me-1"></i>Terapkan Filter
                     </button>
-                    @if(request('status'))
-                        <a href="{{ route('approval.pelanggan') }}" class="btn btn-outline-secondary btn-sm px-4">
-                            <i class="fas fa-times me-1"></i>Reset Filter
-                        </a>
-                    @endif
+                    <a href="{{ route('approval.pelanggan') }}" class="btn btn-outline-secondary btn-sm px-3">
+                        <i class="fas fa-times me-1"></i>Reset Filter
+                    </a>
                 </div>
             </form>
         </div>

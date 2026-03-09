@@ -57,7 +57,7 @@ class CabangController extends Controller
             "Membuka cabang baru: {$cabang->nama} (Kode: {$cabang->kode})",
             Auth::id(),
             Auth::user()->username ?? 'unknown',
-            Auth::user()->role->name ?? '-',
+            Auth::user()->role?->name ?? '-',
             request()->ip(),
             request()->userAgent()
         );
@@ -96,7 +96,7 @@ class CabangController extends Controller
             "Mengubah cabang: {$oldNama} → {$cabang->nama} (Kode: {$cabang->kode})",
             Auth::id(),
             Auth::user()->username ?? 'unknown',
-            Auth::user()->role->name ?? '-',
+            Auth::user()->role?->name ?? '-',
             request()->ip(),
             request()->userAgent()
         );
@@ -129,7 +129,7 @@ class CabangController extends Controller
             "Menghapus cabang: {$namaCabang} (Kode: {$kodeCabang})",
             Auth::id(),
             Auth::user()->username ?? 'unknown',
-            Auth::user()->role->name ?? '-',
+            Auth::user()->role?->name ?? '-',
             request()->ip(),
             request()->userAgent()
         );

@@ -52,8 +52,8 @@ class PelangganImportExportController extends Controller
             Cache::put("import_progress_{$userId}", 0, now()->addMinutes(30));
 
             $file = $request->file('file');
-            $extension = strtolower($file->getClientOriginalExtension());
-            Log::info('File uploaded', ['filename' => $file->getClientOriginalName(), 'size' => $file->getSize(), 'extension' => $extension]);
+            $extension = strtolower($file->getClientOriginalExtension() ?? '');
+            Log::info('File uploaded', ['filename' => $file->getClientOriginalName() ?? 'unknown', 'size' => $file->getSize(), 'extension' => $extension]);
 
             if ($extension === 'csv' || $extension === 'txt') {
                 $rows = $this->readCsvFile($file);
@@ -155,7 +155,7 @@ class PelangganImportExportController extends Controller
 
             Cache::put("import_progress_{$userId}", 100, now()->addMinutes(30));
 
-            $filename = $file->getClientOriginalName();
+            $filename = $file->getClientOriginalName() ?? 'unknown';
             Log::info('Import completed successfully', ['filename' => $filename]);
 
             $successMessage = "Import berhasil! File '$filename' dengan $validRows data telah diproses.";

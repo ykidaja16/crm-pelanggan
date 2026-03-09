@@ -177,7 +177,7 @@ class ApprovalRequestController extends Controller
             'Mengajukan pelanggan khusus PID ' . $pid . ' untuk approval.',
             Auth::id(),
             Auth::user()->username ?? 'unknown',
-            Auth::user()->role->name ?? '-',
+            Auth::user()->role?->name ?? '-',
             $request->ip(),
             $request->userAgent()
         );
@@ -290,7 +290,7 @@ class ApprovalRequestController extends Controller
             'Mengajukan import pelanggan khusus sebanyak ' . $created . ' baris untuk approval.',
             Auth::id(),
             Auth::user()->username ?? 'unknown',
-            Auth::user()->role->name ?? '-',
+            Auth::user()->role?->name ?? '-',
             $request->ip(),
             $request->userAgent()
         );
@@ -402,7 +402,7 @@ class ApprovalRequestController extends Controller
             'Mengajukan edit kunjungan ID ' . $kunjungan->id . ' (PID ' . ($kunjungan->pelanggan->pid ?? '-') . ') untuk approval.',
             Auth::id(),
             Auth::user()->username ?? 'unknown',
-            Auth::user()->role->name ?? '-',
+            Auth::user()->role?->name ?? '-',
             $request->ip(),
             $request->userAgent()
         );
@@ -437,7 +437,7 @@ class ApprovalRequestController extends Controller
             'Mengajukan hapus kunjungan ID ' . $kunjungan->id . ' (PID ' . ($kunjungan->pelanggan->pid ?? '-') . ') untuk approval.',
             Auth::id(),
             Auth::user()->username ?? 'unknown',
-            Auth::user()->role->name ?? '-',
+            Auth::user()->role?->name ?? '-',
             $request->ip(),
             $request->userAgent()
         );
@@ -565,7 +565,7 @@ class ApprovalRequestController extends Controller
                 'Menyetujui approval request #' . $approval->id . '. Catatan: ' . $validated['decision_note'],
                 Auth::id(),
                 Auth::user()->username ?? 'unknown',
-                Auth::user()->role->name ?? '-',
+                Auth::user()->role?->name ?? '-',
                 $request->ip(),
                 $request->userAgent()
             );
@@ -598,7 +598,7 @@ class ApprovalRequestController extends Controller
             'Menolak approval request #' . $approval->id . '. Catatan: ' . $validated['decision_note'],
             Auth::id(),
             Auth::user()->username ?? 'unknown',
-            Auth::user()->role->name ?? '-',
+            Auth::user()->role?->name ?? '-',
             $request->ip(),
             $request->userAgent()
         );
