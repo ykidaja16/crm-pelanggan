@@ -87,7 +87,7 @@
                                  style="width: 0%;"
                                  aria-valuemin="0" aria-valuemax="100" aria-valuenow="0"></div>
                         </div>
-                        <small class="text-muted mt-1 d-block" id="importProgressDetail">Sedang memvalidasi dan mengimpor data...</small>
+                        <small class="text-muted mt-1 d-block" id="importProgressDetail"></small>
                     </div>
                 </div>
             </div>
@@ -687,7 +687,7 @@ function startImport() {
     progressBar.setAttribute('aria-valuenow', 0);
     progressText.textContent = '0%';
     progressLabel.textContent = 'Progress Import';
-    progressDetail.textContent = 'Sedang memvalidasi dan mengimpor data...';
+    progressDetail.textContent = '';
 
     // Polling progress setiap 800ms
     let pollInterval = setInterval(async function() {
@@ -701,9 +701,6 @@ function startImport() {
             progressBar.style.width = pct + '%';
             progressBar.setAttribute('aria-valuenow', pct);
             progressText.textContent = pct + '%';
-            if (data.total > 0) {
-                progressDetail.textContent = 'Memproses baris ' + (data.current || 0) + ' dari ' + data.total + '...';
-            }
         } catch(e) { /* abaikan */ }
     }, 800);
 
