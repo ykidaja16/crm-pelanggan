@@ -147,6 +147,16 @@ class ApprovalRequestController extends Controller
 
         $pid = strtoupper(trim($validated['pid']));
 
+        // Validasi akses cabang user (non-IT hanya bisa ke cabang yang diizinkan)
+        /** @var User $authUser */
+        $authUser = Auth::user();
+        $accessibleCabangIds = $authUser->getAccessibleCabangIds();
+        if (!empty($accessibleCabangIds) && !in_array((int)$validated['cabang_id'], $accessibleCabangIds)) {
+            return back()
+                ->withInput()
+                ->with('error', 'Anda tidak memiliki akses ke cabang yang dipilih.');
+        }
+
         // Point 6: Cek PID duplikat di database
         $existingPelanggan = Pelanggan::where('pid', $pid)->first();
         if ($existingPelanggan) {
@@ -224,9 +234,25 @@ class ApprovalRequestController extends Controller
     public function storeSpecialCustomerImportRequest(Request $request)
     {
         $validated = $request->validate([
-            'file' => 'required|file|mimes:xlsx,xls,csv',
-            'request_note' => 'required|string|max:500',
+            'file'             => 'required|file|mimes:xlsx,xls,csv',
+            'request_note'     => 'required|string|max:500',
+            'import_cabang_id' => 'required|exists:cabangs,id',
+        ], [
+            'import_cabang_id.required' => 'Pilih cabang terlebih dahulu sebelum import.',
+            'import_cabang_id.exists'   => 'Cabang yang dipilih tidak valid.',
         ]);
+
+        // Validasi akses cabang user (non-IT hanya bisa ke cabang yang diizinkan)
+        /** @var User $authUser */
+        $authUser = Auth::user();
+        $accessibleCabangIds = $authUser->getAccessibleCabangIds();
+        if (!empty($accessibleCabangIds) && !in_array((int)$validated['import_cabang_id'], $accessibleCabangIds)) {
+            return back()
+                ->withInput()
+                ->with('error', 'Anda tidak memiliki akses ke cabang yang dipilih.');
+        }
+
+        $selectedCabang = Cabang::findOrFail($validated['import_cabang_id']);
 
         $file = $request->file('file');
         $spreadsheet = IOFactory::load($file->getPathname());
@@ -241,7 +267,7 @@ class ApprovalRequestController extends Controller
         $created = 0;
         $errors = [];
 
-        DB::transaction(function () use ($rows, $cabangs, $validated, &$created, &$errors) {
+        DB::transaction(function () use ($rows, $cabangs, $validated, $selectedCabang, &$created, &$errors) {
             for ($i = 1; $i < count($rows); $i++) {
                 $row = $rows[$i] ?? [];
                 $rowNum = $i + 1;
@@ -287,8 +313,11 @@ class ApprovalRequestController extends Controller
                     continue;
                 }
 
-                // Point 8: Validasi prefix PID sesuai cabang
-                // (Untuk import, cabang ditentukan dari prefix PID, jadi sudah otomatis sesuai)
+                // Validasi PID prefix harus sesuai cabang yang dipilih
+                if (strtoupper($cabangKode) !== strtoupper($selectedCabang->kode)) {
+                    $errors[] = "Baris {$rowNum}: PID '{$pid}' (prefix '{$cabangKode}') tidak sesuai dengan cabang yang dipilih '{$selectedCabang->nama}' (kode '{$selectedCabang->kode}').";
+                    continue;
+                }
 
                 // Auto-assign ke superadmin pertama di cabang
                 $assignedToImport = $this->getFirstSuperadminForCabang($cabang->id);
@@ -575,7 +604,7 @@ class ApprovalRequestController extends Controller
             $request->userAgent()
         );
 
-        return redirect()->route('pelanggan.show', $pelanggan->id)
+        return redirect()->route('pelanggan.index')
             ->with('success', 'Pengajuan edit pelanggan berhasil dikirim untuk approval Superadmin.');
     }
 

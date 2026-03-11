@@ -161,6 +161,23 @@
                 <form method="POST" action="{{ route('approval.special.import.store') }}" enctype="multipart/form-data" class="row g-3">
                     @csrf
                     <div class="col-12">
+                        <label class="form-label fw-medium">Pilih Cabang <span class="text-danger">*</span></label>
+                        <select name="import_cabang_id" class="form-select @error('import_cabang_id') is-invalid @enderror" required>
+                            <option value="">-- Pilih Cabang --</option>
+                            @foreach($cabangs as $cabang)
+                                <option value="{{ $cabang->id }}" {{ old('import_cabang_id') == $cabang->id ? 'selected' : '' }}>
+                                    {{ $cabang->nama }} ({{ $cabang->kode }})
+                                </option>
+                            @endforeach
+                        </select>
+                        @error('import_cabang_id')
+                            <div class="invalid-feedback">{{ $message }}</div>
+                        @enderror
+                        <div class="form-text text-muted">
+                            <i class="fas fa-info-circle me-1"></i>Semua PID dalam file harus sesuai dengan kode cabang yang dipilih.
+                        </div>
+                    </div>
+                    <div class="col-12">
                         <label class="form-label">File Excel/CSV <span class="text-danger">*</span></label>
                         <input type="file" name="file" class="form-control" accept=".xlsx,.xls,.csv" required>
                         <div class="mt-2 p-2 bg-light rounded border small text-muted">

@@ -255,8 +255,51 @@
                     <img src="{{ asset('images/logosima.png') }}" alt="SIMA Lab" height="35" class="me-2">
                     <!-- <span class="fw-bold text-primary">SIMA Lab</span> -->
                 </a>
-                <div class="ms-auto d-flex align-items-center">
-                    <span class="me-3 text-muted">Welcome, <strong>{{ Auth::user()->name }}</strong> ({{ Auth::user()->role?->name ?? 'User' }})</span>
+                <div class="ms-auto d-flex align-items-center gap-2">
+                    {{-- Dropdown Profil User --}}
+                    <div class="dropdown">
+                        <button class="btn btn-light border d-flex align-items-center gap-2 px-3 py-2 dropdown-toggle"
+                                type="button" id="profileDropdown"
+                                data-bs-toggle="dropdown" aria-expanded="false"
+                                style="border-radius:8px;">
+                            <div class="rounded-circle bg-primary d-flex align-items-center justify-content-center"
+                                 style="width:30px;height:30px;min-width:30px;">
+                                <i class="fas fa-user text-white" style="font-size:0.75rem;"></i>
+                            </div>
+                            <div class="text-start d-none d-md-block" style="line-height:1.2;">
+                                <div class="fw-semibold text-dark" style="font-size:0.85rem;">{{ Auth::user()->name }}</div>
+                                <div class="text-muted" style="font-size:0.72rem;">{{ Auth::user()->role?->name ?? 'User' }}</div>
+                            </div>
+                        </button>
+                        <ul class="dropdown-menu dropdown-menu-end shadow border-0 mt-1" aria-labelledby="profileDropdown"
+                            style="min-width:200px; border-radius:10px;">
+                            <li>
+                                <div class="px-3 py-2 border-bottom">
+                                    <div class="fw-semibold text-dark" style="font-size:0.85rem;">{{ Auth::user()->name }}</div>
+                                    <div class="text-muted" style="font-size:0.75rem;">{{ Auth::user()->email }}</div>
+                                    <span class="badge bg-primary mt-1" style="font-size:0.7rem;">{{ Auth::user()->role?->name ?? 'User' }}</span>
+                                </div>
+                            </li>
+                            <li>
+                                <a class="dropdown-item d-flex align-items-center gap-2 py-2"
+                                   href="{{ route('profile.edit') }}">
+                                    <i class="fas fa-user-edit text-primary" style="width:16px;"></i>
+                                    <span>Profil Saya</span>
+                                </a>
+                            </li>
+                            <li><hr class="dropdown-divider my-1"></li>
+                            <li>
+                                <form action="{{ route('logout') }}" method="POST">
+                                    @csrf
+                                    <button type="submit"
+                                            class="dropdown-item d-flex align-items-center gap-2 py-2 text-danger">
+                                        <i class="fas fa-sign-out-alt" style="width:16px;"></i>
+                                        <span>Logout</span>
+                                    </button>
+                                </form>
+                            </li>
+                        </ul>
+                    </div>
                 </div>
             </div>
         </nav>

@@ -47,23 +47,59 @@
 
                     <!-- Akses Cabang (hanya tampil jika role bukan IT) -->
                     <div class="mb-4" id="cabangSection">
-                        <label class="form-label fw-medium">Akses Cabang</label>
-                        <div class="text-muted small mb-2">Centang cabang yang dapat diakses oleh user ini.</div>
-                        @error('cabangs') <div class="text-danger small mb-2">{{ $message }}</div> @enderror
-                        <div class="row g-2">
-                            @foreach($cabangs as $cabang)
-                            <div class="col-md-4">
-                                <div class="form-check border rounded p-2">
-                                    <input class="form-check-input" type="checkbox"
-                                           name="cabangs[]" value="{{ $cabang->id }}"
-                                           id="cabang_{{ $cabang->id }}"
-                                           {{ in_array($cabang->id, old('cabangs', [])) ? 'checked' : '' }}>
-                                    <label class="form-check-label small" for="cabang_{{ $cabang->id }}">
-                                        <strong>{{ $cabang->kode }}</strong> - {{ $cabang->nama }}
+                        <div class="d-flex justify-content-between align-items-center mb-2">
+                            <div>
+                                <label class="form-label fw-semibold mb-0">
+                                    <i class="fas fa-building text-primary me-1"></i>Akses Cabang
+                                </label>
+                                <div class="text-muted small">Pilih cabang yang dapat diakses oleh user ini.</div>
+                            </div>
+                            <div class="d-flex gap-2">
+                                <button type="button" class="btn btn-outline-primary btn-sm" onclick="selectAllCabangs(true)">
+                                    <i class="fas fa-check-double me-1"></i>Pilih Semua
+                                </button>
+                                <button type="button" class="btn btn-outline-secondary btn-sm" onclick="selectAllCabangs(false)">
+                                    <i class="fas fa-times me-1"></i>Hapus Semua
+                                </button>
+                            </div>
+                        </div>
+                        @error('cabangs')
+                            <div class="alert alert-danger py-2 small mb-2">
+                                <i class="fas fa-exclamation-circle me-1"></i>{{ $message }}
+                            </div>
+                        @enderror
+                        <div class="border rounded-3 p-3 bg-light">
+                            <div class="row g-2">
+                                @foreach($cabangs as $cabang)
+                                @php $isChecked = in_array($cabang->id, old('cabangs', [])); @endphp
+                                <div class="col-md-4 col-sm-6">
+                                    <label for="cabang_{{ $cabang->id }}"
+                                           class="cabang-card d-flex align-items-center gap-2 p-2 rounded-2 border w-100"
+                                           style="cursor:pointer; transition: all 0.2s; background: {{ $isChecked ? '#e8f0fe' : '#fff' }}; border-color: {{ $isChecked ? '#0056b3' : '#dee2e6' }} !important;">
+                                        <input class="cabang-checkbox" type="checkbox"
+                                               name="cabangs[]" value="{{ $cabang->id }}"
+                                               id="cabang_{{ $cabang->id }}"
+                                               {{ $isChecked ? 'checked' : '' }}
+                                               style="display:none;">
+                                        <div class="rounded-circle d-flex align-items-center justify-content-center flex-shrink-0"
+                                             style="width:32px;height:32px;background:{{ $isChecked ? '#0056b3' : '#e9ecef' }}; transition: background 0.2s;">
+                                            <i class="fas {{ $isChecked ? 'fa-check' : 'fa-building' }} text-{{ $isChecked ? 'white' : 'secondary' }}"
+                                               style="font-size:0.75rem;"></i>
+                                        </div>
+                                        <div class="flex-grow-1 overflow-hidden">
+                                            <div class="fw-semibold text-dark" style="font-size:0.8rem; line-height:1.2;">{{ $cabang->kode }}</div>
+                                            <div class="text-muted text-truncate" style="font-size:0.72rem;">{{ $cabang->nama }}</div>
+                                        </div>
                                     </label>
                                 </div>
+                                @endforeach
                             </div>
-                            @endforeach
+                            <div class="mt-2 pt-2 border-top">
+                                <small class="text-muted">
+                                    <i class="fas fa-info-circle me-1"></i>
+                                    <span id="cabangSelectedCount">0</span> dari {{ count($cabangs) }} cabang dipilih
+                                </small>
+                            </div>
                         </div>
                     </div>
 
@@ -80,21 +116,54 @@
 
 @section('scripts')
 <script>
-// Sembunyikan section cabang jika role IT dipilih
-const roleSelect = document.getElementById('roleSelect');
+// ── Toggle section cabang jika role IT ──────────────────────────────────────
+const roleSelect    = document.getElementById('roleSelect');
 const cabangSection = document.getElementById('cabangSection');
-const itRoleName = 'IT';
 
 function toggleCabangSection() {
     const selectedText = roleSelect.options[roleSelect.selectedIndex]?.text ?? '';
-    if (selectedText === itRoleName) {
-        cabangSection.style.display = 'none';
-    } else {
-        cabangSection.style.display = '';
-    }
+    cabangSection.style.display = (selectedText === 'IT') ? 'none' : '';
+}
+roleSelect.addEventListener('change', toggleCabangSection);
+toggleCabangSection();
+
+// ── Cabang Card Toggle ───────────────────────────────────────────────────────
+function updateCabangCard(label) {
+    const checkbox  = label.querySelector('.cabang-checkbox');
+    const circle    = label.querySelector('.rounded-circle');
+    const icon      = circle.querySelector('i');
+    const isChecked = checkbox.checked;
+
+    label.style.background  = isChecked ? '#e8f0fe' : '#fff';
+    label.style.borderColor = isChecked ? '#0056b3' : '#dee2e6';
+    circle.style.background = isChecked ? '#0056b3' : '#e9ecef';
+    icon.className = 'fas ' + (isChecked ? 'fa-check text-white' : 'fa-building text-secondary');
+    icon.style.fontSize = '0.75rem';
+
+    updateCabangCount();
 }
 
-roleSelect.addEventListener('change', toggleCabangSection);
-toggleCabangSection(); // run on load
+function updateCabangCount() {
+    const selected = document.querySelectorAll('.cabang-checkbox:checked').length;
+    const el = document.getElementById('cabangSelectedCount');
+    if (el) el.textContent = selected;
+}
+
+function selectAllCabangs(state) {
+    document.querySelectorAll('.cabang-checkbox').forEach(cb => {
+        cb.checked = state;
+        updateCabangCard(cb.closest('label'));
+    });
+}
+
+document.querySelectorAll('.cabang-card').forEach(label => {
+    label.addEventListener('click', function(e) {
+        if (e.target.tagName === 'INPUT') return;
+        const cb = this.querySelector('.cabang-checkbox');
+        cb.checked = !cb.checked;
+        updateCabangCard(this);
+    });
+    updateCabangCard(label);
+});
 </script>
 @endsection

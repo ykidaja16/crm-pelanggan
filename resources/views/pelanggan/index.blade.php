@@ -49,22 +49,37 @@
                 </div>
                 <div class="card-body">
                     <div class="row align-items-end g-3">
-                        <div class="col-md-4">
-                            <label class="form-label fw-medium small">Format File: .xlsx, .xls, .csv</label>
+                        <div class="col-md-3">
+                            <label class="form-label fw-medium small">Pilih Cabang <span class="text-danger">*</span></label>
+                            <select class="form-select" id="importCabangSelect">
+                                <option value="">-- Pilih Cabang --</option>
+                                @foreach($cabangs as $cabang)
+                                    <option value="{{ $cabang->id }}">{{ $cabang->nama }} ({{ $cabang->kode }})</option>
+                                @endforeach
+                            </select>
+                            <div class="form-text text-muted" style="font-size:0.75rem;">
+                                <i class="fas fa-info-circle me-1"></i>PID dalam file harus sesuai kode cabang.
+                            </div>
+                        </div>
+                        <div class="col-md-3">
+                            <label class="form-label fw-medium small">Pilih File <span class="text-danger">*</span></label>
                             <input type="file" class="form-control" id="fileInput" accept=".xlsx,.xls,.csv">
+                            <div class="form-text text-muted" style="font-size:0.75rem;">
+                                <i class="fas fa-info-circle me-1"></i>Format: .xlsx, .xls, .csv
+                            </div>
                             <div class="invalid-feedback">File harus berupa Excel atau CSV</div>
                         </div>
-                        <div class="col-auto">
-                            <button type="button" class="btn btn-success" id="importBtn" onclick="startImport()">
-                                <i class="fas fa-upload me-2"></i>Import
-                            </button>
+                        <div class="col-md-3">
+                            <div class="d-flex gap-2">
+                                <button type="button" class="btn btn-success" id="importBtn" onclick="startImport()">
+                                    <i class="fas fa-upload me-2"></i>Import
+                                </button>
+                                <a href="{{ route('pelanggan.download-template') }}" class="btn btn-outline-primary">
+                                    <i class="fas fa-download me-2"></i>Download Template
+                                </a>
+                            </div>
                         </div>
-                        <div class="col-auto">
-                            <a href="{{ route('pelanggan.download-template') }}" class="btn btn-outline-primary">
-                                <i class="fas fa-download me-2"></i>Download Template
-                            </a>
-                        </div>
-                        <div class="col-md-6">
+                        <div class="col-md-5">
                             <div class="alert alert-light border mb-0">
                                 <small class="text-muted">
                                     <strong>Format Excel (11 kolom):</strong><br>
@@ -668,6 +683,13 @@ function startImport() {
         return;
     }
 
+    const importCabangSelect = document.getElementById('importCabangSelect');
+    if (!importCabangSelect || !importCabangSelect.value) {
+        alert('Pilih cabang terlebih dahulu sebelum import.');
+        if (importCabangSelect) importCabangSelect.focus();
+        return;
+    }
+
     const file     = fileInput.files[0];
     const validExt = ['.xlsx', '.xls', '.csv'];
     const isValid  = validExt.some(ext => file.name.toLowerCase().endsWith(ext));
@@ -705,6 +727,7 @@ function startImport() {
     const formData = new FormData();
     formData.append('_token', '{{ csrf_token() }}');
     formData.append('file', file);
+    formData.append('import_cabang_id', importCabangSelect.value);
 
     fetch('{{ route("pelanggan.import") }}', {
         method: 'POST',

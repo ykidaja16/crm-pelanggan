@@ -32,6 +32,11 @@ class PelangganController extends Controller
         $updatedCount = 0;
         $cabangs      = Cabang::all()->keyBy('id');
 
+        // Ambil hak akses cabang user (empty = IT = semua cabang)
+        /** @var User $user */
+        $user = Auth::user();
+        $accessibleCabangIds = $user->getAccessibleCabangIds();
+
         foreach ($inputs as $index => $input) {
             $mode           = $input['mode'] ?? 'new';
             $input['biaya'] = str_replace('.', '', $input['biaya'] ?? '');
@@ -110,6 +115,12 @@ class PelangganController extends Controller
                     foreach ($validator->errors()->all() as $error) {
                         $errors[$index][] = $error;
                     }
+                    continue;
+                }
+
+                // Validasi akses cabang user (non-IT hanya bisa ke cabang yang diizinkan)
+                if (!empty($accessibleCabangIds) && !in_array((int)($input['cabang_id'] ?? 0), $accessibleCabangIds)) {
+                    $errors[$index][] = "Anda tidak memiliki akses ke cabang yang dipilih.";
                     continue;
                 }
 
@@ -424,19 +435,31 @@ class PelangganController extends Controller
 
     /**
      * Tampilkan form tambah pelanggan baru.
+     * Cabangs difilter sesuai hak akses user (IT = semua cabang).
      */
     public function create()
     {
-        $cabangs = Cabang::all();
+        /** @var User $user */
+        $user = Auth::user();
+        $accessibleCabangIds = $user->getAccessibleCabangIds();
+        $cabangs = empty($accessibleCabangIds)
+            ? Cabang::all()
+            : Cabang::whereIn('id', $accessibleCabangIds)->get();
         return view('pelanggan.create', compact('cabangs'));
     }
 
     /**
      * Tampilkan halaman pelanggan khusus.
+     * Cabangs difilter sesuai hak akses user (IT = semua cabang).
      */
     public function khusus()
     {
-        $cabangs = Cabang::all();
+        /** @var User $user */
+        $user = Auth::user();
+        $accessibleCabangIds = $user->getAccessibleCabangIds();
+        $cabangs = empty($accessibleCabangIds)
+            ? Cabang::all()
+            : Cabang::whereIn('id', $accessibleCabangIds)->get();
 
         // Buat map superadmin per cabang_id untuk dropdown dinamis di JS
         $superadminsByCabang = [];

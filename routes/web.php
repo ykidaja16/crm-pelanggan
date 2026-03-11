@@ -11,6 +11,7 @@ use App\Http\Controllers\ActivityLogController;
 use App\Http\Controllers\ApprovalRequestController;
 use App\Http\Controllers\CabangController;
 use App\Http\Controllers\SpecialDayController;
+use App\Http\Controllers\ProfileController;
 use App\Models\User;
 use App\Models\Role;
 
@@ -95,6 +96,10 @@ Route::middleware(['auth'])->group(function () {
     Route::get('/', function () {
         return redirect()->route('dashboard');
     });
+
+    // ─── Profil User (semua role) ─────────────────────────────────────────────
+    Route::get('/profile', [ProfileController::class, 'edit'])->name('profile.edit');
+    Route::put('/profile', [ProfileController::class, 'update'])->name('profile.update');
 
     // ─── Import / Export (PelangganImportExportController) ───────────────────
     Route::post('/import', [PelangganImportExportController::class, 'import'])

@@ -40,6 +40,32 @@ class PelangganImportExportController extends Controller
         // Deteksi apakah request dari AJAX (fetch) atau form biasa
         $isAjax = $request->ajax() || $request->wantsJson();
 
+        // ── Validasi akses cabang user ──────────────────────────────────────
+        /** @var \App\Models\User $authUser */
+        $authUser = Auth::user();
+        $accessibleCabangIds = $authUser->getAccessibleCabangIds();
+
+        $selectedCabangId = $request->input('import_cabang_id');
+        if (!$selectedCabangId) {
+            $msg = 'Pilih cabang terlebih dahulu sebelum melakukan import.';
+            if ($isAjax) return response()->json(['success' => false, 'message' => $msg], 422);
+            return back()->with('error', $msg);
+        }
+
+        if (!empty($accessibleCabangIds) && !in_array((int)$selectedCabangId, $accessibleCabangIds)) {
+            $msg = 'Anda tidak memiliki akses ke cabang yang dipilih.';
+            if ($isAjax) return response()->json(['success' => false, 'message' => $msg], 403);
+            return back()->with('error', $msg);
+        }
+
+        $selectedCabang = Cabang::find($selectedCabangId);
+        if (!$selectedCabang) {
+            $msg = 'Cabang yang dipilih tidak ditemukan.';
+            if ($isAjax) return response()->json(['success' => false, 'message' => $msg], 422);
+            return back()->with('error', $msg);
+        }
+        // ───────────────────────────────────────────────────────────────────
+
         $request->validate([
             'file' => 'required|file|mimes:xlsx,xls,csv,txt'
         ], [
@@ -102,6 +128,12 @@ class PelangganImportExportController extends Controller
                 $cabangKode = strtoupper(substr($pid, 0, 2));
                 if (!isset($cabangs[$cabangKode])) {
                     $errors[] = "Baris {$rowNumber}: Kode cabang '{$cabangKode}' dalam PID '{$pid}' tidak valid.";
+                    continue;
+                }
+
+                // Validasi PID prefix harus sesuai cabang yang dipilih
+                if (strtoupper($cabangKode) !== strtoupper($selectedCabang->kode)) {
+                    $errors[] = "Baris {$rowNumber}: PID '{$pid}' (prefix '{$cabangKode}') tidak sesuai dengan cabang yang dipilih '{$selectedCabang->nama}' (kode '{$selectedCabang->kode}').";
                     continue;
                 }
 
