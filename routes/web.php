@@ -153,9 +153,6 @@ Route::middleware(['auth'])->group(function () {
 
     // ─── Super Admin only ─────────────────────────────────────────────────────
     Route::middleware(['superadmin'])->group(function () {
-        // Activity Log
-        Route::get('/activity-log', [ActivityLogController::class, 'index'])->name('activity-log.index');
-        Route::get('/activity-log/export', [ActivityLogController::class, 'export'])->name('activity-log.export');
 
         // Approval requests
         Route::get('/approval-requests', [ApprovalRequestController::class, 'index'])->name('approval.index');
@@ -173,9 +170,13 @@ Route::middleware(['auth'])->group(function () {
         Route::delete('/cabang/{id}', [CabangController::class, 'destroy'])->name('cabang.destroy');
     });
 
-    // ─── IT only (Manajemen User) ─────────────────────────────────────────────
+    // ─── IT only (Manajemen User dan Log Aktivitas) ─────────────────────────────────────────────
     Route::middleware(['it'])->group(function () {
         Route::resource('users', \App\Http\Controllers\UserController::class);
+
+        // Activity Log
+        Route::get('/activity-log', [ActivityLogController::class, 'index'])->name('activity-log.index');
+        Route::get('/activity-log/export', [ActivityLogController::class, 'export'])->name('activity-log.export');
 
         // Password reset routes
         Route::get('/password-reset-requests', [\App\Http\Controllers\UserController::class, 'passwordResetRequests'])->name('users.password-reset-requests');
