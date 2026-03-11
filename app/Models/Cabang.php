@@ -17,4 +17,9 @@ class Cabang extends Model
     {
         return $this->hasMany(Kunjungan::class);
     }
+
+    public function users()
+    {
+        return $this->belongsToMany(User::class, 'user_cabangs');
+    }
 }

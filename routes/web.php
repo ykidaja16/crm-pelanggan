@@ -109,6 +109,7 @@ Route::middleware(['auth'])->group(function () {
 
     // ─── Special Day Member ───────────────────────────────────────────────────
     Route::get('/special-day', [SpecialDayController::class, 'index'])->name('special-day.index');
+    Route::get('/special-day/export', [SpecialDayController::class, 'export'])->name('special-day.export');
 
     // ─── Laporan ─────────────────────────────────────────────────────────────
     Route::get('/laporan', [\App\Http\Controllers\LaporanController::class, 'index'])->name('laporan.index');
@@ -147,18 +148,11 @@ Route::middleware(['auth'])->group(function () {
         Route::post('/approval/pelanggan-khusus/import', [ApprovalRequestController::class, 'storeSpecialCustomerImportRequest'])->name('approval.special.import.store');
         Route::post('/approval/kunjungan/{kunjungan}/edit', [ApprovalRequestController::class, 'storeKunjunganEditRequest'])->name('approval.kunjungan.edit.store');
         Route::post('/approval/kunjungan/{kunjungan}/delete', [ApprovalRequestController::class, 'storeKunjunganDeleteRequest'])->name('approval.kunjungan.delete.store');
+        Route::post('/approval/pelanggan/{pelanggan}/edit', [ApprovalRequestController::class, 'storePelangganEditRequest'])->name('approval.pelanggan.edit.store');
     });
 
     // ─── Super Admin only ─────────────────────────────────────────────────────
-    Route::middleware([\App\Http\Middleware\EnsureUserIsSuperAdmin::class])->group(function () {
-        Route::resource('users', \App\Http\Controllers\UserController::class);
-
-        // Password reset routes
-        Route::get('/password-reset-requests', [\App\Http\Controllers\UserController::class, 'passwordResetRequests'])->name('users.password-reset-requests');
-        Route::get('/users/{user}/reset-password', [\App\Http\Controllers\UserController::class, 'showResetForm'])->name('users.reset-password.form');
-        Route::post('/users/{user}/reset-password', [\App\Http\Controllers\UserController::class, 'resetPassword'])->name('users.reset-password');
-        Route::post('/password-reset-requests/{resetRequest}/reject', [\App\Http\Controllers\UserController::class, 'rejectPasswordResetRequest'])->name('users.password-reset.reject');
-
+    Route::middleware(['superadmin'])->group(function () {
         // Activity Log
         Route::get('/activity-log', [ActivityLogController::class, 'index'])->name('activity-log.index');
         Route::get('/activity-log/export', [ActivityLogController::class, 'export'])->name('activity-log.export');
@@ -177,5 +171,16 @@ Route::middleware(['auth'])->group(function () {
         Route::post('/cabang', [CabangController::class, 'store'])->name('cabang.store');
         Route::put('/cabang/{id}', [CabangController::class, 'update'])->name('cabang.update');
         Route::delete('/cabang/{id}', [CabangController::class, 'destroy'])->name('cabang.destroy');
+    });
+
+    // ─── IT only (Manajemen User) ─────────────────────────────────────────────
+    Route::middleware(['it'])->group(function () {
+        Route::resource('users', \App\Http\Controllers\UserController::class);
+
+        // Password reset routes
+        Route::get('/password-reset-requests', [\App\Http\Controllers\UserController::class, 'passwordResetRequests'])->name('users.password-reset-requests');
+        Route::get('/users/{user}/reset-password', [\App\Http\Controllers\UserController::class, 'showResetForm'])->name('users.reset-password.form');
+        Route::post('/users/{user}/reset-password', [\App\Http\Controllers\UserController::class, 'resetPassword'])->name('users.reset-password');
+        Route::post('/password-reset-requests/{resetRequest}/reject', [\App\Http\Controllers\UserController::class, 'rejectPasswordResetRequest'])->name('users.password-reset.reject');
     });
 });

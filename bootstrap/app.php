@@ -14,6 +14,13 @@ return Application::configure(basePath: dirname(__DIR__))
         $middleware->append(\App\Http\Middleware\SessionTimeout::class);
         $middleware->append(\App\Http\Middleware\SecurityHeaders::class);
         $middleware->append(\App\Http\Middleware\AuditLog::class);
+
+        // Middleware aliases
+        $middleware->alias([
+            'superadmin' => \App\Http\Middleware\EnsureUserIsSuperAdmin::class,
+            'admin'      => \App\Http\Middleware\EnsureUserIsAdmin::class,
+            'it'         => \App\Http\Middleware\EnsureUserIsIT::class,
+        ]);
     })
     ->withExceptions(function (Exceptions $exceptions): void {
         //

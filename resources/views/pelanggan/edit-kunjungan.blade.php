@@ -126,6 +126,41 @@
                     </div>
                 </div>
 
+                <!-- Pilih Superadmin Tujuan -->
+                @if(isset($superadmins) && $superadmins->count() > 0)
+                <div class="row g-3 mt-1">
+                    <div class="col-md-6">
+                        <label class="form-label fw-semibold">
+                            <i class="fas fa-user-shield me-1 text-primary"></i> Tujuan Superadmin <span class="text-danger">*</span>
+                        </label>
+                        @if($superadmins->count() === 1)
+                            {{-- Auto-assign: hidden field --}}
+                            <input type="hidden" name="assigned_to" value="{{ $superadmins->first()->id }}">
+                            <div class="form-control form-control-lg bg-light text-muted" style="cursor:default;">
+                                <i class="fas fa-user-check me-2 text-success"></i>
+                                {{ $superadmins->first()->name ?? $superadmins->first()->username }}
+                                <span class="badge bg-success ms-2 small">Auto-assign</span>
+                            </div>
+                            <div class="form-text text-muted">Pengajuan akan otomatis dikirim ke superadmin ini.</div>
+                        @else
+                            {{-- Multiple superadmins: show dropdown --}}
+                            <select name="assigned_to" class="form-select form-select-lg @error('assigned_to') is-invalid @enderror" required>
+                                <option value="">-- Pilih Superadmin --</option>
+                                @foreach($superadmins as $sa)
+                                    <option value="{{ $sa->id }}" {{ old('assigned_to') == $sa->id ? 'selected' : '' }}>
+                                        {{ $sa->name ?? $sa->username }}
+                                    </option>
+                                @endforeach
+                            </select>
+                            @error('assigned_to')
+                                <div class="invalid-feedback">{{ $message }}</div>
+                            @enderror
+                            <div class="form-text text-muted">Pilih superadmin yang akan menerima pengajuan ini.</div>
+                        @endif
+                    </div>
+                </div>
+                @endif
+
                 <hr class="my-4">
 
                 <div class="d-flex justify-content-between align-items-center">

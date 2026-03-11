@@ -17,6 +17,7 @@ class ApprovalRequest extends Model
         'decision_note',
         'status',
         'requested_by',
+        'assigned_to',
         'reviewed_by',
         'reviewed_at',
     ];
@@ -34,5 +35,10 @@ class ApprovalRequest extends Model
     public function reviewer(): BelongsTo
     {
         return $this->belongsTo(User::class, 'reviewed_by');
+    }
+
+    public function assignedTo(): BelongsTo
+    {
+        return $this->belongsTo(User::class, 'assigned_to');
     }
 }

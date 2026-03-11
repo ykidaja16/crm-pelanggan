@@ -11,6 +11,7 @@ use App\Models\Pelanggan;
 use App\Models\Cabang;
 use App\Models\ActivityLog;
 use App\Models\KelompokPelanggan;
+use App\Models\User;
 
 /**
  * Controller untuk mengelola data pelanggan (Core CRUD)
@@ -220,6 +221,16 @@ class PelangganController extends Controller
     }
 
     /**
+     * Helper: ambil superadmin yang punya akses ke cabang tertentu.
+     */
+    private function getSuperadminsByCabang(int $cabangId): \Illuminate\Database\Eloquent\Collection
+    {
+        return User::whereHas('role', fn($q) => $q->where('name', 'Super Admin'))
+            ->whereHas('cabangs', fn($q) => $q->where('cabangs.id', $cabangId))
+            ->get();
+    }
+
+    /**
      * Menampilkan daftar pelanggan dengan filter dan sorting.
      */
     public function index(Request $request)
@@ -237,7 +248,14 @@ class PelangganController extends Controller
         $kelas           = $request->kelas;
         $kelompokPelanggan = $request->kelompok_pelanggan;
         $tipePelanggan   = $request->tipe_pelanggan;
-        $cabangs         = Cabang::all();
+
+        // Filter cabangs dropdown by accessible cabangs
+        /** @var User $user */
+        $user = Auth::user();
+        $accessibleCabangIds = $user->getAccessibleCabangIds();
+        $cabangs = empty($accessibleCabangIds)
+            ? Cabang::all()
+            : Cabang::whereIn('id', $accessibleCabangIds)->get();
 
         // Tampilkan data kosong saat pertama kali masuk (belum klik filter)
         if (!$type && !$search && !$kelompokPelanggan && !$tipePelanggan
@@ -259,6 +277,14 @@ class PelangganController extends Controller
                 'direction'          => $direction,
                 'searchMode'         => false,
             ]);
+        }
+
+        // Filter by accessible cabangs (jika user punya batasan cabang)
+        if (!empty($accessibleCabangIds)) {
+            // Jika user memilih cabang tertentu, pastikan cabang itu ada di accessible list
+            if ($cabangId && !in_array((int)$cabangId, $accessibleCabangIds)) {
+                $cabangId = null;
+            }
         }
 
         if ($type === 'perbulan' && !$bulan) {
@@ -310,9 +336,17 @@ class PelangganController extends Controller
             }
         }
 
-        if ($cabangId) {
+        // Filter by accessible cabangs
+        if (!empty($accessibleCabangIds)) {
+            if ($cabangId) {
+                $query->where('cabang_id', $cabangId);
+            } else {
+                $query->whereIn('cabang_id', $accessibleCabangIds);
+            }
+        } elseif ($cabangId) {
             $query->where('cabang_id', $cabangId);
         }
+
         if ($kelas) {
             $query->where('class', $kelas);
         }
@@ -403,7 +437,20 @@ class PelangganController extends Controller
     public function khusus()
     {
         $cabangs = Cabang::all();
-        return view('pelanggan.khusus', compact('cabangs'));
+
+        // Buat map superadmin per cabang_id untuk dropdown dinamis di JS
+        $superadminsByCabang = [];
+        foreach ($cabangs as $cabang) {
+            $admins = $this->getSuperadminsByCabang($cabang->id);
+            if ($admins->isNotEmpty()) {
+                $superadminsByCabang[$cabang->id] = $admins->map(fn($u) => [
+                    'id'   => $u->id,
+                    'name' => $u->name,
+                ])->values()->toArray();
+            }
+        }
+
+        return view('pelanggan.khusus', compact('cabangs', 'superadminsByCabang'));
     }
 
     /**
@@ -411,16 +458,31 @@ class PelangganController extends Controller
      */
     public function edit($id)
     {
-        $pelanggan = Pelanggan::findOrFail($id);
-        $cabangs   = Cabang::all();
-        return view('pelanggan.edit', compact('pelanggan', 'cabangs'));
+        $pelanggan   = Pelanggan::findOrFail($id);
+        $cabangs     = Cabang::all();
+        $role        = Auth::user()->role?->name;
+        $superadmins = collect();
+
+        // Untuk Admin: ambil superadmin yang bisa approve di cabang pelanggan ini
+        if ($role === 'Admin') {
+            $superadmins = $this->getSuperadminsByCabang($pelanggan->cabang_id);
+        }
+
+        return view('pelanggan.edit', compact('pelanggan', 'cabangs', 'superadmins', 'role'));
     }
 
     /**
-     * Update data pelanggan.
+     * Update data pelanggan (hanya Super Admin yang bisa langsung update).
+     * Admin harus menggunakan approval route.
      */
     public function update(Request $request, $id)
     {
+        $role = Auth::user()->role?->name;
+
+        if ($role !== 'Super Admin') {
+            return redirect()->back()->with('error', 'Hanya Super Admin yang dapat langsung mengubah data pelanggan.');
+        }
+
         $request->validate([
             'pid'       => 'required|unique:pelanggans,pid,' . $id,
             'cabang_id' => 'required|exists:cabangs,id',
@@ -434,7 +496,17 @@ class PelangganController extends Controller
         $pelanggan = Pelanggan::findOrFail($id);
         $pelanggan->update($request->only(['pid', 'cabang_id', 'nama', 'no_telp', 'dob', 'alamat', 'kota']));
 
-        return redirect()->route('dashboard')->with('success', 'Pelanggan berhasil diperbarui');
+        ActivityLog::record(
+            'update', 'Pelanggan',
+            "Memperbarui data pelanggan {$pelanggan->pid} ({$pelanggan->nama})",
+            Auth::id(),
+            Auth::user()->username ?? 'unknown',
+            $role,
+            $request->ip(),
+            $request->userAgent()
+        );
+
+        return redirect()->route('pelanggan.index')->with('success', 'Pelanggan berhasil diperbarui');
     }
 
     /**
@@ -511,6 +583,10 @@ class PelangganController extends Controller
             'catatan_hapus.required' => 'Catatan/alasan hapus wajib diisi.',
         ]);
 
+        // Auto-assign ke superadmin pertama di cabang pelanggan
+        $superadmins = $this->getSuperadminsByCabang($pelanggan->cabang_id);
+        $assignedTo  = $superadmins->first()?->id;
+
         \App\Models\ApprovalRequest::create([
             'type'         => 'pelanggan',
             'action'       => 'delete',
@@ -520,6 +596,7 @@ class PelangganController extends Controller
             'request_note' => $request->catatan_hapus,
             'status'       => 'pending',
             'requested_by' => Auth::id(),
+            'assigned_to'  => $assignedTo,
         ]);
 
         ActivityLog::record(
@@ -579,6 +656,14 @@ class PelangganController extends Controller
 
         $count = count($ids);
 
+        // Auto-assign ke superadmin pertama dari cabang pelanggan pertama
+        $firstPelanggan = Pelanggan::whereIn('id', $ids)->first();
+        $assignedTo     = null;
+        if ($firstPelanggan) {
+            $superadmins = $this->getSuperadminsByCabang($firstPelanggan->cabang_id);
+            $assignedTo  = $superadmins->first()?->id;
+        }
+
         \App\Models\ApprovalRequest::create([
             'type'         => 'pelanggan',
             'action'       => 'bulk_delete',
@@ -588,6 +673,7 @@ class PelangganController extends Controller
             'request_note' => $request->catatan_hapus,
             'status'       => 'pending',
             'requested_by' => Auth::id(),
+            'assigned_to'  => $assignedTo,
         ]);
 
         ActivityLog::record(

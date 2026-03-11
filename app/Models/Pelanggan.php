@@ -6,11 +6,14 @@ use App\Models\Kunjungan;
 use App\Models\Cabang;
 use App\Models\PelangganClassHistory;
 use Illuminate\Database\Eloquent\Model;
+use Illuminate\Database\Eloquent\SoftDeletes;
 use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\DB;
 
 class Pelanggan extends Model
 {
+    use SoftDeletes;
+
     protected $fillable = [
         'pid',
         'cabang_id',

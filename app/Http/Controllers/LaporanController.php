@@ -3,9 +3,11 @@
 namespace App\Http\Controllers;
 
 use Illuminate\Http\Request;
+use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\DB;
 use App\Models\Pelanggan;
 use App\Models\Cabang;
+use App\Models\User;
 use App\Exports\LaporanExport;
 use Maatwebsite\Excel\Facades\Excel;
 
@@ -14,8 +16,13 @@ class LaporanController extends Controller
 {
     public function index()
     {
-        $cabangs = Cabang::all();
-        
+        /** @var User $user */
+        $user = Auth::user();
+        $accessibleCabangIds = $user->getAccessibleCabangIds();
+        $cabangs = empty($accessibleCabangIds)
+            ? Cabang::orderBy('nama')->get()
+            : Cabang::whereIn('id', $accessibleCabangIds)->orderBy('nama')->get();
+
         return view('laporan.index', compact('cabangs'));
     }
 

@@ -9,6 +9,7 @@ use Illuminate\Support\Facades\Auth;
 use App\Models\Kunjungan;
 use App\Models\ActivityLog;
 use App\Models\KelompokPelanggan;
+use App\Models\User;
 
 /**
  * Controller untuk mengelola data kunjungan pelanggan
@@ -22,9 +23,18 @@ class KunjunganController extends Controller
      */
     public function edit($id)
     {
-        $kunjungan = Kunjungan::with('pelanggan')->findOrFail($id);
+        $kunjungan   = Kunjungan::with('pelanggan')->findOrFail($id);
+        $cabangId    = $kunjungan->pelanggan?->cabang_id;
 
-        return view('pelanggan.edit-kunjungan', compact('kunjungan'));
+        // Ambil superadmin yang punya akses ke cabang pelanggan ini
+        $superadmins = collect();
+        if ($cabangId) {
+            $superadmins = User::whereHas('role', fn($q) => $q->where('name', 'Super Admin'))
+                ->whereHas('cabangs', fn($q) => $q->where('cabangs.id', $cabangId))
+                ->get();
+        }
+
+        return view('pelanggan.edit-kunjungan', compact('kunjungan', 'superadmins'));
     }
 
     /**

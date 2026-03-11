@@ -40,11 +40,11 @@
                         <option value="rejected" {{ request('status') === 'rejected' ? 'selected' : '' }}>Rejected</option>
                     </select>
                 </div>
-                <div class="col-12 d-flex gap-2 mt-1">
-                    <button type="submit" class="btn btn-primary btn-sm px-3">
+                <div class="col-12 d-flex gap-2 mt-2">
+                    <button type="submit" class="btn btn-primary btn-sm px-2">
                         <i class="fas fa-filter me-1"></i>Terapkan Filter
                     </button>
-                    <a href="{{ route('approval.pelanggan-khusus') }}" class="btn btn-outline-secondary btn-sm px-3">
+                    <a href="{{ route('approval.pelanggan-khusus') }}" class="btn btn-outline-secondary btn-sm px-2">
                         <i class="fas fa-times me-1"></i>Reset Filter
                     </a>
                 </div>

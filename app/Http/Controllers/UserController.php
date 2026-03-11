@@ -4,6 +4,7 @@ namespace App\Http\Controllers;
 
 use App\Http\Controllers\Controller;
 use App\Models\User;
+use App\Models\Cabang;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Auth;
 
@@ -11,55 +12,65 @@ class UserController extends Controller
 {
     public function index()
     {
-        $users = User::with('role')->paginate(10);
+        $users = User::with(['role', 'cabangs'])->paginate(10);
         $pendingPasswordResets = \App\Models\PasswordResetRequest::where('status', 'pending')->count();
         return view('users.index', compact('users', 'pendingPasswordResets'));
     }
 
     public function create()
     {
-        $roles = \App\Models\Role::all();
-        return view('users.create', compact('roles'));
+        $roles   = \App\Models\Role::all();
+        $cabangs = Cabang::orderBy('nama')->get();
+        return view('users.create', compact('roles', 'cabangs'));
     }
 
     public function store(Request $request)
     {
         $validated = $request->validate([
-            'name' => 'required',
+            'name'     => 'required',
             'username' => 'required|unique:users',
-            'email' => 'required|email|unique:users',
+            'email'    => 'required|email|unique:users',
             'password' => 'required|min:6',
-            'role_id' => 'required|exists:roles,id',
+            'role_id'  => 'required|exists:roles,id',
+            'cabangs'  => 'nullable|array',
+            'cabangs.*'=> 'exists:cabangs,id',
         ]);
 
         $validated['password'] = bcrypt($validated['password']);
         $validated['is_active'] = true;
 
-        User::create($validated);
+        $user = User::create(\Illuminate\Support\Arr::except($validated, ['cabangs']));
+
+        // Sync cabang access
+        $cabangIds = $request->input('cabangs', []);
+        $user->cabangs()->sync($cabangIds);
 
         return redirect()->route('users.index')->with('success', 'User berhasil ditambahkan');
     }
 
     public function edit(User $user)
     {
-        $roles = \App\Models\Role::all();
-        return view('users.edit', compact('user', 'roles'));
+        $roles   = \App\Models\Role::all();
+        $cabangs = Cabang::orderBy('nama')->get();
+        $userCabangIds = $user->cabangs()->pluck('cabangs.id')->toArray();
+        return view('users.edit', compact('user', 'roles', 'cabangs', 'userCabangIds'));
     }
 
     public function update(Request $request, User $user)
     {
         $validated = $request->validate([
-            'name' => 'required',
+            'name'     => 'required',
             'username' => 'required|unique:users,username,' . $user->id,
-            'email' => 'required|email|unique:users,email,' . $user->id,
-            'role_id' => 'required|exists:roles,id',
-            'password' => 'nullable|min:6', // Optional password update
+            'email'    => 'required|email|unique:users,email,' . $user->id,
+            'role_id'  => 'required|exists:roles,id',
+            'password' => 'nullable|min:6',
+            'cabangs'  => 'nullable|array',
+            'cabangs.*'=> 'exists:cabangs,id',
         ]);
 
         if (!empty($validated['password'])) {
             $validated['password'] = bcrypt($validated['password']);
-        }
-        else {
+        } else {
             unset($validated['password']);
         }
 
@@ -68,12 +79,16 @@ class UserController extends Controller
             $user->is_active = $request->boolean('is_active');
         }
 
-        $user->update($validated);
+        $user->update(\Illuminate\Support\Arr::except($validated, ['cabangs']));
 
         // Explicitly save the boolean if not in fillable or handled by update
         if ($request->has('is_active')) {
             $user->save();
         }
+
+        // Sync cabang access
+        $cabangIds = $request->input('cabangs', []);
+        $user->cabangs()->sync($cabangIds);
 
         return redirect()->route('users.index')->with('success', 'User berhasil diperbarui');
     }

@@ -8,6 +8,7 @@ use App\Models\Kunjungan;
 use App\Models\Cabang;
 use App\Models\ActivityLog;
 use App\Models\KelompokPelanggan;
+use App\Models\User;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\DB;
@@ -38,13 +39,29 @@ class ApprovalRequestController extends Controller
     }
 
     /**
+     * Helper: ambil superadmin pertama untuk cabang tertentu.
+     */
+    private function getFirstSuperadminForCabang(int $cabangId): ?int
+    {
+        $superadmin = User::whereHas('role', fn($q) => $q->where('name', 'Super Admin'))
+            ->whereHas('cabangs', fn($q) => $q->where('cabangs.id', $cabangId))
+            ->first();
+        return $superadmin?->id;
+    }
+
+    /**
      * Submenu: Approval Pelanggan Khusus
      */
     public function indexPelangganKhusus(Request $request)
     {
-        $query = ApprovalRequest::with(['requester', 'reviewer'])
+        $query = ApprovalRequest::with(['requester', 'reviewer', 'assignedTo'])
             ->where('type', 'pelanggan_khusus')
             ->orderByDesc('id');
+
+        // Super Admin hanya melihat yang di-assign ke dirinya
+        if (Auth::user()->role?->name === 'Super Admin') {
+            $query->where('assigned_to', Auth::id());
+        }
 
         if ($request->filled('status')) {
             $query->where('status', $request->status);
@@ -61,9 +78,14 @@ class ApprovalRequestController extends Controller
      */
     public function indexKunjungan(Request $request)
     {
-        $query = ApprovalRequest::with(['requester', 'reviewer'])
+        $query = ApprovalRequest::with(['requester', 'reviewer', 'assignedTo'])
             ->where('type', 'kunjungan')
             ->orderByDesc('id');
+
+        // Super Admin hanya melihat yang di-assign ke dirinya
+        if (Auth::user()->role?->name === 'Super Admin') {
+            $query->where('assigned_to', Auth::id());
+        }
 
         if ($request->filled('status')) {
             $query->where('status', $request->status);
@@ -79,13 +101,18 @@ class ApprovalRequestController extends Controller
     }
 
     /**
-     * Submenu: Approval Data Pelanggan (hapus)
+     * Submenu: Approval Data Pelanggan (hapus / edit)
      */
     public function indexPelanggan(Request $request)
     {
-        $query = ApprovalRequest::with(['requester', 'reviewer'])
+        $query = ApprovalRequest::with(['requester', 'reviewer', 'assignedTo'])
             ->where('type', 'pelanggan')
             ->orderByDesc('id');
+
+        // Super Admin hanya melihat yang di-assign ke dirinya
+        if (Auth::user()->role?->name === 'Super Admin') {
+            $query->where('assigned_to', Auth::id());
+        }
 
         if ($request->filled('status')) {
             $query->where('status', $request->status);
@@ -93,7 +120,9 @@ class ApprovalRequestController extends Controller
 
         $requests = $query->paginate(20)->withQueryString();
 
-        return view('approval-requests.pelanggan', compact('requests'));
+        $cabangs = Cabang::all()->keyBy('id');
+
+        return view('approval-requests.pelanggan', compact('requests', 'cabangs'));
     }
 
     /**
@@ -148,6 +177,9 @@ class ApprovalRequestController extends Controller
 
         $biayaValue = (float) preg_replace('/[^\d]/', '', (string) $validated['biaya']);
 
+        // Auto-assign ke superadmin pertama di cabang yang dipilih
+        $assignedTo = $this->getFirstSuperadminForCabang((int) $validated['cabang_id']);
+
         ApprovalRequest::create([
             'type'        => 'pelanggan_khusus',
             'action'      => 'create',
@@ -169,6 +201,7 @@ class ApprovalRequestController extends Controller
             'request_note' => $validated['request_note'],
             'status'       => 'pending',
             'requested_by' => Auth::id(),
+            'assigned_to'  => $assignedTo,
         ]);
 
         ActivityLog::record(
@@ -257,6 +290,9 @@ class ApprovalRequestController extends Controller
                 // Point 8: Validasi prefix PID sesuai cabang
                 // (Untuk import, cabang ditentukan dari prefix PID, jadi sudah otomatis sesuai)
 
+                // Auto-assign ke superadmin pertama di cabang
+                $assignedToImport = $this->getFirstSuperadminForCabang($cabang->id);
+
                 ApprovalRequest::create([
                     'type' => 'pelanggan_khusus',
                     'action' => 'create',
@@ -278,6 +314,7 @@ class ApprovalRequestController extends Controller
                     'request_note' => $validated['request_note'],
                     'status' => 'pending',
                     'requested_by' => Auth::id(),
+                    'assigned_to' => $assignedToImport,
                 ]);
 
                 $created++;
@@ -372,34 +409,55 @@ class ApprovalRequestController extends Controller
     }
 
     /**
-     * Point 11: Redirect ke detail pelanggan setelah ajukan perubahan kunjungan
+     * Pengajuan edit kunjungan (Admin → Superadmin cabang)
      */
     public function storeKunjunganEditRequest(Request $request, $kunjunganId)
     {
         $validated = $request->validate([
-            'tanggal_kunjungan' => 'required|date',
-            'biaya' => 'required|numeric|min:0',
+            'tanggal_kunjungan'  => 'required|date',
+            'biaya'              => 'required|numeric|min:0',
             'kelompok_pelanggan' => 'required|in:mandiri,klinisi',
-            'request_note' => 'required|string|max:500',
+            'request_note'       => 'required|string|max:500',
+            'assigned_to'        => 'nullable|exists:users,id',
         ]);
 
         $kunjungan = Kunjungan::with('pelanggan')->findOrFail($kunjunganId);
+        $pelanggan = $kunjungan->pelanggan;
+
+        // Simpan data original (sebelum perubahan)
+        $originalData = [
+            'tanggal_kunjungan'  => $kunjungan->tanggal_kunjungan,
+            'biaya'              => $kunjungan->biaya,
+            'kelompok_pelanggan' => $kunjungan->kelompokPelanggan?->kode ?? null,
+        ];
+
+        // Tentukan assigned_to: dari form (jika ada dropdown) atau auto-assign
+        $assignedTo = $validated['assigned_to'] ?? null;
+        if (!$assignedTo && $pelanggan?->cabang_id) {
+            $assignedTo = $this->getFirstSuperadminForCabang($pelanggan->cabang_id);
+        }
 
         ApprovalRequest::create([
-            'type' => 'kunjungan',
-            'action' => 'edit',
-            'target_type' => Kunjungan::class,
-            'target_id' => $kunjungan->id,
-            'payload' => $validated,
+            'type'         => 'kunjungan',
+            'action'       => 'edit',
+            'target_type'  => Kunjungan::class,
+            'target_id'    => $kunjungan->id,
+            'payload'      => [
+                'original_data'      => $originalData,
+                'tanggal_kunjungan'  => $validated['tanggal_kunjungan'],
+                'biaya'              => $validated['biaya'],
+                'kelompok_pelanggan' => $validated['kelompok_pelanggan'],
+            ],
             'request_note' => $validated['request_note'],
-            'status' => 'pending',
+            'status'       => 'pending',
             'requested_by' => Auth::id(),
+            'assigned_to'  => $assignedTo,
         ]);
 
         ActivityLog::record(
             'update',
             'ApprovalRequest',
-            'Mengajukan edit kunjungan ID ' . $kunjungan->id . ' (PID ' . ($kunjungan->pelanggan->pid ?? '-') . ') untuk approval.',
+            'Mengajukan edit kunjungan ID ' . $kunjungan->id . ' (PID ' . ($pelanggan->pid ?? '-') . ') untuk approval.',
             Auth::id(),
             Auth::user()->username ?? 'unknown',
             Auth::user()->role?->name ?? '-',
@@ -407,7 +465,6 @@ class ApprovalRequestController extends Controller
             $request->userAgent()
         );
 
-        // Point 11: Redirect ke detail pelanggan (bukan back())
         return redirect()->route('pelanggan.show', $kunjungan->pelanggan_id)
             ->with('success', 'Pengajuan edit kunjungan berhasil dikirim untuk approval Superadmin.');
     }
@@ -418,23 +475,28 @@ class ApprovalRequestController extends Controller
             'request_note' => 'required|string|max:500',
         ]);
 
-        $kunjungan = Kunjungan::with('pelanggan')->findOrFail($kunjunganId);
+        $kunjungan  = Kunjungan::with('pelanggan')->findOrFail($kunjunganId);
+        $pelanggan  = $kunjungan->pelanggan;
+        $assignedTo = $pelanggan?->cabang_id
+            ? $this->getFirstSuperadminForCabang($pelanggan->cabang_id)
+            : null;
 
         ApprovalRequest::create([
-            'type' => 'kunjungan',
-            'action' => 'delete',
-            'target_type' => Kunjungan::class,
-            'target_id' => $kunjungan->id,
-            'payload' => [],
+            'type'         => 'kunjungan',
+            'action'       => 'delete',
+            'target_type'  => Kunjungan::class,
+            'target_id'    => $kunjungan->id,
+            'payload'      => [],
             'request_note' => $validated['request_note'],
-            'status' => 'pending',
+            'status'       => 'pending',
             'requested_by' => Auth::id(),
+            'assigned_to'  => $assignedTo,
         ]);
 
         ActivityLog::record(
             'delete',
             'ApprovalRequest',
-            'Mengajukan hapus kunjungan ID ' . $kunjungan->id . ' (PID ' . ($kunjungan->pelanggan->pid ?? '-') . ') untuk approval.',
+            'Mengajukan hapus kunjungan ID ' . $kunjungan->id . ' (PID ' . ($pelanggan->pid ?? '-') . ') untuk approval.',
             Auth::id(),
             Auth::user()->username ?? 'unknown',
             Auth::user()->role?->name ?? '-',
@@ -443,6 +505,78 @@ class ApprovalRequestController extends Controller
         );
 
         return back()->with('success', 'Pengajuan hapus kunjungan berhasil dikirim untuk approval Superadmin.');
+    }
+
+    /**
+     * Pengajuan edit data pelanggan (Admin → Superadmin cabang)
+     */
+    public function storePelangganEditRequest(Request $request, $pelangganId)
+    {
+        $validated = $request->validate([
+            'pid'          => 'required|string',
+            'cabang_id'    => 'required|exists:cabangs,id',
+            'nama'         => 'required|string',
+            'no_telp'      => 'nullable|string',
+            'dob'          => 'nullable|date',
+            'alamat'       => 'nullable|string',
+            'kota'         => 'nullable|string',
+            'request_note' => 'required|string|max:500',
+            'assigned_to'  => 'nullable|exists:users,id',
+        ]);
+
+        $pelanggan = Pelanggan::findOrFail($pelangganId);
+
+        // Simpan data original (sebelum perubahan)
+        $originalData = [
+            'pid'       => $pelanggan->pid,
+            'cabang_id' => $pelanggan->cabang_id,
+            'nama'      => $pelanggan->nama,
+            'no_telp'   => $pelanggan->no_telp,
+            'dob'       => $pelanggan->dob,
+            'alamat'    => $pelanggan->alamat,
+            'kota'      => $pelanggan->kota,
+        ];
+
+        // Tentukan assigned_to: dari form (dropdown) atau auto-assign
+        $assignedTo = $validated['assigned_to'] ?? null;
+        if (!$assignedTo) {
+            $assignedTo = $this->getFirstSuperadminForCabang($pelanggan->cabang_id);
+        }
+
+        ApprovalRequest::create([
+            'type'         => 'pelanggan',
+            'action'       => 'edit',
+            'target_type'  => Pelanggan::class,
+            'target_id'    => $pelanggan->id,
+            'payload'      => [
+                'original_data' => $originalData,
+                'pid'           => $validated['pid'],
+                'cabang_id'     => $validated['cabang_id'],
+                'nama'          => $validated['nama'],
+                'no_telp'       => $validated['no_telp'] ?? null,
+                'dob'           => $validated['dob'] ?? null,
+                'alamat'        => $validated['alamat'] ?? null,
+                'kota'          => $validated['kota'] ?? null,
+            ],
+            'request_note' => $validated['request_note'],
+            'status'       => 'pending',
+            'requested_by' => Auth::id(),
+            'assigned_to'  => $assignedTo,
+        ]);
+
+        ActivityLog::record(
+            'update',
+            'ApprovalRequest',
+            'Mengajukan edit pelanggan PID ' . $pelanggan->pid . ' untuk approval.',
+            Auth::id(),
+            Auth::user()->username ?? 'unknown',
+            Auth::user()->role?->name ?? '-',
+            $request->ip(),
+            $request->userAgent()
+        );
+
+        return redirect()->route('pelanggan.show', $pelanggan->id)
+            ->with('success', 'Pengajuan edit pelanggan berhasil dikirim untuk approval Superadmin.');
     }
 
     /**
@@ -533,6 +667,23 @@ class ApprovalRequestController extends Controller
                     $deletedDate = \Carbon\Carbon::parse($kunjungan->tanggal_kunjungan);
                     $kunjungan->delete();
                     $pelanggan->updateStats($deletedDate, 'Perubahan dari approval hapus kunjungan');
+                }
+            }
+
+            // Edit data pelanggan (dari Admin)
+            if ($approval->type === 'pelanggan' && $approval->action === 'edit') {
+                $pelanggan = Pelanggan::find($approval->target_id);
+                if ($pelanggan) {
+                    $payload = $approval->payload ?? [];
+                    $pelanggan->update([
+                        'pid'       => $payload['pid']       ?? $pelanggan->pid,
+                        'cabang_id' => $payload['cabang_id'] ?? $pelanggan->cabang_id,
+                        'nama'      => $payload['nama']      ?? $pelanggan->nama,
+                        'no_telp'   => $payload['no_telp']   ?? $pelanggan->no_telp,
+                        'dob'       => $payload['dob']       ?? $pelanggan->dob,
+                        'alamat'    => $payload['alamat']    ?? $pelanggan->alamat,
+                        'kota'      => $payload['kota']      ?? $pelanggan->kota,
+                    ]);
                 }
             }
 

@@ -161,11 +161,13 @@
                 </a>
             </li>
             @endif
+            @if(Auth::user()->role?->name !== 'IT')
             <li class="{{ request()->routeIs('laporan.*') ? 'active' : '' }}">
                 <a href="{{ route('laporan.index') }}">
                     <i class="fas fa-file-alt"></i> Laporan
                 </a>
             </li>
+            @endif
             @if(in_array(Auth::user()->role?->name, ['Admin', 'Super Admin']))
             <li class="{{ request()->routeIs('special-day.*') ? 'active' : '' }}">
                 <a href="{{ route('special-day.index') }}">
@@ -211,14 +213,17 @@
                     <i class="fas fa-building"></i> Manajemen Cabang
                 </a>
             </li>
-            <li class="{{ request()->routeIs('users*') ? 'active' : '' }}">
-                <a href="{{ route('users.index') }}">
-                    <i class="fas fa-user-cog"></i> Manajemen User
-                </a>
-            </li>
             <li class="{{ request()->routeIs('activity-log*') ? 'active' : '' }}">
                 <a href="{{ route('activity-log.index') }}">
                     <i class="fas fa-history"></i> Log Aktivitas
+                </a>
+            </li>
+            @endif
+            {{-- IT: hanya Manajemen User --}}
+            @if(Auth::user()->role?->name === 'IT')
+            <li class="{{ request()->routeIs('users*') ? 'active' : '' }}">
+                <a href="{{ route('users.index') }}">
+                    <i class="fas fa-user-cog"></i> Manajemen User
                 </a>
             </li>
             @endif

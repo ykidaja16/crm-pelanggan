@@ -40,11 +40,11 @@
                         <option value="rejected" {{ request('status') === 'rejected' ? 'selected' : '' }}>Rejected</option>
                     </select>
                 </div>
-                <div class="col-12 d-flex gap-2 mt-1">
-                    <button type="submit" class="btn btn-primary btn-sm px-3">
+                <div class="col-12 d-flex gap-2 mt-2">
+                    <button type="submit" class="btn btn-primary btn-sm px-2">
                         <i class="fas fa-filter me-1"></i>Terapkan Filter
                     </button>
-                    <a href="{{ route('approval.kunjungan') }}" class="btn btn-outline-secondary btn-sm px-3">
+                    <a href="{{ route('approval.kunjungan') }}" class="btn btn-outline-secondary btn-sm px-2">
                         <i class="fas fa-times me-1"></i>Reset Filter
                     </a>
                 </div>
@@ -62,6 +62,7 @@
                         <th style="width:80px;">Aksi</th>
                         <th style="width:100px;">Status</th>
                         <th>Pengaju</th>
+                        <th>Ditugaskan ke</th>
                         <th>Catatan Pengajuan</th>
                         <th>Catatan Keputusan</th>
                         <th style="width:90px;" class="text-center">Informasi</th>
@@ -91,8 +92,17 @@
                                 @endif
                             </td>
                             <td class="small">{{ $item->requester?->name ?? $item->requester?->username ?? '-' }}</td>
-                            <td class="small text-muted" style="max-width:180px; white-space:normal;">{{ Str::limit($item->request_note ?? '-', 80) }}</td>
-                            <td class="small text-muted" style="max-width:180px; white-space:normal;">{{ Str::limit($item->decision_note ?? '-', 80) }}</td>
+                            <td class="small">
+                                @if($item->assignedTo)
+                                    <span class="badge bg-info bg-opacity-10 text-info border border-info">
+                                        {{ $item->assignedTo->name ?? $item->assignedTo->username }}
+                                    </span>
+                                @else
+                                    <span class="text-muted">-</span>
+                                @endif
+                            </td>
+                            <td class="small text-muted" style="max-width:160px; white-space:normal;">{{ Str::limit($item->request_note ?? '-', 60) }}</td>
+                            <td class="small text-muted" style="max-width:160px; white-space:normal;">{{ Str::limit($item->decision_note ?? '-', 60) }}</td>
                             <td class="text-center">
                                 <button type="button"
                                         class="btn btn-info btn-sm"
@@ -141,7 +151,7 @@
                         </tr>
                     @empty
                         <tr>
-                            <td colspan="8" class="text-center py-5 text-muted">
+                            <td colspan="9" class="text-center py-5 text-muted">
                                 <i class="fas fa-inbox fa-2x mb-3 d-block text-secondary opacity-50"></i>
                                 Tidak ada data approval kunjungan.
                             </td>
@@ -170,163 +180,321 @@
         $kunjungan = $kunjungans->get($item->target_id);
         $pelanggan = $kunjungan?->pelanggan;
         $payload   = $item->payload ?? [];
+        $orig      = $payload['original_data'] ?? null;
     @endphp
     <div class="modal fade" id="infoModal{{ $item->id }}" tabindex="-1" aria-labelledby="infoModalLabel{{ $item->id }}" aria-hidden="true">
-        <div class="modal-dialog modal-lg modal-dialog-centered">
+        <div class="modal-dialog {{ $item->action === 'edit' ? 'modal-xl' : 'modal-lg' }} modal-dialog-centered">
             <div class="modal-content">
                 <div class="modal-header" style="background: linear-gradient(135deg, #d1ecf1 0%, #bee5eb 100%); border-bottom: 2px solid #17a2b8;">
                     <h5 class="modal-title fw-semibold text-info" id="infoModalLabel{{ $item->id }}">
                         <i class="fas fa-calendar-check me-2"></i>Detail Pengajuan Kunjungan #{{ $item->id }}
+                        @if($item->action === 'edit')
+                            <span class="badge bg-primary ms-2" style="font-size:0.7rem;">Edit</span>
+                        @else
+                            <span class="badge bg-danger ms-2" style="font-size:0.7rem;">Hapus</span>
+                        @endif
                     </h5>
                     <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
                 </div>
                 <div class="modal-body p-4">
-                    <div class="row g-3">
-                        <!-- Kolom Kiri: Data Pelanggan -->
-                        <div class="col-md-6">
-                            <div class="card border-0 bg-light h-100">
-                                <div class="card-body">
-                                    <h6 class="fw-semibold text-primary mb-3">
-                                        <i class="fas fa-user me-2"></i>Data Pelanggan
-                                    </h6>
-                                    @if($pelanggan)
-                                        <table class="table table-sm table-borderless mb-0">
-                                            <tr>
-                                                <td class="text-muted small fw-medium" style="width:40%">PID</td>
-                                                <td class="small fw-semibold">
-                                                    <code class="bg-white px-2 py-1 rounded border">{{ $pelanggan->pid }}</code>
-                                                </td>
-                                            </tr>
-                                            <tr>
-                                                <td class="text-muted small fw-medium">Nama</td>
-                                                <td class="small fw-semibold">{{ $pelanggan->nama }}</td>
-                                            </tr>
-                                            <tr>
-                                                <td class="text-muted small fw-medium">Kelas</td>
-                                                <td class="small">
-                                                    @php
-                                                        $cls = $pelanggan->class ?? '-';
-                                                        $clsBadge = match($cls) {
-                                                            'Prioritas' => 'bg-danger bg-opacity-10 text-danger border border-danger',
-                                                            'Loyal'     => 'bg-success bg-opacity-10 text-success border border-success',
-                                                            'Potensial' => 'bg-warning bg-opacity-10 text-warning border border-warning',
-                                                            default     => 'bg-secondary bg-opacity-10 text-secondary border border-secondary',
-                                                        };
-                                                    @endphp
-                                                    <span class="badge {{ $clsBadge }}">{{ $cls }}</span>
-                                                </td>
-                                            </tr>
-                                            <tr>
-                                                <td class="text-muted small fw-medium">Cabang</td>
-                                                <td class="small">
-                                                    <span class="badge bg-primary bg-opacity-10 text-primary border border-primary">
-                                                        {{ $pelanggan->cabang?->nama ?? '-' }}
-                                                    </span>
-                                                </td>
-                                            </tr>
-                                        </table>
-                                    @else
-                                        <div class="text-muted small">
-                                            <i class="fas fa-exclamation-triangle me-1 text-warning"></i>
-                                            Data pelanggan tidak ditemukan.
-                                        </div>
-                                    @endif
+
+                    @if($item->action === 'edit')
+                        {{-- ===== 3 KOLOM: Pelanggan | Sebelum | Sesudah ===== --}}
+                        <div class="row g-3">
+
+                            {{-- Kolom 1: Data Pelanggan --}}
+                            <div class="col-md-4">
+                                <div class="card h-100" style="border: 1px solid #0d6efd33;">
+                                    <div class="card-header py-2" style="background:#e7f0ff;">
+                                        <h6 class="fw-semibold text-primary mb-0">
+                                            <i class="fas fa-user me-2"></i>Data Pelanggan
+                                        </h6>
+                                    </div>
+                                    <div class="card-body">
+                                        @if($pelanggan)
+                                            <table class="table table-sm table-borderless mb-0">
+                                                <tr>
+                                                    <td class="text-muted small fw-medium" style="width:40%">PID</td>
+                                                    <td class="small fw-semibold">
+                                                        <code class="bg-white px-2 py-1 rounded border">{{ $pelanggan->pid }}</code>
+                                                    </td>
+                                                </tr>
+                                                <tr>
+                                                    <td class="text-muted small fw-medium">Nama</td>
+                                                    <td class="small fw-semibold">{{ $pelanggan->nama }}</td>
+                                                </tr>
+                                                <tr>
+                                                    <td class="text-muted small fw-medium">Kelas</td>
+                                                    <td class="small">
+                                                        @php
+                                                            $cls = $pelanggan->class ?? '-';
+                                                            $clsBadge = match($cls) {
+                                                                'Prioritas' => 'bg-danger bg-opacity-10 text-danger border border-danger',
+                                                                'Loyal'     => 'bg-success bg-opacity-10 text-success border border-success',
+                                                                'Potensial' => 'bg-warning bg-opacity-10 text-warning border border-warning',
+                                                                default     => 'bg-secondary bg-opacity-10 text-secondary border border-secondary',
+                                                            };
+                                                        @endphp
+                                                        <span class="badge {{ $clsBadge }}">{{ $cls }}</span>
+                                                    </td>
+                                                </tr>
+                                                <tr>
+                                                    <td class="text-muted small fw-medium">Cabang</td>
+                                                    <td class="small">
+                                                        <span class="badge bg-primary bg-opacity-10 text-primary border border-primary">
+                                                            {{ $pelanggan->cabang?->nama ?? '-' }}
+                                                        </span>
+                                                    </td>
+                                                </tr>
+                                            </table>
+                                        @else
+                                            <div class="text-muted small">
+                                                <i class="fas fa-exclamation-triangle me-1 text-warning"></i>
+                                                Data pelanggan tidak ditemukan.
+                                            </div>
+                                        @endif
+                                    </div>
                                 </div>
                             </div>
-                        </div>
 
-                        <!-- Kolom Kanan: Data Perubahan Kunjungan -->
-                        <div class="col-md-6">
-                            <div class="card border-0 bg-light h-100">
-                                <div class="card-body">
-                                    <h6 class="fw-semibold text-info mb-3">
-                                        <i class="fas fa-calendar-alt me-2"></i>
-                                        @if($item->action === 'edit') Data Perubahan Kunjungan
-                                        @else Kunjungan yang Diajukan Hapus
+                            {{-- Kolom 2: Data Sebelum --}}
+                            <div class="col-md-4">
+                                <div class="card h-100 border-warning">
+                                    <div class="card-header py-2 bg-warning bg-opacity-10">
+                                        <h6 class="fw-semibold text-warning mb-0">
+                                            <i class="fas fa-history me-2"></i>Data Sebelum
+                                        </h6>
+                                    </div>
+                                    <div class="card-body">
+                                        @if($orig)
+                                            <table class="table table-sm table-borderless mb-0">
+                                                <tr>
+                                                    <td class="text-muted small fw-medium" style="width:45%">Tanggal</td>
+                                                    <td class="small fw-semibold">
+                                                        @if(!empty($orig['tanggal_kunjungan']))
+                                                            {{ \Carbon\Carbon::parse($orig['tanggal_kunjungan'])->format('d-m-Y') }}
+                                                        @else - @endif
+                                                    </td>
+                                                </tr>
+                                                <tr>
+                                                    <td class="text-muted small fw-medium">Biaya</td>
+                                                    <td class="small fw-semibold">
+                                                        Rp {{ number_format($orig['biaya'] ?? 0, 0, ',', '.') }}
+                                                    </td>
+                                                </tr>
+                                                <tr>
+                                                    <td class="text-muted small fw-medium">Kelompok</td>
+                                                    <td class="small">
+                                                        @php $kelOrig = $orig['kelompok_pelanggan'] ?? '-'; @endphp
+                                                        <span class="badge {{ $kelOrig === 'klinisi' ? 'bg-primary bg-opacity-10 text-primary border border-primary' : 'bg-secondary bg-opacity-10 text-secondary border border-secondary' }}">
+                                                            {{ ucfirst($kelOrig) }}
+                                                        </span>
+                                                    </td>
+                                                </tr>
+                                            </table>
+                                        @elseif($kunjungan)
+                                            {{-- Fallback: data dari kunjungan aktual (approval lama tanpa original_data) --}}
+                                            <div class="alert alert-warning py-1 px-2 small mb-2">
+                                                <i class="fas fa-info-circle me-1"></i>Data diambil dari kunjungan saat ini
+                                            </div>
+                                            <table class="table table-sm table-borderless mb-0">
+                                                <tr>
+                                                    <td class="text-muted small fw-medium" style="width:45%">Tanggal</td>
+                                                    <td class="small fw-semibold">
+                                                        {{ \Carbon\Carbon::parse($kunjungan->tanggal_kunjungan)->format('d-m-Y') }}
+                                                    </td>
+                                                </tr>
+                                                <tr>
+                                                    <td class="text-muted small fw-medium">Biaya</td>
+                                                    <td class="small fw-semibold">
+                                                        Rp {{ number_format($kunjungan->biaya, 0, ',', '.') }}
+                                                    </td>
+                                                </tr>
+                                                <tr>
+                                                    <td class="text-muted small fw-medium">Kelompok</td>
+                                                    <td class="small">{{ $kunjungan->kelompokPelanggan?->kode ?? '-' }}</td>
+                                                </tr>
+                                            </table>
+                                        @else
+                                            <p class="text-muted small mb-0">Data sebelum tidak tersedia.</p>
                                         @endif
-                                    </h6>
+                                    </div>
+                                </div>
+                            </div>
 
-                                    @if($item->action === 'edit' && !empty($payload))
-                                        <table class="table table-sm table-borderless mb-0">
-                                            <tr>
-                                                <td class="text-muted small fw-medium" style="width:45%">Tanggal Baru</td>
-                                                <td class="small fw-semibold">
-                                                    @if(!empty($payload['tanggal_kunjungan']))
-                                                        {{ \Carbon\Carbon::parse($payload['tanggal_kunjungan'])->format('d-m-Y') }}
-                                                    @else -
-                                                    @endif
-                                                </td>
-                                            </tr>
-                                            <tr>
-                                                <td class="text-muted small fw-medium">Biaya Baru</td>
-                                                <td class="small fw-semibold text-success">
-                                                    Rp {{ number_format($payload['biaya'] ?? 0, 0, ',', '.') }}
-                                                </td>
-                                            </tr>
-                                            <tr>
-                                                <td class="text-muted small fw-medium">Kelompok</td>
-                                                <td class="small">
-                                                    @php $kel = $payload['kelompok_pelanggan'] ?? '-'; @endphp
-                                                    <span class="badge {{ $kel === 'klinisi' ? 'bg-primary bg-opacity-10 text-primary border border-primary' : 'bg-secondary bg-opacity-10 text-secondary border border-secondary' }}">
-                                                        {{ ucfirst($kel) }}
-                                                    </span>
-                                                </td>
-                                            </tr>
-                                        </table>
-                                    @elseif($item->action === 'delete' && $kunjungan)
-                                        <table class="table table-sm table-borderless mb-0">
-                                            <tr>
-                                                <td class="text-muted small fw-medium" style="width:45%">Tanggal Kunjungan</td>
-                                                <td class="small fw-semibold">
-                                                    {{ \Carbon\Carbon::parse($kunjungan->tanggal_kunjungan)->format('d-m-Y') }}
-                                                </td>
-                                            </tr>
-                                            <tr>
-                                                <td class="text-muted small fw-medium">Biaya</td>
-                                                <td class="small fw-semibold text-danger">
-                                                    Rp {{ number_format($kunjungan->biaya, 0, ',', '.') }}
-                                                </td>
-                                            </tr>
-                                        </table>
-                                    @else
-                                        <p class="text-muted small mb-0">Tidak ada data perubahan.</p>
-                                    @endif
-
-                                    <hr class="my-2">
-                                    <h6 class="fw-semibold text-secondary mb-2 small">
-                                        <i class="fas fa-clipboard me-1"></i>Alasan Pengajuan
-                                    </h6>
-                                    <div class="bg-white rounded p-2 border small text-muted" style="min-height:50px;">
-                                        {{ $item->request_note ?? '-' }}
+                            {{-- Kolom 3: Data Sesudah --}}
+                            <div class="col-md-4">
+                                <div class="card h-100 border-success">
+                                    <div class="card-header py-2 bg-success bg-opacity-10">
+                                        <h6 class="fw-semibold text-success mb-0">
+                                            <i class="fas fa-arrow-right me-2"></i>Data Sesudah (Diajukan)
+                                        </h6>
+                                    </div>
+                                    <div class="card-body">
+                                        @if(!empty($payload))
+                                            <table class="table table-sm table-borderless mb-0">
+                                                <tr>
+                                                    <td class="text-muted small fw-medium" style="width:45%">Tanggal</td>
+                                                    <td class="small fw-semibold text-success">
+                                                        @if(!empty($payload['tanggal_kunjungan']))
+                                                            {{ \Carbon\Carbon::parse($payload['tanggal_kunjungan'])->format('d-m-Y') }}
+                                                        @else - @endif
+                                                    </td>
+                                                </tr>
+                                                <tr>
+                                                    <td class="text-muted small fw-medium">Biaya</td>
+                                                    <td class="small fw-semibold text-success">
+                                                        Rp {{ number_format($payload['biaya'] ?? 0, 0, ',', '.') }}
+                                                    </td>
+                                                </tr>
+                                                <tr>
+                                                    <td class="text-muted small fw-medium">Kelompok</td>
+                                                    <td class="small">
+                                                        @php $kelNew = $payload['kelompok_pelanggan'] ?? '-'; @endphp
+                                                        <span class="badge {{ $kelNew === 'klinisi' ? 'bg-primary bg-opacity-10 text-primary border border-primary' : 'bg-secondary bg-opacity-10 text-secondary border border-secondary' }}">
+                                                            {{ ucfirst($kelNew) }}
+                                                        </span>
+                                                    </td>
+                                                </tr>
+                                            </table>
+                                        @else
+                                            <p class="text-muted small mb-0">Tidak ada data perubahan.</p>
+                                        @endif
                                     </div>
                                 </div>
                             </div>
                         </div>
-                    </div>
 
-                    <!-- Info Pengaju & Waktu -->
-                    <div class="mt-3 p-3 bg-light rounded border">
-                        <div class="row g-2 small">
-                            <div class="col-md-4">
-                                <span class="text-muted">Diajukan oleh:</span>
-                                <strong class="ms-1">{{ $item->requester?->name ?? $item->requester?->username ?? '-' }}</strong>
+                        {{-- Info Pengaju & Alasan --}}
+                        <div class="mt-3 p-3 bg-light rounded border">
+                            <div class="row g-2 small mb-2">
+                                <div class="col-md-4">
+                                    <span class="text-muted">Diajukan oleh:</span>
+                                    <strong class="ms-1">{{ $item->requester?->name ?? $item->requester?->username ?? '-' }}</strong>
+                                </div>
+                                <div class="col-md-4">
+                                    <span class="text-muted">Tanggal Pengajuan:</span>
+                                    <strong class="ms-1">{{ $item->created_at?->format('d-m-Y H:i') ?? '-' }}</strong>
+                                </div>
+                                <div class="col-md-4">
+                                    <span class="text-muted">Status:</span>
+                                    @if($item->status === 'pending')
+                                        <span class="badge bg-warning ms-1">PENDING</span>
+                                    @elseif($item->status === 'approved')
+                                        <span class="badge bg-success ms-1">APPROVED</span>
+                                    @else
+                                        <span class="badge bg-danger ms-1">REJECTED</span>
+                                    @endif
+                                </div>
                             </div>
-                            <div class="col-md-4">
-                                <span class="text-muted">Tanggal Pengajuan:</span>
-                                <strong class="ms-1">{{ $item->created_at?->format('d-m-Y H:i') ?? '-' }}</strong>
-                            </div>
-                            <div class="col-md-4">
-                                <span class="text-muted">Status:</span>
-                                @if($item->status === 'pending')
-                                    <span class="badge bg-warning ms-1">PENDING</span>
-                                @elseif($item->status === 'approved')
-                                    <span class="badge bg-success ms-1">APPROVED</span>
-                                @else
-                                    <span class="badge bg-danger ms-1">REJECTED</span>
-                                @endif
+                            <div class="small">
+                                <span class="text-muted fw-medium">Alasan Pengajuan:</span>
+                                <div class="bg-white rounded p-2 border text-muted mt-1">{{ $item->request_note ?? '-' }}</div>
                             </div>
                         </div>
-                    </div>
+
+                    @elseif($item->action === 'delete')
+                        {{-- ===== 2 KOLOM untuk DELETE ===== --}}
+                        <div class="row g-3">
+                            <div class="col-md-6">
+                                <div class="card h-100" style="border: 1px solid #0d6efd33;">
+                                    <div class="card-header py-2" style="background:#e7f0ff;">
+                                        <h6 class="fw-semibold text-primary mb-0">
+                                            <i class="fas fa-user me-2"></i>Data Pelanggan
+                                        </h6>
+                                    </div>
+                                    <div class="card-body">
+                                        @if($pelanggan)
+                                            <table class="table table-sm table-borderless mb-0">
+                                                <tr>
+                                                    <td class="text-muted small fw-medium" style="width:40%">PID</td>
+                                                    <td class="small fw-semibold">
+                                                        <code class="bg-white px-2 py-1 rounded border">{{ $pelanggan->pid }}</code>
+                                                    </td>
+                                                </tr>
+                                                <tr>
+                                                    <td class="text-muted small fw-medium">Nama</td>
+                                                    <td class="small fw-semibold">{{ $pelanggan->nama }}</td>
+                                                </tr>
+                                                <tr>
+                                                    <td class="text-muted small fw-medium">Cabang</td>
+                                                    <td class="small">
+                                                        <span class="badge bg-primary bg-opacity-10 text-primary border border-primary">
+                                                            {{ $pelanggan->cabang?->nama ?? '-' }}
+                                                        </span>
+                                                    </td>
+                                                </tr>
+                                            </table>
+                                        @else
+                                            <div class="text-muted small">Data pelanggan tidak ditemukan.</div>
+                                        @endif
+                                    </div>
+                                </div>
+                            </div>
+                            <div class="col-md-6">
+                                <div class="card h-100 border-danger">
+                                    <div class="card-header py-2 bg-danger bg-opacity-10">
+                                        <h6 class="fw-semibold text-danger mb-0">
+                                            <i class="fas fa-trash me-2"></i>Kunjungan yang Diajukan Hapus
+                                        </h6>
+                                    </div>
+                                    <div class="card-body">
+                                        @if($kunjungan)
+                                            <table class="table table-sm table-borderless mb-0">
+                                                <tr>
+                                                    <td class="text-muted small fw-medium" style="width:45%">Tanggal</td>
+                                                    <td class="small fw-semibold">
+                                                        {{ \Carbon\Carbon::parse($kunjungan->tanggal_kunjungan)->format('d-m-Y') }}
+                                                    </td>
+                                                </tr>
+                                                <tr>
+                                                    <td class="text-muted small fw-medium">Biaya</td>
+                                                    <td class="small fw-semibold text-danger">
+                                                        Rp {{ number_format($kunjungan->biaya, 0, ',', '.') }}
+                                                    </td>
+                                                </tr>
+                                                <tr>
+                                                    <td class="text-muted small fw-medium">Kelompok</td>
+                                                    <td class="small">{{ $kunjungan->kelompokPelanggan?->kode ?? '-' }}</td>
+                                                </tr>
+                                            </table>
+                                        @else
+                                            <p class="text-muted small mb-0">Data kunjungan tidak ditemukan.</p>
+                                        @endif
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+
+                        {{-- Info Pengaju --}}
+                        <div class="mt-3 p-3 bg-light rounded border">
+                            <div class="row g-2 small mb-2">
+                                <div class="col-md-4">
+                                    <span class="text-muted">Diajukan oleh:</span>
+                                    <strong class="ms-1">{{ $item->requester?->name ?? $item->requester?->username ?? '-' }}</strong>
+                                </div>
+                                <div class="col-md-4">
+                                    <span class="text-muted">Tanggal Pengajuan:</span>
+                                    <strong class="ms-1">{{ $item->created_at?->format('d-m-Y H:i') ?? '-' }}</strong>
+                                </div>
+                                <div class="col-md-4">
+                                    <span class="text-muted">Status:</span>
+                                    @if($item->status === 'pending')
+                                        <span class="badge bg-warning ms-1">PENDING</span>
+                                    @elseif($item->status === 'approved')
+                                        <span class="badge bg-success ms-1">APPROVED</span>
+                                    @else
+                                        <span class="badge bg-danger ms-1">REJECTED</span>
+                                    @endif
+                                </div>
+                            </div>
+                            <div class="small">
+                                <span class="text-muted fw-medium">Alasan Pengajuan:</span>
+                                <div class="bg-white rounded p-2 border text-muted mt-1">{{ $item->request_note ?? '-' }}</div>
+                            </div>
+                        </div>
+                    @endif
+
                 </div>
                 <div class="modal-footer">
                     <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">

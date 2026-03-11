@@ -43,12 +43,34 @@
                     </div>
                     <div class="col-md-6">
                         <label class="form-label">Cabang <span class="text-danger">*</span></label>
-                        <select name="cabang_id" class="form-select" required>
+                        <select name="cabang_id" id="cabang_id_khusus" class="form-select" required onchange="updateSuperadminDropdown(this.value)">
                             <option value="">Pilih Cabang</option>
                             @foreach($cabangs as $cabang)
                                 <option value="{{ $cabang->id }}">{{ $cabang->nama }} ({{ $cabang->kode }})</option>
                             @endforeach
                         </select>
+                    </div>
+
+                    {{-- Superadmin Tujuan (dinamis berdasarkan cabang) --}}
+                    <div class="col-md-6" id="superadmin_section" style="display:none;">
+                        <label class="form-label fw-semibold">
+                            <i class="fas fa-user-shield me-1 text-primary"></i> Tujuan Superadmin <span class="text-danger">*</span>
+                        </label>
+                        <div id="superadmin_auto" style="display:none;">
+                            <input type="hidden" name="assigned_to" id="assigned_to_hidden">
+                            <div class="form-control bg-light text-muted" style="cursor:default;" id="superadmin_auto_label">
+                                <i class="fas fa-user-check me-2 text-success"></i>
+                                <span id="superadmin_auto_name"></span>
+                                <span class="badge bg-success ms-2 small">Auto-assign</span>
+                            </div>
+                            <div class="form-text text-muted">Pengajuan akan otomatis dikirim ke superadmin ini.</div>
+                        </div>
+                        <div id="superadmin_dropdown" style="display:none;">
+                            <select name="assigned_to" id="assigned_to_select" class="form-select" required>
+                                <option value="">-- Pilih Superadmin --</option>
+                            </select>
+                            <div class="form-text text-muted">Pilih superadmin yang akan menerima pengajuan ini.</div>
+                        </div>
                     </div>
                     <div class="col-md-6">
                         <label class="form-label">Nama <span class="text-danger">*</span></label>
@@ -176,6 +198,54 @@
 </div>
 
 <script>
+// Data superadmin per cabang dari server
+const superadminsByCabang = @json($superadminsByCabang ?? []);
+
+function updateSuperadminDropdown(cabangId) {
+    const section = document.getElementById('superadmin_section');
+    const autoDiv = document.getElementById('superadmin_auto');
+    const dropdownDiv = document.getElementById('superadmin_dropdown');
+    const hiddenInput = document.getElementById('assigned_to_hidden');
+    const selectEl = document.getElementById('assigned_to_select');
+    const autoName = document.getElementById('superadmin_auto_name');
+
+    if (!cabangId || !superadminsByCabang[cabangId] || superadminsByCabang[cabangId].length === 0) {
+        // Tidak ada superadmin untuk cabang ini
+        section.style.display = 'none';
+        autoDiv.style.display = 'none';
+        dropdownDiv.style.display = 'none';
+        if (hiddenInput) hiddenInput.value = '';
+        if (selectEl) { selectEl.required = false; selectEl.value = ''; }
+        return;
+    }
+
+    const admins = superadminsByCabang[cabangId];
+    section.style.display = 'block';
+
+    if (admins.length === 1) {
+        // Auto-assign
+        autoDiv.style.display = 'block';
+        dropdownDiv.style.display = 'none';
+        hiddenInput.value = admins[0].id;
+        autoName.textContent = admins[0].name;
+        if (selectEl) { selectEl.required = false; selectEl.value = ''; }
+    } else {
+        // Dropdown
+        autoDiv.style.display = 'none';
+        dropdownDiv.style.display = 'block';
+        if (hiddenInput) hiddenInput.value = '';
+        selectEl.required = true;
+        // Rebuild options
+        selectEl.innerHTML = '<option value="">-- Pilih Superadmin --</option>';
+        admins.forEach(function(admin) {
+            const opt = document.createElement('option');
+            opt.value = admin.id;
+            opt.textContent = admin.name;
+            selectEl.appendChild(opt);
+        });
+    }
+}
+
 function toggleKategoriLainnya(select) {
     const wrapper = document.getElementById('kategori_lainnya_wrapper');
     const input = document.getElementById('kategori_khusus_lainnya');

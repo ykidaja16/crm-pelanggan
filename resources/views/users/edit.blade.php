@@ -37,13 +37,36 @@
                     </div>
                     <div class="mb-3">
                         <label class="form-label">Role</label>
-                        <select name="role_id" class="form-select @error('role_id') is-invalid @enderror" required>
+                        <select name="role_id" class="form-select @error('role_id') is-invalid @enderror" required id="roleSelect">
                             @foreach($roles as $role)
                                 <option value="{{ $role->id }}" {{ old('role_id', $user->role_id) == $role->id ? 'selected' : '' }}>{{ $role->name }}</option>
                             @endforeach
                         </select>
                         @error('role_id') <div class="invalid-feedback">{{ $message }}</div> @enderror
                     </div>
+
+                    <!-- Akses Cabang (hanya tampil jika role bukan IT) -->
+                    <div class="mb-3" id="cabangSection">
+                        <label class="form-label fw-medium">Akses Cabang</label>
+                        <div class="text-muted small mb-2">Centang cabang yang dapat diakses oleh user ini.</div>
+                        @error('cabangs') <div class="text-danger small mb-2">{{ $message }}</div> @enderror
+                        <div class="row g-2">
+                            @foreach($cabangs as $cabang)
+                            <div class="col-md-4">
+                                <div class="form-check border rounded p-2">
+                                    <input class="form-check-input" type="checkbox"
+                                           name="cabangs[]" value="{{ $cabang->id }}"
+                                           id="cabang_{{ $cabang->id }}"
+                                           {{ in_array($cabang->id, old('cabangs', $userCabangIds)) ? 'checked' : '' }}>
+                                    <label class="form-check-label small" for="cabang_{{ $cabang->id }}">
+                                        <strong>{{ $cabang->kode }}</strong> - {{ $cabang->nama }}
+                                    </label>
+                                </div>
+                            </div>
+                            @endforeach
+                        </div>
+                    </div>
+
                     <div class="mb-4 form-check">
                         <input type="checkbox" name="is_active" class="form-check-input" id="isActive" value="1" {{ $user->is_active ? 'checked' : '' }}>
                         <label class="form-check-label" for="isActive">Akun Aktif</label>
@@ -57,4 +80,25 @@
         </div>
     </div>
 </div>
+@endsection
+
+@section('scripts')
+<script>
+// Sembunyikan section cabang jika role IT dipilih
+const roleSelect = document.getElementById('roleSelect');
+const cabangSection = document.getElementById('cabangSection');
+const itRoleName = 'IT';
+
+function toggleCabangSection() {
+    const selectedText = roleSelect.options[roleSelect.selectedIndex]?.text ?? '';
+    if (selectedText === itRoleName) {
+        cabangSection.style.display = 'none';
+    } else {
+        cabangSection.style.display = '';
+    }
+}
+
+roleSelect.addEventListener('change', toggleCabangSection);
+toggleCabangSection(); // run on load
+</script>
 @endsection

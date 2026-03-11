@@ -37,6 +37,7 @@
                             <th>Username</th>
                             <th>Email</th>
                             <th>Role</th>
+                            <th>Akses Cabang</th>
                             <th>Status</th>
                             <th class="text-center">Aksi</th>
                         </tr>
@@ -47,7 +48,22 @@
                                 <td class="ps-4 fw-bold">{{ $user->name }}</td>
                                 <td>{{ $user->username }}</td>
                                 <td>{{ $user->email }}</td>
-                                <td><span class="badge bg-info text-dark">{{ $user->role->name }}</span></td>
+                                <td><span class="badge bg-info text-dark">{{ $user->role?->name ?? '-' }}</span></td>
+                                <td>
+                                    @if($user->role?->name === 'IT')
+                                        <span class="badge bg-secondary">Semua (IT)</span>
+                                    @elseif($user->cabangs->isEmpty())
+                                        <span class="text-muted small">-</span>
+                                    @else
+                                        <div class="d-flex flex-wrap gap-1">
+                                            @foreach($user->cabangs as $cabang)
+                                                <span class="badge bg-primary bg-opacity-10 text-primary border border-primary" style="font-size:0.7rem;">
+                                                    {{ $cabang->kode }}
+                                                </span>
+                                            @endforeach
+                                        </div>
+                                    @endif
+                                </td>
                                 <td>
                                     @if($user->is_active)
                                         <span class="badge bg-success">Aktif</span>
@@ -57,7 +73,7 @@
                                 </td>
                                 <td class="text-center">
                                     <a href="{{ route('users.edit', $user->id) }}" class="btn btn-sm btn-warning text-white me-1"><i class="fas fa-edit"></i></a>
-                                    
+
                                     @if($user->id !== auth()->id())
                                         <form action="{{ route('users.destroy', $user->id) }}" method="POST" class="d-inline" onsubmit="return confirm('Yakin ingin menghapus user ini?')">
                                             @csrf
@@ -69,7 +85,7 @@
                             </tr>
                         @empty
                             <tr>
-                                <td colspan="6" class="text-center py-4">Tidak ada data user.</td>
+                                <td colspan="7" class="text-center py-4">Tidak ada data user.</td>
                             </tr>
                         @endforelse
                     </tbody>

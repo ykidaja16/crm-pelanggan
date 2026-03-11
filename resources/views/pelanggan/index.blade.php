@@ -229,14 +229,12 @@
                         </div>
 
                         <div class="col-12 d-flex gap-2 mt-1">
-                            <button type="submit" class="btn btn-info px-4">
+                            <button type="submit" class="btn btn-info px-3">
                                 <i class="fas fa-filter me-2"></i>Terapkan Filter
                             </button>
-                            @if(($type ?? '') || ($cabang_id ?? '') || ($kelas ?? '') || ($omset_range ?? '') !== '' || ($kedatangan_range ?? '') !== '' || ($kelompok_pelanggan ?? '') || ($tipe_pelanggan ?? ''))
-                            <a href="{{ route('pelanggan.index') }}" class="btn btn-outline-secondary px-4">
+                            <a href="{{ route('pelanggan.index') }}" class="btn btn-outline-secondary px-3">
                                 <i class="fas fa-times me-2"></i>Reset Filter
                             </a>
-                            @endif
                         </div>
                     </form>
                 </div>
