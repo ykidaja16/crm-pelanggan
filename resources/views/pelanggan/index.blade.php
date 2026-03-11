@@ -69,7 +69,7 @@
                             </div>
                             <div class="invalid-feedback">File harus berupa Excel atau CSV</div>
                         </div>
-                        <div class="col-md-3">
+<div class="col-md-3">
                             <div class="d-flex gap-2">
                                 <button type="button" class="btn btn-success" id="importBtn" onclick="startImport()">
                                     <i class="fas fa-upload me-2"></i>Import
@@ -700,8 +700,8 @@ function startImport() {
     }
     fileInput.classList.remove('is-invalid');
 
-    importBtn.disabled = true;
-    importBtn.innerHTML = '<span class="spinner-border spinner-border-sm me-2"></span>Mengimpor...';
+importBtn.disabled = true;
+    importBtn.innerHTML = '<span class="spinner-border spinner-border-sm me-2" style="width: 16px; height: 16px; border-width: 2px;"></span><span>Mengimpor...</span>';
     progressContainer.classList.remove('d-none');
     progressBar.style.width = '0%';
     progressBar.setAttribute('aria-valuenow', 0);

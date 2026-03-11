@@ -566,6 +566,28 @@ class ApprovalRequestController extends Controller
             'kota'      => $pelanggan->kota,
         ];
 
+        // Validasi akses cabang user (non-IT hanya bisa ke cabang yang diizinkan)
+        /** @var User $authUser */
+        $authUser = Auth::user();
+        $accessibleCabangIds = $authUser->getAccessibleCabangIds();
+        if (!empty($accessibleCabangIds) && !in_array((int)$validated['cabang_id'], $accessibleCabangIds)) {
+            return back()
+                ->withInput()
+                ->with('error', 'Anda tidak memiliki akses ke cabang yang dipilih.');
+        }
+
+        // Validasi PID prefix sesuai cabang yang dipilih
+        $cabang = Cabang::findOrFail($validated['cabang_id']);
+        $pid = strtoupper(trim($validated['pid']));
+        $pidPrefix = substr($pid, 0, 2);
+        $cabangKode = strtoupper($cabang->kode);
+        
+        if ($pidPrefix !== $cabangKode) {
+            return back()
+                ->withInput()
+                ->with('error', "PID \"{$pid}\" tidak sesuai dengan cabang \"{$cabang->nama}\". Prefix PID harus \"{$cabangKode}\".");
+        }
+
         // Tentukan assigned_to: dari form (dropdown) atau auto-assign
         $assignedTo = $validated['assigned_to'] ?? null;
         if (!$assignedTo) {
@@ -579,7 +601,7 @@ class ApprovalRequestController extends Controller
             'target_id'    => $pelanggan->id,
             'payload'      => [
                 'original_data' => $originalData,
-                'pid'           => $validated['pid'],
+                'pid'           => $pid,
                 'cabang_id'     => $validated['cabang_id'],
                 'nama'          => $validated['nama'],
                 'no_telp'       => $validated['no_telp'] ?? null,

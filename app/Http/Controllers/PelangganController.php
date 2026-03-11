@@ -517,6 +517,19 @@ class PelangganController extends Controller
         ]);
 
         $pelanggan = Pelanggan::findOrFail($id);
+
+        // Validasi PID prefix sesuai cabang yang dipilih
+        $cabang = \App\Models\Cabang::findOrFail($request->cabang_id);
+        $pid = strtoupper(trim($request->pid));
+        $pidPrefix = substr($pid, 0, 2);
+        $cabangKode = strtoupper($cabang->kode);
+        
+        if ($pidPrefix !== $cabangKode) {
+            return redirect()->back()
+                ->withInput()
+                ->with('error', "PID \"{$pid}\" tidak sesuai dengan cabang \"{$cabang->nama}\". Prefix PID harus \"{$cabangKode}\".");
+        }
+
         $pelanggan->update($request->only(['pid', 'cabang_id', 'nama', 'no_telp', 'dob', 'alamat', 'kota']));
 
         ActivityLog::record(
