@@ -45,12 +45,12 @@
                         @error('role_id') <div class="invalid-feedback">{{ $message }}</div> @enderror
                     </div>
 
-                    <!-- Akses Cabang (hanya tampil jika role bukan IT) -->
-                    <div class="mb-3" id="cabangSection">
+                    <!-- AksesCabang -->
+                    <div class="mb-4" id="cabangSection">
                         <div class="d-flex justify-content-between align-items-center mb-2">
                             <div>
                                 <label class="form-label fw-semibold mb-0">
-                                    <i class="fas fa-building text-primary me-1"></i>Akses Cabang
+                                    <i class="fas fa-building text-primary me-1"></i> Akses Cabang
                                 </label>
                                 <div class="text-muted small">Pilih cabang yang dapat diakses oleh user ini.</div>
                             </div>
@@ -68,39 +68,29 @@
                                 <i class="fas fa-exclamation-circle me-1"></i>{{ $message }}
                             </div>
                         @enderror
-                        <div class="border rounded-3 p-3 bg-light">
-                            <div class="row g-2">
+                        <div class="border rounded p-2">
+                            <div class="row g-1">
                                 @foreach($cabangs as $cabang)
                                 @php $isChecked = in_array($cabang->id, old('cabangs', $userCabangIds)); @endphp
-                                <div class="col-md-4 col-sm-6">
-                                    <label for="cabang_{{ $cabang->id }}"
-                                           class="cabang-card d-flex align-items-center gap-2 p-2 rounded-2 border cursor-pointer w-100 {{ $isChecked ? 'cabang-checked' : '' }}"
-                                           style="cursor:pointer; transition: all 0.2s; background: {{ $isChecked ? '#e8f0fe' : '#fff' }}; border-color: {{ $isChecked ? '#0056b3' : '#dee2e6' }} !important;">
-                                        <input class="cabang-checkbox" type="checkbox"
+                                <div class="col-md-6 col-12">
+                                    <label for="cabang_{{ $cabang->id }}" 
+                                           class="cabang-item d-flex align-items-center p-2 rounded border {{ $isChecked ? 'border-primary bg-light' : 'border-secondary-subtle' }} cursor-pointer"
+                                           style="transition: all 0.15s ease;">
+                                        <input class="form-check-input mt-0 cabang-checkbox me-2" type="checkbox"
                                                name="cabangs[]" value="{{ $cabang->id }}"
                                                id="cabang_{{ $cabang->id }}"
-                                               {{ $isChecked ? 'checked' : '' }}
-                                               style="display:none;">
-                                        <div class="rounded-circle d-flex align-items-center justify-content-center flex-shrink-0"
-                                             style="width:32px;height:32px;background:{{ $isChecked ? '#0056b3' : '#e9ecef' }}; transition: background 0.2s;">
-                                            <i class="fas {{ $isChecked ? 'fa-check' : 'fa-building' }} text-{{ $isChecked ? 'white' : 'secondary' }}"
-                                               style="font-size:0.75rem;"></i>
-                                        </div>
-                                        <div class="flex-grow-1 overflow-hidden">
-                                            <div class="fw-semibold text-dark" style="font-size:0.8rem; line-height:1.2;">{{ $cabang->kode }}</div>
-                                            <div class="text-muted text-truncate" style="font-size:0.72rem;">{{ $cabang->nama }}</div>
-                                        </div>
+                                               {{ $isChecked ? 'checked' : '' }}>
+                                        <span class="fw-semibold">{{ $cabang->kode }}</span>
+                                        <span class="text-muted ms-1 small">{{ $cabang->nama }}</span>
                                     </label>
                                 </div>
                                 @endforeach
                             </div>
-                            <div class="mt-2 pt-2 border-top">
-                                <small class="text-muted" id="cabangCountText">
-                                    <i class="fas fa-info-circle me-1"></i>
-                                    <span id="cabangSelectedCount">{{ count(old('cabangs', $userCabangIds)) }}</span> dari {{ count($cabangs) }} cabang dipilih
-                                </small>
-                            </div>
                         </div>
+                        <small class="text-muted mt-1 d-block">
+                            <i class="fas fa-info-circle me-1"></i>
+                            <span id="cabangSelectedCount">{{ count(old('cabangs', $userCabangIds)) }}</span> dari {{ count($cabangs) }} cabang dipilih
+                        </small>
                     </div>
 
                     <div class="mb-4 form-check">
@@ -120,7 +110,6 @@
 
 @section('scripts')
 <script>
-// ── Toggle section cabang jika role IT ──────────────────────────────────────
 const roleSelect    = document.getElementById('roleSelect');
 const cabangSection = document.getElementById('cabangSection');
 
@@ -131,45 +120,38 @@ function toggleCabangSection() {
 roleSelect.addEventListener('change', toggleCabangSection);
 toggleCabangSection();
 
-// ── Cabang Card Toggle ───────────────────────────────────────────────────────
-function updateCabangCard(label) {
-    const checkbox  = label.querySelector('.cabang-checkbox');
-    const circle    = label.querySelector('.rounded-circle');
-    const icon      = circle.querySelector('i');
-    const isChecked = checkbox.checked;
-
-    label.style.background   = isChecked ? '#e8f0fe' : '#fff';
-    label.style.borderColor  = isChecked ? '#0056b3' : '#dee2e6';
-    circle.style.background  = isChecked ? '#0056b3' : '#e9ecef';
-    icon.className = 'fas ' + (isChecked ? 'fa-check text-white' : 'fa-building text-secondary');
-    icon.style.fontSize = '0.75rem';
-
-    updateCabangCount();
-}
-
 function updateCabangCount() {
-    const total    = document.querySelectorAll('.cabang-checkbox').length;
     const selected = document.querySelectorAll('.cabang-checkbox:checked').length;
     const el = document.getElementById('cabangSelectedCount');
     if (el) el.textContent = selected;
 }
 
+function updateCabangStyle(checkbox) {
+    const label = checkbox.closest('.cabang-item');
+    if (checkbox.checked) {
+        label.classList.add('border-primary', 'bg-light');
+        label.classList.remove('border-secondary-subtle');
+    } else {
+        label.classList.remove('border-primary', 'bg-light');
+        label.classList.add('border-secondary-subtle');
+    }
+}
+
 function selectAllCabangs(state) {
     document.querySelectorAll('.cabang-checkbox').forEach(cb => {
         cb.checked = state;
-        updateCabangCard(cb.closest('label'));
+        updateCabangStyle(cb);
     });
+    updateCabangCount();
 }
 
-document.querySelectorAll('.cabang-card').forEach(label => {
-    label.addEventListener('click', function(e) {
-        if (e.target.tagName === 'INPUT') return; // handled by browser
-        const cb = this.querySelector('.cabang-checkbox');
-        cb.checked = !cb.checked;
-        updateCabangCard(this);
+document.querySelectorAll('.cabang-checkbox').forEach(cb => {
+    cb.addEventListener('change', function() {
+        updateCabangStyle(this);
+        updateCabangCount();
     });
-    // Sync visual state on page load
-    updateCabangCard(label);
+    updateCabangStyle(cb);
 });
 </script>
 @endsection
+

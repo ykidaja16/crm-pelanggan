@@ -14,6 +14,38 @@
             background-color: #f0f4f8;
             overflow-x: hidden;
         }
+        
+        /* Prevent buttons from growing when clicked/disabled - Import & Download Template buttons */
+        #importBtn,
+        #importBtn:focus,
+        #importBtn:active,
+        #importBtn:hover,
+        #importBtn:disabled,
+        #importBtn[disabled],
+        #downloadTemplateBtn,
+        a#downloadTemplateBtn:focus,
+        a#downloadTemplateBtn:active,
+        a#downloadTemplateBtn:hover,
+        a#downloadTemplateBtn.disabled,
+        #downloadTemplateBtn:disabled,
+        #downloadTemplateBtn[disabled] {
+            min-width: unset !important;
+            width: auto !important;
+            padding: 0.25rem 0.75rem !important;
+            transform: none !important;
+            box-sizing: border-box !important;
+            font-size: 0.875rem !important;
+            line-height: 1.5 !important;
+            vertical-align: middle !important;
+        }
+        
+        /* Ensure consistent button size during loading animation */
+        #importBtn .spinner-border {
+            width: 12px;
+            height: 12px;
+            border-width: 2px;
+        }
+        
         .wrapper {
             display: flex;
             width: 100%;
@@ -338,3 +370,4 @@
 </body>
 
 </html>
+

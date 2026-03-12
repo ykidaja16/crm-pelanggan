@@ -74,7 +74,7 @@
                                 <button type="button" class="btn btn-success" id="importBtn" onclick="startImport()">
                                     <i class="fas fa-upload me-2"></i>Import
                                 </button>
-                                <a href="{{ route('pelanggan.download-template') }}" class="btn btn-outline-primary">
+                                <a href="{{ route('pelanggan.download-template') }}" class="btn btn-outline-primary" id="downloadTemplateBtn">
                                     <i class="fas fa-download me-2"></i>Download Template
                                 </a>
                             </div>
