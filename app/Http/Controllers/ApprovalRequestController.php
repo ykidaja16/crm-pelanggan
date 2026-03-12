@@ -739,19 +739,23 @@ class ApprovalRequestController extends Controller
             }
 
             // Point 10: Hapus pelanggan individual (dari Admin)
+            // Menggunakan forceDelete() agar data benar-benar dihapus permanen dari database,
+            // bukan hanya soft delete (set deleted_at). DB cascade akan otomatis menghapus
+            // kunjungans dan pelanggan_class_histories yang terkait.
             if ($approval->type === 'pelanggan' && $approval->action === 'delete') {
                 $pelanggan = Pelanggan::find($approval->target_id);
                 if ($pelanggan) {
-                    $pelanggan->delete();
+                    $pelanggan->forceDelete();
                 }
             }
 
             // Point 10: Hapus pelanggan bulk (dari Admin)
+            // Menggunakan forceDelete() agar data benar-benar dihapus permanen dari database.
             if ($approval->type === 'pelanggan' && $approval->action === 'bulk_delete') {
                 $payload = $approval->payload ?? [];
                 $ids = $payload['ids'] ?? [];
                 if (!empty($ids)) {
-                    Pelanggan::whereIn('id', $ids)->delete();
+                    Pelanggan::whereIn('id', $ids)->forceDelete();
                 }
             }
 
