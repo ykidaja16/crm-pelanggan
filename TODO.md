@@ -1,23 +1,17 @@
-# TODO Revisi CRM Pelanggan (Batch Lanjutan)
+# TODO: Restrukturisasi Menu Data Pelanggan
 
-- [ ] Update `app/Http/Controllers/PelangganController.php`
-  - [ ] Tambah filter `kelompok_pelanggan` dan `tipe_pelanggan` di index
-  - [ ] Integrasi filter ke response view
-- [ ] Update `resources/views/pelanggan/index.blade.php`
-  - [ ] Sembunyikan card import untuk role User
-  - [ ] Tambah filter kelompok/tipe pelanggan
-  - [ ] Ubah hapus individual admin menjadi pengajuan (dengan catatan)
-  - [ ] Ubah hapus terpilih admin menjadi pengajuan (dengan catatan)
-  - [ ] Klik X notifikasi import => reload halaman
-  - [ ] Reset file input setelah import selesai (success/fail)
-- [ ] Update `resources/views/pelanggan/show.blade.php`
-  - [ ] Tampilkan pagination untuk riwayat pengajuan perubahan
-  - [ ] Batasi aksi edit/hapus kunjungan untuk role User
-- [ ] Update `resources/views/laporan/index.blade.php`
-  - [ ] Tambah UI filter kelompok pelanggan
-  - [ ] Tambah UI filter tipe pelanggan
-- [ ] Update `app/Imports/KunjunganImport.php`
-  - [ ] Progress import Excel realtime berdasarkan baris terproses/total
-  - [ ] Update cache progress per user saat proses berjalan
-- [ ] Verifikasi cepat consistency pada approval page (dropdown action + single note)
-- [ ] Uji syntax PHP blade/controller terkait perubahan
+## Steps
+
+- [x] Analisis file `resources/views/layouts/main.blade.php`
+- [x] Cek semua link yang terdampak di views lain
+- [x] Edit `resources/views/layouts/main.blade.php`:
+  - [x] Tambah CSS untuk `submenu-pelanggan` dan `pelanggan-toggle`
+  - [x] Ganti menu flat `Data Pelanggan` + `Pelanggan Khusus` menjadi parent collapsible dengan 3 sub-menu:
+    1. Dashboard Pelanggan → `pelanggan.index`
+    2. Input Data Pelanggan → `pelanggan.create` (Admin/Super Admin)
+    3. Pelanggan Khusus → `pelanggan.khusus.index` (Admin/Super Admin)
+- [x] Verifikasi tampilan di browser
+
+## Notes
+- Route names tidak berubah, hanya struktur sidebar
+- Links di `pelanggan/index.blade.php`, `pelanggan/create.blade.php`, `pelanggan/show.blade.php` tidak perlu diubah

@@ -14,7 +14,7 @@ class CabangController extends Controller
      */
     public function index()
     {
-        $cabangs = Cabang::orderBy('nama')->get();
+        $cabangs = Cabang::orderBy('nama')->paginate(15);
         return view('cabang.index', compact('cabangs'));
     }
 

@@ -97,6 +97,40 @@
             background: #e9ecef;
             border-right: 4px solid #0056b3;
         }
+        /* Submenu Pelanggan */
+        #sidebar .submenu-pelanggan {
+            background: #f8f9fa;
+            border-left: 3px solid #0056b3;
+            margin-left: 0;
+        }
+        #sidebar .submenu-pelanggan li a {
+            padding: 10px 20px 10px 45px;
+            font-size: 0.92em;
+            color: #666;
+        }
+        #sidebar .submenu-pelanggan li a:hover {
+            color: #0056b3;
+            background: #e9ecef;
+        }
+        #sidebar .submenu-pelanggan li.active > a {
+            color: #0056b3;
+            background: #e9ecef;
+            border-right: 4px solid #0056b3;
+            font-weight: 600;
+        }
+        #sidebar .pelanggan-toggle {
+            cursor: pointer;
+        }
+        #sidebar .pelanggan-toggle .fa-chevron-down {
+            margin-left: auto;
+            margin-right: 0;
+            width: auto;
+            font-size: 0.75em;
+            transition: transform 0.3s;
+        }
+        #sidebar .pelanggan-toggle[aria-expanded="true"] .fa-chevron-down {
+            transform: rotate(180deg);
+        }
         /* Submenu Approval */
         #sidebar .submenu-approval {
             background: #f8f9fa;
@@ -181,18 +215,43 @@
                     <i class="fas fa-chart-line"></i> Dashboard
                 </a>
             </li>
-            <li class="{{ request()->routeIs('pelanggan.index') || request()->routeIs('pelanggan.show') || request()->routeIs('pelanggan.create') || request()->routeIs('pelanggan.edit') ? 'active' : '' }}">
-                @if(Auth::user()->role?->name !== 'IT')
-                <a href="{{ route('pelanggan.index') }}">
+            @if(Auth::user()->role?->name !== 'IT')
+            @php
+                $pelangganActive = request()->routeIs('pelanggan.index')
+                                || request()->routeIs('pelanggan.show')
+                                || request()->routeIs('pelanggan.input')
+                                || request()->routeIs('pelanggan.create')
+                                || request()->routeIs('pelanggan.edit')
+                                || request()->routeIs('pelanggan.khusus*');
+            @endphp
+            <li class="{{ $pelangganActive ? 'active' : '' }}">
+                <a href="#pelangganSubmenu"
+                   data-bs-toggle="collapse"
+                   class="pelanggan-toggle"
+                   aria-expanded="{{ $pelangganActive ? 'true' : 'false' }}"
+                   aria-controls="pelangganSubmenu">
                     <i class="fas fa-users"></i> Data Pelanggan
+                    <i class="fas fa-chevron-down"></i>
                 </a>
-                @endif
-            </li>
-            @if(in_array(Auth::user()->role?->name, ['Admin', 'Super Admin']))
-            <li class="{{ request()->routeIs('pelanggan.khusus*') ? 'active' : '' }}">
-                <a href="{{ route('pelanggan.khusus.index') }}">
-                    <i class="fas fa-star"></i> Pelanggan Khusus
-                </a>
+                <ul class="list-unstyled submenu-pelanggan collapse {{ $pelangganActive ? 'show' : '' }}" id="pelangganSubmenu">
+                    <li class="{{ (request()->routeIs('pelanggan.index') || request()->routeIs('pelanggan.show') || request()->routeIs('pelanggan.edit')) ? 'active' : '' }}">
+                        <a href="{{ route('pelanggan.index') }}">
+                            <i class="fas fa-chart-bar me-2"></i>Dashboard Pelanggan
+                        </a>
+                    </li>
+                    @if(in_array(Auth::user()->role?->name, ['Admin', 'Super Admin']))
+                    <li class="{{ (request()->routeIs('pelanggan.input') || request()->routeIs('pelanggan.create')) ? 'active' : '' }}">
+                        <a href="{{ route('pelanggan.input') }}">
+                            <i class="fas fa-file-import me-2"></i>Input Data Pelanggan
+                        </a>
+                    </li>
+                    <li class="{{ request()->routeIs('pelanggan.khusus*') ? 'active' : '' }}">
+                        <a href="{{ route('pelanggan.khusus.index') }}">
+                            <i class="fas fa-star me-2"></i>Pelanggan Khusus
+                        </a>
+                    </li>
+                    @endif
+                </ul>
             </li>
             @endif
             @if(Auth::user()->role?->name !== 'IT')
@@ -339,17 +398,32 @@
 
         {{-- Flash Messages --}}
         @if(session('error'))
-        <div class="alert alert-danger alert-dismissible fade show" role="alert">
+        <div class="alert alert-danger alert-dismissible fade show shadow-sm" role="alert">
             <i class="fas fa-exclamation-circle me-2"></i>
             {{ session('error') }}
+            @if(session('import_errors'))
+                <ul class="mb-0 mt-2">
+                    @foreach(session('import_errors') as $err)
+                        <li>{{ $err }}</li>
+                    @endforeach
+                </ul>
+            @endif
             <button type="button" class="btn-close" data-bs-dismiss="alert" aria-label="Close"></button>
         </div>
         @endif
 
         @if(session('success'))
-        <div class="alert alert-success alert-dismissible fade show" role="alert">
+        <div class="alert alert-success alert-dismissible fade show shadow-sm" role="alert">
             <i class="fas fa-check-circle me-2"></i>
             {{ session('success') }}
+            <button type="button" class="btn-close" data-bs-dismiss="alert" aria-label="Close"></button>
+        </div>
+        @endif
+
+        @if(session('warning'))
+        <div class="alert alert-warning alert-dismissible fade show shadow-sm" role="alert">
+            <i class="fas fa-exclamation-triangle me-2"></i>
+            {{ session('warning') }}
             <button type="button" class="btn-close" data-bs-dismiss="alert" aria-label="Close"></button>
         </div>
         @endif

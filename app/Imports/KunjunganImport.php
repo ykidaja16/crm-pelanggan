@@ -110,6 +110,22 @@ class KunjunganImport implements ToCollection, WithStartRow
         $totalRows = max($rows->count(), 1);
         $current = 0;
 
+        // ── Defense in depth: tolak jika format Pelanggan Khusus (12 kolom) ──
+        // Format pelanggan khusus memiliki kolom ke-12 (Kategori Khusus)
+        // Import ini hanya untuk pelanggan biasa (11 kolom)
+        foreach ($rows as $checkRow) {
+            $checkArray = $checkRow->toArray();
+            if (count($checkArray) >= 12 && trim((string) ($checkArray[11] ?? '')) !== '') {
+                throw new \Exception(
+                    'Format file ini adalah format Pelanggan Khusus (memiliki kolom "Kategori Khusus"). '
+                    . 'Import Pelanggan Khusus tidak diperbolehkan di menu Data Pelanggan. '
+                    . 'Gunakan menu Pelanggan Khusus untuk mengimport data ini.'
+                );
+            }
+            break; // Cukup cek baris pertama data
+        }
+        // ─────────────────────────────────────────────────────────────────────
+
         foreach ($rows as $index => $row) {
             $rowNumber = $index + 2; // +2 because we start from row 2
             $current++;

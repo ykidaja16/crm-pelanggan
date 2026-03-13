@@ -98,7 +98,9 @@ class UserController extends Controller
         if ($user->id === Auth::id()) {
             return back()->with('error', 'Anda tidak bisa menghapus akun sendiri.');
         }
-        $user->delete();
+        // Detach semua relasi cabang sebelum force delete
+        $user->cabangs()->detach();
+        $user->forceDelete();
         return redirect()->route('users.index')->with('success', 'User berhasil dihapus');
     }
 

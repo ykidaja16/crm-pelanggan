@@ -9,20 +9,6 @@
     </h4>
 </div>
 
-@if(session('success'))
-    <div class="alert alert-success alert-dismissible fade show shadow-sm" role="alert">
-        <i class="fas fa-check-circle me-2"></i>{{ session('success') }}
-        <button type="button" class="btn-close" data-bs-dismiss="alert"></button>
-    </div>
-@endif
-
-@if(session('error'))
-    <div class="alert alert-danger alert-dismissible fade show shadow-sm" role="alert">
-        <i class="fas fa-exclamation-circle me-2"></i>{{ session('error') }}
-        <button type="button" class="btn-close" data-bs-dismiss="alert"></button>
-    </div>
-@endif
-
 <div class="row g-4">
     <!-- Form Tambah Cabang Baru -->
     <div class="col-lg-5">
@@ -122,7 +108,7 @@
         <div class="card shadow-sm border-0">
             <div class="card-header bg-white py-3 border-bottom">
                 <h6 class="mb-0 fw-semibold text-primary">
-                    <i class="fas fa-list me-2"></i>Daftar Cabang ({{ $cabangs->count() }})
+                    <i class="fas fa-list me-2"></i>Daftar Cabang ({{ $cabangs->total() }})
                 </h6>
             </div>
             <div class="table-responsive">
@@ -235,6 +221,15 @@
                         @endforelse
                     </tbody>
                 </table>
+            </div>
+            <div class="d-flex justify-content-between align-items-center px-3 py-2 border-top bg-light small">
+                <div class="text-muted">
+                    Menampilkan <strong>{{ $cabangs->firstItem() ?? 0 }} – {{ $cabangs->lastItem() ?? 0 }}</strong>
+                    dari <strong>{{ $cabangs->total() }}</strong> cabang
+                </div>
+                <div>
+                    {{ $cabangs->links('pagination::bootstrap-5') }}
+                </div>
             </div>
         </div>
     </div>

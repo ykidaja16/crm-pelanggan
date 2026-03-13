@@ -127,9 +127,81 @@ class ApprovalRequestController extends Controller
 
     /**
      * Point 6 & 8: Validasi PID duplikat dan prefix cabang untuk pelanggan khusus manual
+     * Mendukung dua mode:
+     *   mode=new      → Pelanggan Baru (default)
+     *   mode=existing → Pelanggan Lama (tambah kunjungan ke pelanggan khusus yang sudah ada)
      */
     public function storeSpecialCustomerRequest(Request $request)
     {
+        $mode = $request->input('mode', 'new');
+
+        // ── MODE: PELANGGAN LAMA (tambah kunjungan) ──────────────────────────
+        if ($mode === 'existing') {
+            $validated = $request->validate([
+                'existing_pelanggan_id' => 'required|exists:pelanggans,id',
+                'kelompok_pelanggan'    => 'required|in:mandiri,klinisi',
+                'tanggal_kunjungan'     => 'required|date',
+                'biaya'                 => 'required',
+                'request_note'          => 'required|string|max:500',
+            ], [
+                'existing_pelanggan_id.required' => 'Pelanggan harus dipilih.',
+                'existing_pelanggan_id.exists'   => 'Pelanggan tidak ditemukan.',
+                'tanggal_kunjungan.required'     => 'Tanggal kunjungan wajib diisi.',
+                'biaya.required'                 => 'Biaya wajib diisi.',
+                'request_note.required'          => 'Alasan pengajuan wajib diisi.',
+            ]);
+
+            $pelanggan = Pelanggan::findOrFail($validated['existing_pelanggan_id']);
+
+            // Pastikan pelanggan ini adalah pelanggan khusus
+            if (!$pelanggan->is_pelanggan_khusus) {
+                return back()->withInput()
+                    ->with('error', 'Pelanggan yang dipilih bukan pelanggan khusus. Gunakan menu Data Pelanggan untuk menambah kunjungan.');
+            }
+
+            // Validasi akses cabang user
+            /** @var User $authUser */
+            $authUser = Auth::user();
+            $accessibleCabangIds = $authUser->getAccessibleCabangIds();
+            if (!empty($accessibleCabangIds) && !in_array((int)$pelanggan->cabang_id, $accessibleCabangIds)) {
+                return back()->withInput()
+                    ->with('error', 'Anda tidak memiliki akses ke cabang pelanggan ini.');
+            }
+
+            $biayaValue = (float) preg_replace('/[^\d]/', '', (string) $validated['biaya']);
+            $assignedTo = $this->getFirstSuperadminForCabang((int) $pelanggan->cabang_id);
+
+            ApprovalRequest::create([
+                'type'        => 'pelanggan_khusus',
+                'action'      => 'add_visit',
+                'target_type' => Pelanggan::class,
+                'target_id'   => $pelanggan->id,
+                'payload'     => [
+                    'kelompok_pelanggan' => $validated['kelompok_pelanggan'],
+                    'tanggal_kunjungan'  => $validated['tanggal_kunjungan'],
+                    'biaya_kunjungan'    => $biayaValue,
+                ],
+                'request_note' => $validated['request_note'],
+                'status'       => 'pending',
+                'requested_by' => Auth::id(),
+                'assigned_to'  => $assignedTo,
+            ]);
+
+            ActivityLog::record(
+                'create',
+                'ApprovalRequest',
+                'Mengajukan tambah kunjungan pelanggan khusus PID ' . $pelanggan->pid . ' untuk approval.',
+                Auth::id(),
+                Auth::user()->username ?? 'unknown',
+                Auth::user()->role?->name ?? '-',
+                $request->ip(),
+                $request->userAgent()
+            );
+
+            return back()->with('success', 'Pengajuan tambah kunjungan pelanggan khusus berhasil dikirim untuk approval Superadmin.');
+        }
+
+        // ── MODE: PELANGGAN BARU ──────────────────────────────────────────────
         $validated = $request->validate([
             'pid'                => 'required|string',
             'cabang_id'          => 'required|exists:cabangs,id',
@@ -289,23 +361,6 @@ class ApprovalRequestController extends Controller
                     continue;
                 }
 
-                // Point 6: Cek PID duplikat di database
-                $existingPelanggan = Pelanggan::where('pid', $pid)->first();
-                if ($existingPelanggan) {
-                    $errors[] = "Baris {$rowNum}: PID {$pid} sudah terdaftar atas nama \"{$existingPelanggan->nama}\".";
-                    continue;
-                }
-
-                // Cek di pending approval
-                $pendingRequest = ApprovalRequest::where('type', 'pelanggan_khusus')
-                    ->where('status', 'pending')
-                    ->whereJsonContains('payload->pid', $pid)
-                    ->first();
-                if ($pendingRequest) {
-                    $errors[] = "Baris {$rowNum}: PID {$pid} sudah ada dalam pengajuan yang sedang menunggu approval.";
-                    continue;
-                }
-
                 $cabangKode = strtoupper(substr($pid, 0, 2));
                 $cabang = $cabangs->get($cabangKode);
                 if (!$cabang) {
@@ -319,33 +374,77 @@ class ApprovalRequestController extends Controller
                     continue;
                 }
 
-                // Auto-assign ke superadmin pertama di cabang
-                $assignedToImport = $this->getFirstSuperadminForCabang($cabang->id);
+                // Cek PID di database
+                $existingPelanggan = Pelanggan::where('pid', $pid)->first();
+                if ($existingPelanggan) {
+                    if ($existingPelanggan->is_pelanggan_khusus) {
+                        // Pelanggan khusus sudah ada → cek nama
+                        $dbNama = trim($existingPelanggan->nama ?? '');
+                        if (strtolower($nama) !== strtolower($dbNama)) {
+                            $errors[] = "Baris {$rowNum}: PID {$pid} adalah pelanggan khusus dengan nama '{$dbNama}'. Nama '{$nama}' tidak sesuai.";
+                            continue;
+                        }
+                        // Nama cocok → buat add_visit approval
+                        $assignedToImport = $this->getFirstSuperadminForCabang($existingPelanggan->cabang_id);
+                        ApprovalRequest::create([
+                            'type'        => 'pelanggan_khusus',
+                            'action'      => 'add_visit',
+                            'target_type' => Pelanggan::class,
+                            'target_id'   => $existingPelanggan->id,
+                            'payload'     => [
+                                'kelompok_pelanggan' => $kelompokPelanggan,
+                                'tanggal_kunjungan'  => $tanggal !== '' ? $tanggal : now()->format('Y-m-d'),
+                                'biaya_kunjungan'    => $biaya,
+                            ],
+                            'request_note' => $validated['request_note'],
+                            'status'       => 'pending',
+                            'requested_by' => Auth::id(),
+                            'assigned_to'  => $assignedToImport,
+                        ]);
+                        $created++;
+                        continue;
+                    } else {
+                        // Pelanggan biasa → error, gunakan menu Data Pelanggan
+                        $errors[] = "Baris {$rowNum}: PID {$pid} sudah terdaftar sebagai pelanggan biasa. Gunakan menu Data Pelanggan untuk import.";
+                        continue;
+                    }
+                }
 
+                // Cek di pending approval (hanya untuk create baru)
+                $pendingRequest = ApprovalRequest::where('type', 'pelanggan_khusus')
+                    ->where('status', 'pending')
+                    ->whereJsonContains('payload->pid', $pid)
+                    ->first();
+                if ($pendingRequest) {
+                    $errors[] = "Baris {$rowNum}: PID {$pid} sudah ada dalam pengajuan yang sedang menunggu approval.";
+                    continue;
+                }
+
+                // Buat approval request baru untuk pelanggan khusus baru
+                $assignedToNew = $this->getFirstSuperadminForCabang($cabang->id);
                 ApprovalRequest::create([
-                    'type' => 'pelanggan_khusus',
-                    'action' => 'create',
+                    'type'        => 'pelanggan_khusus',
+                    'action'      => 'create',
                     'target_type' => Pelanggan::class,
-                    'target_id' => null,
-                    'payload' => [
-                        'pid' => $pid,
-                        'cabang_id' => $cabang->id,
-                        'nama' => $nama,
-                        'no_telp' => $noTelp ?: null,
-                        'dob' => $dob ?: null,
-                        'alamat' => $alamat ?: null,
-                        'kota' => $kota ?: null,
+                    'target_id'   => null,
+                    'payload'     => [
+                        'pid'                => $pid,
+                        'cabang_id'          => $cabang->id,
+                        'nama'               => $nama,
+                        'no_telp'            => $noTelp !== '' ? $noTelp : null,
+                        'dob'                => $dob !== '' ? $dob : null,
+                        'alamat'             => $alamat !== '' ? $alamat : null,
+                        'kota'               => $kota !== '' ? $kota : null,
                         'kelompok_pelanggan' => $kelompokPelanggan,
-                        'kategori_khusus' => $kategoriKhusus,
-                        'tanggal_kunjungan' => $tanggal !== '' ? $tanggal : now()->format('Y-m-d'),
-                        'biaya_kunjungan' => $biaya,
+                        'kategori_khusus'    => $kategoriKhusus,
+                        'tanggal_kunjungan'  => $tanggal !== '' ? $tanggal : now()->format('Y-m-d'),
+                        'biaya_kunjungan'    => $biaya,
                     ],
                     'request_note' => $validated['request_note'],
-                    'status' => 'pending',
+                    'status'       => 'pending',
                     'requested_by' => Auth::id(),
-                    'assigned_to' => $assignedToImport,
+                    'assigned_to'  => $assignedToNew,
                 ]);
-
                 $created++;
             }
         });
@@ -646,6 +745,27 @@ class ApprovalRequestController extends Controller
         }
 
         DB::transaction(function () use ($approval, $validated, $request) {
+            // Pelanggan Khusus: tambah kunjungan ke pelanggan yang sudah ada (add_visit)
+            if ($approval->type === 'pelanggan_khusus' && $approval->action === 'add_visit') {
+                $payload    = $approval->payload ?? [];
+                $pelanggan  = Pelanggan::findOrFail($approval->target_id);
+
+                $kelompokKode = $payload['kelompok_pelanggan'] ?? 'mandiri';
+                $kelompok     = KelompokPelanggan::where('kode', $kelompokKode)->first();
+                $tanggal      = \Carbon\Carbon::parse($payload['tanggal_kunjungan'] ?? now()->toDateString());
+
+                Kunjungan::create([
+                    'pelanggan_id'          => $pelanggan->id,
+                    'cabang_id'             => $pelanggan->cabang_id,
+                    'tanggal_kunjungan'     => $tanggal,
+                    'biaya'                 => (float) ($payload['biaya_kunjungan'] ?? 0),
+                    'kelompok_pelanggan_id' => $kelompok?->id,
+                    'total_kedatangan'      => 1,
+                ]);
+
+                $pelanggan->updateStats($tanggal, 'Tambah kunjungan dari approval pelanggan khusus');
+            }
+
             // Pelanggan Khusus: buat pelanggan baru
             if ($approval->type === 'pelanggan_khusus' && $approval->action === 'create') {
                 $payload = $approval->payload ?? [];

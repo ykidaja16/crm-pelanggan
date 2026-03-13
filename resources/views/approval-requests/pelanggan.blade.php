@@ -13,20 +13,6 @@
         </span>
     </div>
 
-    @if(session('success'))
-        <div class="alert alert-success alert-dismissible fade show shadow-sm" role="alert">
-            <i class="fas fa-check-circle me-2"></i>{{ session('success') }}
-            <button type="button" class="btn-close" data-bs-dismiss="alert"></button>
-        </div>
-    @endif
-
-    @if(session('error'))
-        <div class="alert alert-danger alert-dismissible fade show shadow-sm" role="alert">
-            <i class="fas fa-exclamation-circle me-2"></i>{{ session('error') }}
-            <button type="button" class="btn-close" data-bs-dismiss="alert"></button>
-        </div>
-    @endif
-
     <!-- Filter Card -->
     <div class="card shadow-sm border-0 mb-3">
         <div class="card-body py-3">
@@ -131,11 +117,13 @@
                     </table>
                 </div>
 
-                @if($requests->hasPages())
-                    <div class="px-3 py-2 border-top">
-                        {{ $requests->links() }}
-                    </div>
-                @endif
+                <div class="px-3 py-2 border-top d-flex justify-content-between align-items-center flex-wrap gap-2">
+                    <small class="text-muted">
+                        Menampilkan {{ $requests->firstItem() ?? 0 }}–{{ $requests->lastItem() ?? 0 }}
+                        dari {{ $requests->total() }} pengajuan
+                    </small>
+                    {{ $requests->links() }}
+                </div>
             @endif
         </div>
     </div>

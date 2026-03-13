@@ -127,6 +127,9 @@ Route::middleware(['auth'])->group(function () {
     // ─── Admin & Super Admin routes ───────────────────────────────────────────
     Route::middleware([\App\Http\Middleware\EnsureUserIsAdmin::class])->group(function () {
 
+        // Input Data Pelanggan (Tambah Manual + Import)
+        Route::get('/pelanggan/input', [PelangganController::class, 'inputPage'])->name('pelanggan.input');
+
         // CRUD Pelanggan
         Route::get('/pelanggan/create', [PelangganController::class, 'create'])->name('pelanggan.create');
         Route::post('/pelanggan', [PelangganController::class, 'store'])->name('pelanggan.store');

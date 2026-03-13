@@ -190,6 +190,19 @@
                         <div id="search_not_found" class="alert alert-danger mt-3" style="display: none;">
                             <i class="fas fa-exclamation-circle me-2"></i>Pelanggan dengan PID tersebut tidak ditemukan.
                         </div>
+
+                        {{-- Warning: pelanggan khusus tidak boleh diinput di sini --}}
+                        <div id="search_khusus_warning" class="alert alert-warning mt-3" style="display: none;">
+                            <div class="d-flex align-items-start gap-2">
+                                <i class="fas fa-exclamation-triangle mt-1 flex-shrink-0"></i>
+                                <div>
+                                    <strong>Pelanggan Khusus Terdeteksi!</strong><br>
+                                    PID ini terdaftar sebagai <strong>Pelanggan Khusus</strong>.
+                                    Menu <em>Tambah Pelanggan</em> ini hanya untuk <strong>Pelanggan Biasa</strong>.<br>
+                                    Silakan gunakan menu <a href="{{ route('pelanggan.khusus.index') }}" class="alert-link fw-semibold">Pelanggan Khusus</a> untuk menambah kunjungan pelanggan ini.
+                                </div>
+                            </div>
+                        </div>
                     </div>
 
 
@@ -296,6 +309,7 @@
                             // Reset existing customer data
                             document.getElementById('search_result').style.display = 'none';
                             document.getElementById('search_not_found').style.display = 'none';
+                            document.getElementById('search_khusus_warning').style.display = 'none';
                             document.getElementById('existing_pelanggan_id').value = '';
                             document.getElementById('existing_cabang_id').value = '';
                             
@@ -331,18 +345,30 @@
                             .then(response => response.json())
                             .then(data => {
                                 if (data.found) {
-                                    document.getElementById('found_pid').textContent = data.pelanggan.pid;
-                                    document.getElementById('found_nama').textContent = data.pelanggan.nama;
-                                    document.getElementById('found_cabang').textContent = data.cabang;
-                                    document.getElementById('found_class').textContent = data.pelanggan.class;
-                                    
-                                    document.getElementById('existing_pelanggan_id').value = data.pelanggan.id;
-                                    document.getElementById('existing_cabang_id').value = data.pelanggan.cabang_id;
-                                    
-                                    document.getElementById('search_result').style.display = 'block';
-                                    document.getElementById('search_not_found').style.display = 'none';
+                                    // ── Cek apakah pelanggan adalah Pelanggan Khusus ──
+                                    if (data.pelanggan.is_pelanggan_khusus) {
+                                        // Tampilkan warning, sembunyikan hasil normal
+                                        document.getElementById('search_result').style.display = 'none';
+                                        document.getElementById('search_not_found').style.display = 'none';
+                                        document.getElementById('search_khusus_warning').style.display = 'block';
+                                        // Kosongkan hidden fields agar form tidak bisa disubmit
+                                        document.getElementById('existing_pelanggan_id').value = '';
+                                        document.getElementById('existing_cabang_id').value = '';
+                                    } else {
+                                        // Pelanggan biasa: tampilkan info normal
+                                        document.getElementById('search_khusus_warning').style.display = 'none';
+                                        document.getElementById('search_not_found').style.display = 'none';
+                                        document.getElementById('found_pid').textContent = data.pelanggan.pid;
+                                        document.getElementById('found_nama').textContent = data.pelanggan.nama;
+                                        document.getElementById('found_cabang').textContent = data.cabang;
+                                        document.getElementById('found_class').textContent = data.pelanggan.class;
+                                        document.getElementById('existing_pelanggan_id').value = data.pelanggan.id;
+                                        document.getElementById('existing_cabang_id').value = data.pelanggan.cabang_id;
+                                        document.getElementById('search_result').style.display = 'block';
+                                    }
                                 } else {
                                     document.getElementById('search_result').style.display = 'none';
+                                    document.getElementById('search_khusus_warning').style.display = 'none';
                                     document.getElementById('search_not_found').style.display = 'block';
                                     document.getElementById('existing_pelanggan_id').value = '';
                                     document.getElementById('existing_cabang_id').value = '';

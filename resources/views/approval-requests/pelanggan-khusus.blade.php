@@ -13,20 +13,6 @@
         </span>
     </div>
 
-    @if(session('success'))
-        <div class="alert alert-success alert-dismissible fade show shadow-sm" role="alert">
-            <i class="fas fa-check-circle me-2"></i>{{ session('success') }}
-            <button type="button" class="btn-close" data-bs-dismiss="alert"></button>
-        </div>
-    @endif
-
-    @if(session('error'))
-        <div class="alert alert-danger alert-dismissible fade show shadow-sm" role="alert">
-            <i class="fas fa-exclamation-circle me-2"></i>{{ session('error') }}
-            <button type="button" class="btn-close" data-bs-dismiss="alert"></button>
-        </div>
-    @endif
-
     <!-- Filter Card -->
     <div class="card shadow-sm border-0 mb-3">
         <div class="card-body py-3">
@@ -74,7 +60,9 @@
                             <td class="fw-semibold text-muted">#{{ $item->id }}</td>
                             <td>
                                 @if($item->action === 'create')
-                                    <span class="badge bg-success bg-opacity-10 text-success border border-success">Tambah</span>
+                                    <span class="badge bg-success bg-opacity-10 text-success border border-success">Tambah Baru</span>
+                                @elseif($item->action === 'add_visit')
+                                    <span class="badge bg-info bg-opacity-10 text-info border border-info">Tambah Kunjungan</span>
                                 @elseif($item->action === 'edit')
                                     <span class="badge bg-primary bg-opacity-10 text-primary border border-primary">Edit</span>
                                 @elseif($item->action === 'delete')
@@ -179,6 +167,96 @@
                     <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
                 </div>
                 <div class="modal-body p-4">
+                    @if($item->action === 'add_visit')
+                    {{-- Mode: Tambah Kunjungan ke Pelanggan Khusus Lama --}}
+                    @php $pelangganTarget = $item->target_id ? \App\Models\Pelanggan::find($item->target_id) : null; @endphp
+                    <div class="alert alert-info border-0 mb-3 py-2">
+                        <i class="fas fa-info-circle me-2"></i>
+                        Pengajuan <strong>tambah kunjungan</strong> untuk pelanggan khusus yang sudah terdaftar.
+                    </div>
+                    <div class="row g-3">
+                        <div class="col-md-6">
+                            <div class="card border-0 bg-light h-100">
+                                <div class="card-body">
+                                    <h6 class="fw-semibold text-primary mb-3">
+                                        <i class="fas fa-user me-2"></i>Data Pelanggan
+                                    </h6>
+                                    <table class="table table-sm table-borderless mb-0">
+                                        <tr>
+                                            <td class="text-muted small fw-medium" style="width:42%">PID</td>
+                                            <td class="small fw-semibold">
+                                                <code class="bg-white px-2 py-1 rounded border">{{ $pelangganTarget?->pid ?? '-' }}</code>
+                                            </td>
+                                        </tr>
+                                        <tr>
+                                            <td class="text-muted small fw-medium">Nama</td>
+                                            <td class="small fw-semibold">{{ $pelangganTarget?->nama ?? '-' }}</td>
+                                        </tr>
+                                        <tr>
+                                            <td class="text-muted small fw-medium">Cabang</td>
+                                            <td class="small">
+                                                <span class="badge bg-primary bg-opacity-10 text-primary border border-primary">
+                                                    {{ $pelangganTarget?->cabang?->nama ?? '-' }}
+                                                </span>
+                                            </td>
+                                        </tr>
+                                        <tr>
+                                            <td class="text-muted small fw-medium">Kategori Khusus</td>
+                                            <td class="small fw-semibold text-warning">{{ $pelangganTarget?->kategori_khusus ?? '-' }}</td>
+                                        </tr>
+                                        <tr>
+                                            <td class="text-muted small fw-medium">Total Kunjungan</td>
+                                            <td class="small">{{ $pelangganTarget?->total_kedatangan ?? 0 }}x</td>
+                                        </tr>
+                                    </table>
+                                </div>
+                            </div>
+                        </div>
+                        <div class="col-md-6">
+                            <div class="card border-0 bg-light h-100">
+                                <div class="card-body">
+                                    <h6 class="fw-semibold text-info mb-3">
+                                        <i class="fas fa-calendar-plus me-2"></i>Data Kunjungan Baru
+                                    </h6>
+                                    <table class="table table-sm table-borderless mb-0">
+                                        <tr>
+                                            <td class="text-muted small fw-medium" style="width:48%">Kelompok</td>
+                                            <td class="small">
+                                                @php $kelompok = $payload['kelompok_pelanggan'] ?? '-'; @endphp
+                                                <span class="badge {{ $kelompok === 'klinisi' ? 'bg-primary bg-opacity-10 text-primary border border-primary' : 'bg-secondary bg-opacity-10 text-secondary border border-secondary' }}">
+                                                    {{ ucfirst($kelompok) }}
+                                                </span>
+                                            </td>
+                                        </tr>
+                                        <tr>
+                                            <td class="text-muted small fw-medium">Tanggal Kunjungan</td>
+                                            <td class="small">
+                                                @if(!empty($payload['tanggal_kunjungan']))
+                                                    {{ \Carbon\Carbon::parse($payload['tanggal_kunjungan'])->format('d-m-Y') }}
+                                                @else -
+                                                @endif
+                                            </td>
+                                        </tr>
+                                        <tr>
+                                            <td class="text-muted small fw-medium">Biaya Kunjungan</td>
+                                            <td class="small fw-semibold text-success">
+                                                Rp {{ number_format($payload['biaya_kunjungan'] ?? 0, 0, ',', '.') }}
+                                            </td>
+                                        </tr>
+                                    </table>
+                                    <hr class="my-2">
+                                    <h6 class="fw-semibold text-secondary mb-2 small">
+                                        <i class="fas fa-clipboard me-1"></i>Alasan Pengajuan
+                                    </h6>
+                                    <div class="bg-white rounded p-2 border small text-muted" style="min-height:40px;">
+                                        {{ $item->request_note ?? '-' }}
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                    @else
+                    {{-- Mode: Tambah Pelanggan Khusus Baru --}}
                     <div class="row g-3">
                         <!-- Kolom Kiri: Data Pelanggan -->
                         <div class="col-md-6">
@@ -276,6 +354,7 @@
                             </div>
                         </div>
                     </div>
+                    @endif
 
                     <!-- Info Pengaju & Waktu -->
                     <div class="mt-3 p-3 bg-light rounded border">

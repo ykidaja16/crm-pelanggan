@@ -102,6 +102,44 @@ class PelangganImportExportController extends Controller
 
             Log::info('Excel file read successfully', ['sheet_count' => count($rows), 'first_sheet_rows' => count($rows[0])]);
 
+            // ── Validasi format file: tolak jika format Pelanggan Khusus (12 kolom) ──
+            // Format pelanggan khusus memiliki 12 kolom, kolom ke-12 adalah "Kategori Khusus"
+            // Format pelanggan biasa hanya 11 kolom
+            $isKhususFormat = false;
+            $firstSheet     = $rows[0] ?? [];
+
+            // Cek header row (baris pertama)
+            $headerRow = $firstSheet[0] ?? [];
+            if (count($headerRow) >= 12) {
+                $col12Header = strtolower(trim((string) ($headerRow[11] ?? '')));
+                if (!empty($col12Header)) {
+                    $isKhususFormat = true;
+                    Log::info('Detected khusus format from header', ['col12' => $col12Header]);
+                }
+            }
+
+            // Cek data rows jika header tidak cukup jelas
+            if (!$isKhususFormat) {
+                foreach ($firstSheet as $rowIdx => $row) {
+                    if ($rowIdx === 0) continue; // skip header
+                    if (count($row) >= 12 && trim((string) ($row[11] ?? '')) !== '') {
+                        $isKhususFormat = true;
+                        Log::info('Detected khusus format from data row', ['row' => $rowIdx + 1]);
+                        break;
+                    }
+                }
+            }
+
+            if ($isKhususFormat) {
+                $msg = 'Format file ini adalah format Pelanggan Khusus (memiliki kolom "Kategori Khusus"). '
+                     . 'Import Pelanggan Khusus tidak diperbolehkan di menu Data Pelanggan. '
+                     . 'Gunakan menu Pelanggan Khusus untuk mengimport data ini.';
+                Log::warning('Import rejected: khusus format file uploaded to regular import', ['user' => $userId]);
+                if ($isAjax) return response()->json(['success' => false, 'message' => $msg], 422);
+                return back()->with('error', $msg);
+            }
+            // ─────────────────────────────────────────────────────────────────────────
+
             $cabangs = Cabang::all()->keyBy('kode');
 
             foreach ($rows[0] as $row) {
@@ -142,6 +180,12 @@ class PelangganImportExportController extends Controller
                 $pelanggan = Pelanggan::where('pid', $pid)->first();
 
                 if ($pelanggan) {
+                    // Blokir import jika PID adalah pelanggan khusus
+                    if ($pelanggan->is_pelanggan_khusus) {
+                        $errors[] = "Baris {$rowNumber}: PID '{$pid}' adalah pelanggan khusus. Gunakan menu Pelanggan Khusus untuk import data ini.";
+                        continue;
+                    }
+
                     $dbNama = trim($pelanggan->nama ?? '');
 
                     if (strtolower($nama) !== strtolower($dbNama)) {

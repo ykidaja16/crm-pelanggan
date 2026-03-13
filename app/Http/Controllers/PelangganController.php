@@ -42,6 +42,13 @@ class PelangganController extends Controller
             $input['biaya'] = str_replace('.', '', $input['biaya'] ?? '');
 
             if ($mode === 'existing') {
+                // Blokir jika pelanggan yang dipilih adalah pelanggan khusus
+                $existingCheck = Pelanggan::find($input['existing_pelanggan_id'] ?? null);
+                if ($existingCheck && $existingCheck->is_pelanggan_khusus) {
+                    $errors[$index][] = "Pelanggan ini adalah pelanggan khusus. Gunakan menu Pelanggan Khusus untuk menambah kunjungan.";
+                    continue;
+                }
+
                 $validator = Validator::make($input, [
                     'existing_pelanggan_id' => 'required|exists:pelanggans,id',
                     'biaya'                 => 'required|numeric|min:0',
@@ -126,7 +133,11 @@ class PelangganController extends Controller
 
                 $existingPelanggan = Pelanggan::where('pid', $pid)->first();
                 if ($existingPelanggan) {
-                    $errors[$index][] = "PID {$pid} sudah terdaftar atas nama \"{$existingPelanggan->nama}\".";
+                    if ($existingPelanggan->is_pelanggan_khusus) {
+                        $errors[$index][] = "PID {$pid} adalah pelanggan khusus. Gunakan menu Pelanggan Khusus untuk menambah kunjungan.";
+                    } else {
+                        $errors[$index][] = "PID {$pid} sudah terdaftar atas nama \"{$existingPelanggan->nama}\".";
+                    }
                     continue;
                 }
 
@@ -203,16 +214,48 @@ class PelangganController extends Controller
 
     /**
      * API endpoint untuk mencari pelanggan berdasarkan PID (autocomplete).
+     *
+     * Query params:
+     *   pid    - PID atau nama pelanggan yang dicari
+     *   khusus - jika "1", hanya cari pelanggan khusus (is_pelanggan_khusus=1)
+     *            dan kembalikan format flat untuk tab Pelanggan Lama di khusus.blade.php
      */
     public function searchByPid(Request $request)
     {
-        $pid = $request->query('pid');
+        $query  = $request->query('pid');
+        $khusus = $request->query('khusus') === '1';
 
-        if (empty($pid)) {
-            return response()->json(['found' => false]);
+        if (empty($query)) {
+            return response()->json($khusus ? null : ['found' => false]);
         }
 
-        $pelanggan = Pelanggan::with('cabang')->where('pid', $pid)->first();
+        if ($khusus) {
+            // Cari pelanggan khusus berdasarkan PID atau nama
+            $pelanggan = Pelanggan::with('cabang')
+                ->where('is_pelanggan_khusus', true)
+                ->where(function ($q) use ($query) {
+                    $q->where('pid', $query)
+                      ->orWhere('nama', 'like', '%' . $query . '%');
+                })
+                ->first();
+
+            if (!$pelanggan) {
+                return response()->json(null);
+            }
+
+            return response()->json([
+                'id'                  => $pelanggan->id,
+                'pid'                 => $pelanggan->pid,
+                'nama'                => $pelanggan->nama,
+                'cabang_nama'         => $pelanggan->cabang?->nama ?? '-',
+                'kategori_khusus'     => $pelanggan->kategori_khusus ?? '-',
+                'total_kedatangan'    => $pelanggan->total_kedatangan ?? 0,
+                'is_pelanggan_khusus' => true,
+            ]);
+        }
+
+        // Mode default: cari by PID exact match
+        $pelanggan = Pelanggan::with('cabang')->where('pid', $query)->first();
 
         if (!$pelanggan) {
             return response()->json(['found' => false]);
@@ -221,13 +264,14 @@ class PelangganController extends Controller
         return response()->json([
             'found'     => true,
             'pelanggan' => [
-                'id'        => $pelanggan->id,
-                'pid'       => $pelanggan->pid,
-                'nama'      => $pelanggan->nama,
-                'class'     => $pelanggan->class,
-                'cabang_id' => $pelanggan->cabang_id,
+                'id'                  => $pelanggan->id,
+                'pid'                 => $pelanggan->pid,
+                'nama'                => $pelanggan->nama,
+                'class'               => $pelanggan->class,
+                'cabang_id'           => $pelanggan->cabang_id,
+                'is_pelanggan_khusus' => (bool) $pelanggan->is_pelanggan_khusus,
             ],
-            'cabang' => $pelanggan->cabang->nama ?? '-',
+            'cabang' => $pelanggan->cabang?->nama ?? '-',
         ]);
     }
 
@@ -434,6 +478,21 @@ class PelangganController extends Controller
     }
 
     /**
+     * Tampilkan halaman Input Data Pelanggan (Tambah Manual + Import).
+     * Cabangs difilter sesuai hak akses user.
+     */
+    public function inputPage()
+    {
+        /** @var User $user */
+        $user = Auth::user();
+        $accessibleCabangIds = $user->getAccessibleCabangIds();
+        $cabangs = empty($accessibleCabangIds)
+            ? Cabang::all()
+            : Cabang::whereIn('id', $accessibleCabangIds)->get();
+        return view('pelanggan.input', compact('cabangs'));
+    }
+
+    /**
      * Tampilkan form tambah pelanggan baru.
      * Cabangs difilter sesuai hak akses user (IT = semua cabang).
      */
@@ -598,7 +657,7 @@ class PelangganController extends Controller
         if ($role === 'Super Admin') {
             $pid  = $pelanggan->pid;
             $nama = $pelanggan->nama;
-            $pelanggan->delete();
+            $pelanggan->forceDelete();
 
             ActivityLog::record(
                 'delete', 'Pelanggan',
@@ -669,7 +728,8 @@ class PelangganController extends Controller
 
         if ($role === 'Super Admin') {
             $count = Pelanggan::whereIn('id', $ids)->count();
-            Pelanggan::whereIn('id', $ids)->delete();
+            // Force delete: hapus permanen dari database
+            Pelanggan::whereIn('id', $ids)->each(function ($p) { $p->forceDelete(); });
 
             ActivityLog::record(
                 'delete', 'Pelanggan',
