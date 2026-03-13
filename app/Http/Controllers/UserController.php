@@ -3,7 +3,6 @@
 namespace App\Http\Controllers;
 
 use App\Http\Controllers\Controller;
-use App\Models\ApprovalRequest;
 use App\Models\Cabang;
 use App\Models\User;
 use Illuminate\Http\Request;
