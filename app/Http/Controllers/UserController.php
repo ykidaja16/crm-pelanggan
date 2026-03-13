@@ -3,8 +3,9 @@
 namespace App\Http\Controllers;
 
 use App\Http\Controllers\Controller;
-use App\Models\User;
+use App\Models\ApprovalRequest;
 use App\Models\Cabang;
+use App\Models\User;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Auth;
 
@@ -98,10 +99,41 @@ class UserController extends Controller
         if ($user->id === Auth::id()) {
             return back()->with('error', 'Anda tidak bisa menghapus akun sendiri.');
         }
+
+        // Hitung related records untuk logging/cleanup check
+        $requesterCount = $user->approvalRequestsAsRequester()->count();
+        $reviewerCount = $user->approvalRequestsAsReviewer()->count();
+        $historyCount = $user->pelangganClassHistories()->count();
+
+        // Cek jika Super Admin dan punya task approval pending
+        if ($user->role && $user->role->name === 'Super Admin') {
+            $pendingApprovals = $user->assignedApprovalRequests()->where('status', 'pending')->count();
+            if ($pendingApprovals > 0) {
+                return back()->with('error', "Superadmin '{$user->name}' tidak bisa dihapus. Ada {$pendingApprovals} task approval pending yang harus diselesaikan terlebih dahulu.");
+            }
+        }
+
+        // Hapus related approval requests (sebagai requester, reviewer)
+        if ($requesterCount > 0) {
+            $user->approvalRequestsAsRequester()->delete();
+        }
+        if ($reviewerCount > 0) {
+            $user->approvalRequestsAsReviewer()->delete();
+        }
+
+        // Hapus related class histories
+        if ($historyCount > 0) {
+            $user->pelangganClassHistories()->delete();
+        }
+
         // Detach semua relasi cabang sebelum force delete
         $user->cabangs()->detach();
+
+        // Final delete
         $user->forceDelete();
-        return redirect()->route('users.index')->with('success', 'User berhasil dihapus');
+
+        $message = "User '{$user->name}' berhasil dihapus. Dihapus: {$requesterCount} approval (requester), {$reviewerCount} approval (reviewer), {$historyCount} history.";
+        return redirect()->route('users.index')->with('success', $message);
     }
 
     /**

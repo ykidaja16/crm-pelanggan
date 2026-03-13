@@ -4,7 +4,9 @@ namespace App\Models;
 
 
 use App\Models\Role;
+use App\Models\ApprovalRequest;
 use App\Models\Cabang;
+
 // use Illuminate\Contracts\Auth\MustVerifyEmail;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\SoftDeletes;
@@ -60,6 +62,38 @@ class User extends Authenticatable
     public function cabangs()
     {
         return $this->belongsToMany(Cabang::class, 'user_cabangs');
+    }
+
+    /**
+     * Approval requests assigned to this user (task approval pending).
+     */
+    public function assignedApprovalRequests()
+    {
+        return $this->hasMany(ApprovalRequest::class, 'assigned_to');
+    }
+
+    /**
+     * Approval requests where this user is requester.
+     */
+    public function approvalRequestsAsRequester()
+    {
+        return $this->hasMany(ApprovalRequest::class, 'requested_by');
+    }
+
+    /**
+     * Approval requests where this user is reviewer.
+     */
+    public function approvalRequestsAsReviewer()
+    {
+        return $this->hasMany(ApprovalRequest::class, 'reviewed_by');
+    }
+
+    /**
+     * Pelanggan class histories changed by this user.
+     */
+    public function pelangganClassHistories()
+    {
+        return $this->hasMany(\App\Models\PelangganClassHistory::class, 'changed_by');
     }
 
     /**
