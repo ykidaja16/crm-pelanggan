@@ -194,7 +194,7 @@
                         {{-- Warning: pelanggan khusus tidak boleh diinput di sini --}}
                         <div id="search_khusus_warning" class="alert alert-warning mt-3" style="display: none;">
                             <div class="d-flex align-items-start gap-2">
-                                <i class="fas fa-exclamation-triangle mt-1 flex-shrink-0"></i>
+                                <i class="fas fa-exclamation-triangle mt-1 shrink-0"></i>
                                 <div>
                                     <strong>Pelanggan Khusus Terdeteksi!</strong><br>
                                     PID ini terdaftar sebagai <strong>Pelanggan Khusus</strong>.
