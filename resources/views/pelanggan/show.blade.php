@@ -93,7 +93,7 @@
                         <tr>
                             <th class="px-4 py-3">No</th>
                             <th class="py-3">Diubah User Tanggal</th>
-                            <th class="py-3">Tanggal Perubahan</th>
+                            <th class="py-3">Tanggal Perubahan Kelas</th>
                             <th class="py-3">Perubahan Kelas</th>
                             <th class="py-3">Keterangan</th>
                         </tr>
