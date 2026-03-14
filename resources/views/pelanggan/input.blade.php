@@ -35,7 +35,7 @@
                 <div class="card-body">
                     {{-- Info: import hanya untuk pelanggan biasa --}}
                     <div class="alert alert-info alert-sm py-2 px-3 mb-3 d-flex align-items-start gap-2" style="font-size:0.85rem;">
-                        <i class="fas fa-info-circle mt-1 flex-shrink-0"></i>
+                        <i class="fas fa-info-circle mt-1 shrink-0"></i>
                         <div>
                             <strong>Perhatian:</strong> Import ini <strong>hanya untuk Pelanggan Biasa</strong>.
                             Jika Anda menggunakan file format <strong>Pelanggan Khusus</strong> (memiliki kolom <em>Kategori Khusus</em>),
