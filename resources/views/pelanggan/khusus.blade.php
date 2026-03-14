@@ -191,7 +191,7 @@
                         <div class="alert alert-info border-0 p-3 mb-0">
                             <div class="d-flex align-items-start gap-3">
                                 <i class="fas fa-user-circle fa-2x text-info mt-1"></i>
-                                <div class="flex-grow-1">
+        <div class="grow">
                                     <div class="fw-semibold" id="resultNama">-</div>
                                     <div class="small text-muted">
                                         PID: <span id="resultPid">-</span> |
@@ -329,7 +329,7 @@
         </div>
 
         <!-- Info Card -->
-        <div class="card shadow-sm border-0 border-start border-4 border-warning">
+        <div class="card shadow-sm border-start border-warning">
             <div class="card-body py-3">
                 <h6 class="fw-semibold text-warning mb-2">
                     <i class="fas fa-exclamation-triangle me-2"></i>Catatan Penting
