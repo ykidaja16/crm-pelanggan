@@ -14,7 +14,7 @@
     <!-- Customer Info Card -->
     <div class="card shadow-sm border-0 mb-4">
         <div class="card-header bg-white py-3 border-bottom">
-            <h5 class="mb-0 fw-semibold text-primary">
+            <h5 class="mb-0 fw-semibold text-primary">    
                 <i class="fas fa-user me-2"></i>Data Pelanggan
             </h5>
         </div>
