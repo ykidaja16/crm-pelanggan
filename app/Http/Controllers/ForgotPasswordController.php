@@ -33,6 +33,6 @@ class ForgotPasswordController extends Controller
         ]);
 
         // Tampilkan pesan bahwa request telah dikirim ke superadmin
-        return back()->with(['status' => 'Permintaan reset password telah dikirim. Superadmin akan mereset password Anda.']);
+        return back()->with(['status' => 'Permintaan reset password telah dikirim. IT akan mereset password Anda.']);
     }
 }
