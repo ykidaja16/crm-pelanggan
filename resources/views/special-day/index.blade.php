@@ -53,10 +53,9 @@
                     <label class="form-label fw-medium small">Kelas</label>
                     <select name="kelas" class="form-select form-select-sm">
                         <option value="">Semua Kelas</option>
-                        <option value="A" {{ request('kelas') === 'A' ? 'selected' : '' }}>Kelas A</option>
-                        <option value="B" {{ request('kelas') === 'B' ? 'selected' : '' }}>Kelas B</option>
-                        <option value="C" {{ request('kelas') === 'C' ? 'selected' : '' }}>Kelas C</option>
-                        <option value="D" {{ request('kelas') === 'D' ? 'selected' : '' }}>Kelas D</option>
+                        <option value="Prioritas" {{ request('kelas') === 'Prioritas' ? 'selected' : '' }}>Prioritas</option>
+                        <option value="Loyal"     {{ request('kelas') === 'Loyal'     ? 'selected' : '' }}>Loyal</option>
+                        <option value="Potensial" {{ request('kelas') === 'Potensial' ? 'selected' : '' }}>Potensial</option>
                     </select>
                 </div>
 
