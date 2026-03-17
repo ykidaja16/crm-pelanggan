@@ -1,6 +1,8 @@
 <?php
 
 use Illuminate\Support\Facades\Route;
+use Illuminate\Routing\Middleware\ThrottleRequests;
+use Illuminate\Auth\Middleware\Authenticate;
 use App\Http\Controllers\PelangganController;
 use App\Http\Controllers\PelangganImportExportController;
 use App\Http\Controllers\KunjunganController;
@@ -12,6 +14,9 @@ use App\Http\Controllers\ApprovalRequestController;
 use App\Http\Controllers\CabangController;
 use App\Http\Controllers\SpecialDayController;
 use App\Http\Controllers\ProfileController;
+use App\Http\Middleware\EnsureUserIsAdmin;
+use App\Http\Middleware\EnsureUserIsSuperAdmin;
+use App\Http\Middleware\EnsureUserIsIT;
 use App\Models\User;
 use App\Models\Role;
 
@@ -83,14 +88,14 @@ if (
 
 // Auth
 Route::get('/login', [LoginController::class, 'index'])->name('login');
-Route::post('/login', [LoginController::class, 'authenticate'])->middleware('throttle:login');
+Route::post('/login', [LoginController::class, 'authenticate'])->middleware(ThrottleRequests::using('login'));
 Route::post('/logout', [LoginController::class, 'logout'])->name('logout');
 
 // Forgot Password
 Route::get('password/reset', [ForgotPasswordController::class, 'showLinkRequestForm'])->name('password.request');
 Route::post('password/email', [ForgotPasswordController::class, 'sendResetLinkEmail'])->name('password.email');
 
-Route::middleware(['auth'])->group(function () {
+Route::middleware([Authenticate::class])->group(function () {
     Route::get('/dashboard', [DashboardController::class, 'index'])->name('dashboard');
     Route::get('/pelanggan', [PelangganController::class, 'index'])->name('pelanggan.index');
     Route::get('/', function () {
@@ -104,7 +109,7 @@ Route::middleware(['auth'])->group(function () {
     // ─── Import / Export (PelangganImportExportController) ───────────────────
     Route::post('/import', [PelangganImportExportController::class, 'import'])
         ->name('pelanggan.import')
-        ->middleware('throttle:import');
+        ->middleware(ThrottleRequests::using('import'));
     Route::get('/import/progress', [PelangganImportExportController::class, 'importProgress'])
         ->name('pelanggan.import.progress');
     Route::get('/export', [PelangganImportExportController::class, 'export'])
@@ -125,7 +130,7 @@ Route::middleware(['auth'])->group(function () {
     Route::get('/pelanggan/{pelanggan}/show', [PelangganController::class, 'show'])->name('pelanggan.show');
 
     // ─── Admin & Super Admin routes ───────────────────────────────────────────
-    Route::middleware([\App\Http\Middleware\EnsureUserIsAdmin::class])->group(function () {
+    Route::middleware([EnsureUserIsAdmin::class])->group(function () {
 
         // Input Data Pelanggan (Tambah Manual + Import)
         Route::get('/pelanggan/input', [PelangganController::class, 'inputPage'])->name('pelanggan.input');
@@ -160,7 +165,7 @@ Route::middleware(['auth'])->group(function () {
     });
 
     // ─── Super Admin only ─────────────────────────────────────────────────────
-    Route::middleware(['superadmin'])->group(function () {
+    Route::middleware([EnsureUserIsSuperAdmin::class])->group(function () {
 
         // Approval requests
         Route::get('/approval-requests', [ApprovalRequestController::class, 'index'])->name('approval.index');
@@ -179,7 +184,7 @@ Route::middleware(['auth'])->group(function () {
     });
 
     // ─── IT only (Manajemen User dan Log Aktivitas) ─────────────────────────────────────────────
-    Route::middleware(['it'])->group(function () {
+    Route::middleware([EnsureUserIsIT::class])->group(function () {
         Route::resource('users', \App\Http\Controllers\UserController::class);
 
         // Activity Log

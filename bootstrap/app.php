@@ -17,6 +17,8 @@ return Application::configure(basePath: dirname(__DIR__))
 
         // Middleware aliases
         $middleware->alias([
+            'auth'       => \Illuminate\Auth\Middleware\Authenticate::class,
+            'throttle'   => \Illuminate\Routing\Middleware\ThrottleRequests::class,
             'superadmin' => \App\Http\Middleware\EnsureUserIsSuperAdmin::class,
             'admin'      => \App\Http\Middleware\EnsureUserIsAdmin::class,
             'it'         => \App\Http\Middleware\EnsureUserIsIT::class,
