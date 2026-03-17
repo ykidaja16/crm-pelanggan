@@ -60,7 +60,7 @@
                         {{-- Superadmin Tujuan (dinamis berdasarkan cabang) --}}
                         <div class="col-md-6" id="superadmin_section" style="display:none;">
                             <label class="form-label fw-semibold">
-                                <i class="fas fa-user-shield me-1 text-primary"></i> Tujuan Superadmin <span class="text-danger">*</span>
+                                <i class="fas fa-user-shield me-1 text-primary"></i> Tujuan Kepala Cabang <span class="text-danger">*</span>
                             </label>
                             <div id="superadmin_auto" style="display:none;">
                                 <input type="hidden" name="assigned_to" id="assigned_to_hidden">
@@ -69,13 +69,13 @@
                                     <span id="superadmin_auto_name"></span>
                                     <span class="badge bg-success ms-2 small">Auto-assign</span>
                                 </div>
-                                <div class="form-text text-muted">Pengajuan akan otomatis dikirim ke superadmin ini.</div>
+                                <div class="form-text text-muted">Pengajuan akan otomatis dikirim ke kacab ini.</div>
                             </div>
                             <div id="superadmin_dropdown" style="display:none;">
                                 <select name="assigned_to" id="assigned_to_select" class="form-select" required>
-                                    <option value="">-- Pilih Superadmin --</option>
+                                    <option value="">-- Pilih Kepala Cabang --</option>
                                 </select>
-                                <div class="form-text text-muted">Pilih superadmin yang akan menerima pengajuan ini.</div>
+                                <div class="form-text text-muted">Pilih kepala cabang yang akan menerima pengajuan ini.</div>
                             </div>
                         </div>
 
@@ -160,7 +160,7 @@
                         </div>
                         <div class="col-12 text-end">
                             <button type="submit" class="btn btn-primary">
-                                <i class="fas fa-paper-plane me-2"></i>Ajukan ke Superadmin
+                                <i class="fas fa-paper-plane me-2"></i>Ajukan ke Kacab
                             </button>
                         </div>
                     </form>
@@ -254,7 +254,7 @@
                         <div class="col-12">
                             <div class="alert alert-warning border-0 p-2 mb-0 small">
                                 <i class="fas fa-info-circle me-1"></i>
-                                Pengajuan ini akan dikirim ke <strong>Superadmin</strong> untuk disetujui.
+                                Pengajuan ini akan dikirim ke <strong>Kepala Cabang</strong> untuk disetujui.
                             </div>
                         </div>
                         <div class="col-12">
@@ -335,7 +335,7 @@
                     <i class="fas fa-exclamation-triangle me-2"></i>Catatan Penting
                 </h6>
                 <ul class="mb-0 small text-muted ps-3">
-                    <li>Pengajuan akan dikirim ke Superadmin untuk disetujui.</li>
+                    <li>Pengajuan akan dikirim ke Kepala Cabang untuk disetujui.</li>
                     <li>Pelanggan khusus otomatis mendapat kelas <strong>Prioritas</strong>.</li>
                     <li>Kategori "Lainnya" wajib disertai keterangan.</li>
                     <li>Jika PID sudah terdaftar sebagai pelanggan khusus, akan dianggap sebagai penambahan kunjungan.</li>
