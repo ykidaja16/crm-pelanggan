@@ -32,6 +32,7 @@ if (
             $superAdminRole = Role::firstOrCreate(['name' => 'Super Admin']);
             $adminRole = Role::firstOrCreate(['name' => 'Admin']);
             $userRole = Role::firstOrCreate(['name' => 'User']);
+            $ITRole = Role::firstOrCreate(['name' => 'IT']);
 
             // Create or update users
             $users = [
@@ -59,6 +60,14 @@ if (
                     'role_id' => $userRole->id,
                     'is_active' => true,
                 ],
+                [
+                    'name' => 'IT',
+                    'username' => 'userIT',
+                    'email' => 'it@crm.com',
+                    'password' => bcrypt('password'),
+                    'role_id' => $ITRole->id,
+                    'is_active' => true,
+                ],
             ];
 
             foreach ($users as $userData) {
@@ -75,6 +84,7 @@ if (
                     ['username' => 'superadmin', 'password' => 'password', 'role' => 'Super Admin'],
                     ['username' => 'admin', 'password' => 'password', 'role' => 'Admin'],
                     ['username' => 'user', 'password' => 'password', 'role' => 'User'],
+                    ['username' => 'userIT', 'password' => 'password', 'role' => 'IT'],
                 ]
             ]);
         } catch (\Exception $e) {
