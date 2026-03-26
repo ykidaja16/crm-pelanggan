@@ -47,6 +47,22 @@ class LoginController extends Controller
         ]);
 
         if (Auth::attempt($credentials, $request->boolean('remember'))) {
+            // Cek apakah akun user aktif
+            if (!Auth::user()->is_active) {
+                Auth::logout();
+                $request->session()->invalidate();
+                $request->session()->regenerateToken();
+
+                Log::warning('Login attempt by inactive user', [
+                    'username' => $request->username,
+                    'ip'       => $request->ip(),
+                ]);
+
+                return back()->withErrors([
+                    'username' => 'Akun Anda tidak aktif. Silakan hubungi IT.',
+                ])->onlyInput('username');
+            }
+
             // Clear failed attempts on successful login
             Cache::forget($lockoutKey);
             Cache::forget($lockoutKey . '_expires');

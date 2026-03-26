@@ -74,17 +74,12 @@ class UserController extends Controller
             unset($validated['password']);
         }
 
-        // Handle is_active status if sent
-        if ($request->has('is_active')) {
-            $user->is_active = $request->boolean('is_active');
-        }
+        // Selalu update is_active — checkbox HTML tidak dikirim saat unchecked,
+        // sehingga $request->boolean() mengembalikan false jika tidak ada (nonaktif)
+        // dan true jika ada (aktif).
+        $validated['is_active'] = $request->boolean('is_active');
 
         $user->update(\Illuminate\Support\Arr::except($validated, ['cabangs']));
-
-        // Explicitly save the boolean if not in fillable or handled by update
-        if ($request->has('is_active')) {
-            $user->save();
-        }
 
         // Sync cabang access
         $cabangIds = $request->input('cabangs', []);
