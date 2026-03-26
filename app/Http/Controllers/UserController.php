@@ -32,7 +32,7 @@ class UserController extends Controller
             'email'    => 'required|email|unique:users',
             'password' => 'required|min:6',
             'role_id'  => 'required|exists:roles,id',
-            'cabangs'  => 'nullable|array',
+            'cabangs'  => 'required|array',
             'cabangs.*'=> 'exists:cabangs,id',
         ]);
 
@@ -64,7 +64,7 @@ class UserController extends Controller
             'email'    => 'required|email|unique:users,email,' . $user->id,
             'role_id'  => 'required|exists:roles,id',
             'password' => 'nullable|min:6',
-            'cabangs'  => 'nullable|array',
+            'cabangs'  => 'required|array',
             'cabangs.*'=> 'exists:cabangs,id',
         ]);
 

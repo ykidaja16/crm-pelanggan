@@ -186,11 +186,7 @@ Route::middleware([Authenticate::class])->group(function () {
         Route::post('/approval-requests/{id}/reject', [ApprovalRequestController::class, 'reject'])->name('approval.reject');
         Route::post('/approval-requests/{id}/process', [ApprovalRequestController::class, 'process'])->name('approval.process');
 
-        // Cabang management
-        Route::get('/cabang', [CabangController::class, 'index'])->name('cabang.index');
-        Route::post('/cabang', [CabangController::class, 'store'])->name('cabang.store');
-        Route::put('/cabang/{id}', [CabangController::class, 'update'])->name('cabang.update');
-        Route::delete('/cabang/{id}', [CabangController::class, 'destroy'])->name('cabang.destroy');
+        
     });
 
     // ─── IT only (Manajemen User dan Log Aktivitas) ─────────────────────────────────────────────
@@ -201,6 +197,12 @@ Route::middleware([Authenticate::class])->group(function () {
         Route::get('/activity-log', [ActivityLogController::class, 'index'])->name('activity-log.index');
         Route::get('/activity-log/export', [ActivityLogController::class, 'export'])->name('activity-log.export');
 
+        // Cabang management
+        Route::get('/cabang', [CabangController::class, 'index'])->name('cabang.index');
+        Route::post('/cabang', [CabangController::class, 'store'])->name('cabang.store');
+        Route::put('/cabang/{id}', [CabangController::class, 'update'])->name('cabang.update');
+        Route::delete('/cabang/{id}', [CabangController::class, 'destroy'])->name('cabang.destroy');
+        
         // Password reset routes
         Route::get('/password-reset-requests', [\App\Http\Controllers\UserController::class, 'passwordResetRequests'])->name('users.password-reset-requests');
         Route::get('/users/{user}/reset-password', [\App\Http\Controllers\UserController::class, 'showResetForm'])->name('users.reset-password.form');

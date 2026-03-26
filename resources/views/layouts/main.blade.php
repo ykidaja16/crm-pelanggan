@@ -301,17 +301,18 @@
                     </li>
                 </ul>
             </li>
-            <li class="{{ request()->routeIs('cabang.*') ? 'active' : '' }}">
-                <a href="{{ route('cabang.index') }}">
-                    <i class="fas fa-building"></i> Manajemen Cabang
-                </a>
-            </li>
+            
             @endif
             {{-- IT: hanya Manajemen User dan Log Aktivitas --}}
             @if(Auth::user()->role?->name === 'IT')
             <li class="{{ request()->routeIs('users*') ? 'active' : '' }}">
                 <a href="{{ route('users.index') }}">
                     <i class="fas fa-user-cog"></i> Manajemen User
+                </a>
+            </li>
+            <li class="{{ request()->routeIs('cabang.*') ? 'active' : '' }}">
+                <a href="{{ route('cabang.index') }}">
+                    <i class="fas fa-building"></i> Manajemen Cabang
                 </a>
             </li>
             <li class="{{ request()->routeIs('activity-log*') ? 'active' : '' }}">

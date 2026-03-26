@@ -121,11 +121,26 @@ class LaporanController extends Controller
             $query->whereRaw("$lastVisitSub BETWEEN ? AND ?", [$tanggal_mulai, $tanggal_selesai]);
         }
 
-        
-        // Filter Cabang
+        // Filter Cabang — dengan pembatasan akses berdasarkan hak akses user
+        /** @var User $user */
+        $user = Auth::user();
+        $accessibleCabangIds = $user->getAccessibleCabangIds();
+
         if ($request->filled('cabang_id')) {
-            $query->where('cabang_id', $request->cabang_id);
+            $requestedCabangId = (int) $request->cabang_id;
+
+            if (!empty($accessibleCabangIds) && !in_array($requestedCabangId, $accessibleCabangIds)) {
+                // User mencoba akses cabang yang tidak diizinkan → paksa ke cabang yang diizinkan
+                $query->whereIn('cabang_id', $accessibleCabangIds);
+            } else {
+                // Cabang yang dipilih valid (atau user punya akses penuh)
+                $query->where('cabang_id', $requestedCabangId);
+            }
+        } elseif (!empty($accessibleCabangIds)) {
+            // User pilih "Semua Cabang" tapi aksesnya terbatas → batasi ke cabang miliknya saja
+            $query->whereIn('cabang_id', $accessibleCabangIds);
         }
+        // Jika $accessibleCabangIds kosong = user punya akses penuh → tidak perlu filter cabang
         
         // Filter Kelas
         if ($request->filled('kelas')) {
