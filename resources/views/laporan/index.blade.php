@@ -18,14 +18,14 @@
             <form id="filterForm" class="row g-3">
                 @csrf
                 <!-- Point 4: Kelompok Pelanggan -->
-                <div class="col-md-3">
+                {{-- <div class="col-md-3">
                     <label class="form-label fw-medium small">Kelompok Pelanggan</label>
                     <select name="kelompok_pelanggan" class="form-select">
                         <option value="">Semua Kelompok</option>
                         <option value="mandiri">Mandiri</option>
                         <option value="klinisi">Klinisi</option>
                     </select>
-                </div>
+                </div> --}}
 
                 <!-- Point 4: Tipe Pelanggan -->
                 <div class="col-md-3">
