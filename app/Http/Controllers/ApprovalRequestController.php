@@ -101,6 +101,29 @@ class ApprovalRequestController extends Controller
     }
 
     /**
+     * Submenu: Approval Naik Kelas
+     */
+    public function indexNaikKelas(Request $request)
+    {
+        $query = ApprovalRequest::with(['requester', 'reviewer', 'assignedTo'])
+            ->where('type', 'naik_kelas')
+            ->orderByDesc('id');
+
+        // Super Admin hanya melihat yang di-assign ke dirinya
+        if (Auth::user()->role?->name === 'Super Admin') {
+            $query->where('assigned_to', Auth::id());
+        }
+
+        if ($request->filled('status')) {
+            $query->where('status', $request->status);
+        }
+
+        $requests = $query->paginate(20)->withQueryString();
+
+        return view('approval-requests.naik-kelas', compact('requests'));
+    }
+
+    /**
      * Submenu: Approval Data Pelanggan (hapus / edit)
      */
     public function indexPelanggan(Request $request)
@@ -876,6 +899,20 @@ class ApprovalRequestController extends Controller
                 $ids = $payload['ids'] ?? [];
                 if (!empty($ids)) {
                     Pelanggan::whereIn('id', $ids)->forceDelete();
+                }
+            }
+
+            // Naik Kelas: upgrade class ke Prioritas untuk pelanggan terpilih
+            if ($approval->type === 'naik_kelas' && $approval->action === 'upgrade_class') {
+                $payload = $approval->payload ?? [];
+                $ids     = $payload['ids'] ?? [];
+                if (!empty($ids)) {
+                    $pelanggans = Pelanggan::whereIn('id', $ids)->get();
+                    foreach ($pelanggans as $p) {
+                        if ($p->class !== 'Prioritas') {
+                            $p->updateAndRecordClass('Prioritas', Auth::id(), 'Naik kelas via approval #' . $approval->id);
+                        }
+                    }
                 }
             }
 

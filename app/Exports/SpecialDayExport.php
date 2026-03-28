@@ -7,17 +7,22 @@ use Maatwebsite\Excel\Concerns\WithHeadings;
 use Maatwebsite\Excel\Concerns\WithMapping;
 use Maatwebsite\Excel\Concerns\WithStyles;
 use Maatwebsite\Excel\Concerns\WithColumnWidths;
+use Maatwebsite\Excel\Concerns\WithTitle;
 use PhpOffice\PhpSpreadsheet\Worksheet\Worksheet;
 
-class SpecialDayExport implements FromCollection, WithHeadings, WithMapping, WithStyles, WithColumnWidths
+class SpecialDayExport implements FromCollection, WithHeadings, WithMapping, WithStyles, WithColumnWidths, WithTitle
 {
     protected $pelanggans;
     protected $filter;
+    protected $tglMulai;
+    protected $tglAkhir;
 
-    public function __construct($pelanggans, string $filter = 'birthday')
+    public function __construct($pelanggans, string $filter = 'birthday', ?string $tglMulai = null, ?string $tglAkhir = null)
     {
         $this->pelanggans = $pelanggans;
         $this->filter     = $filter;
+        $this->tglMulai   = $tglMulai;
+        $this->tglAkhir   = $tglAkhir;
     }
 
     public function collection()
@@ -47,13 +52,6 @@ class SpecialDayExport implements FromCollection, WithHeadings, WithMapping, Wit
         static $no = 0;
         $no++;
 
-        $filterLabel = match ($this->filter) {
-            'birthday'       => 'Ulang Tahun Hari Ini',
-            'birthday_month' => 'Ulang Tahun Bulan Ini',
-            'anniversary'    => '1 Tahun Kunjungan Terakhir',
-            default          => $this->filter,
-        };
-
         return [
             $no,
             $row->pid,
@@ -73,13 +71,26 @@ class SpecialDayExport implements FromCollection, WithHeadings, WithMapping, Wit
 
     public function styles(Worksheet $sheet): array
     {
-        return [
-            1 => [
-                'font'      => ['bold' => true, 'color' => ['argb' => 'FFFFFFFF']],
-                'fill'      => ['fillType' => 'solid', 'startColor' => ['argb' => 'FF4F81BD']],
-                'alignment' => ['horizontal' => 'center'],
+        $lastRow = max($sheet->getHighestRow(), 1);
+
+        $sheet->getStyle('A1:K1')->applyFromArray([
+            'font'      => ['bold' => true, 'color' => ['argb' => 'FFFFFFFF']],
+            'fill'      => ['fillType' => 'solid', 'startColor' => ['argb' => 'FF4F81BD']],
+            'alignment' => ['horizontal' => 'center', 'vertical' => 'center'],
+        ]);
+
+        $sheet->getStyle('A1:K' . $lastRow)->applyFromArray([
+            'borders' => [
+                'allBorders' => ['borderStyle' => 'thin', 'color' => ['rgb' => '000000']],
             ],
-        ];
+        ]);
+
+        // Center alignment
+        foreach (['A', 'B', 'F', 'H', 'I', 'J', 'K'] as $col) {
+            $sheet->getStyle($col . '2:' . $col . $lastRow)->getAlignment()->setHorizontal('center');
+        }
+
+        return [];
     }
 
     public function columnWidths(): array
@@ -97,5 +108,14 @@ class SpecialDayExport implements FromCollection, WithHeadings, WithMapping, Wit
             'J' => 20,
             'K' => 15,
         ];
+    }
+
+    public function title(): string
+    {
+        return match ($this->filter) {
+            'birthday_range'    => 'Birthday Reminder',
+            'kunjungan_terakhir' => 'Kunjungan Terakhir',
+            default              => 'Special Day Member',
+        };
     }
 }

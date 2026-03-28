@@ -155,9 +155,17 @@
             <h5 class="mb-0 fw-semibold text-info">
                 <i class="fas fa-history me-2"></i>Riwayat Kunjungan
             </h5>
-            <span class="badge bg-info bg-opacity-10 text-info border border-info px-3 py-2">
-                {{ $kunjungans->count() }} Kunjungan
-            </span>
+            <div class="d-flex align-items-center gap-2">
+                <span class="badge bg-info bg-opacity-10 text-info border border-info px-3 py-2">
+                    {{ $kunjungans->count() }} Kunjungan
+                </span>
+                @if(in_array($role, ['Admin', 'Super Admin']))
+                <a href="{{ route('pelanggan.export-kunjungan', $pelanggan->id) }}"
+                   class="btn btn-success btn-sm">
+                    <i class="fas fa-file-excel me-1"></i>Export Excel
+                </a>
+                @endif
+            </div>
         </div>
         <div class="card-body p-0">
             <div class="table-responsive">

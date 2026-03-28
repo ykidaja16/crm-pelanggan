@@ -130,6 +130,12 @@ Route::middleware([Authenticate::class])->group(function () {
     // ─── Special Day Member ───────────────────────────────────────────────────
     Route::get('/special-day', [SpecialDayController::class, 'index'])->name('special-day.index');
     Route::get('/special-day/export', [SpecialDayController::class, 'export'])->name('special-day.export');
+    // Submenu 1: Birthday Reminder
+    Route::get('/special-day/birthday', [SpecialDayController::class, 'birthday'])->name('special-day.birthday');
+    Route::get('/special-day/birthday/export', [SpecialDayController::class, 'birthdayExport'])->name('special-day.birthday.export');
+    // Submenu 2: Kunjungan Terakhir
+    Route::get('/special-day/kunjungan-terakhir', [SpecialDayController::class, 'kunjunganTerakhir'])->name('special-day.kunjungan-terakhir');
+    Route::get('/special-day/kunjungan-terakhir/export', [SpecialDayController::class, 'kunjunganTerakhirExport'])->name('special-day.kunjungan-terakhir.export');
 
     // ─── Laporan ─────────────────────────────────────────────────────────────
     Route::get('/laporan', [\App\Http\Controllers\LaporanController::class, 'index'])->name('laporan.index');
@@ -155,6 +161,10 @@ Route::middleware([Authenticate::class])->group(function () {
         // Bulk actions
         Route::post('/pelanggan/bulk-delete', [PelangganController::class, 'bulkDelete'])->name('pelanggan.bulk-delete');
         Route::post('/pelanggan/bulk-export', [PelangganImportExportController::class, 'bulkExport'])->name('pelanggan.bulk-export');
+        Route::post('/pelanggan/bulk-naik-kelas', [PelangganController::class, 'requestNaikKelas'])->name('pelanggan.bulk-naik-kelas');
+
+        // Export Riwayat Kunjungan per Pelanggan
+        Route::get('/pelanggan/{pelanggan}/export-kunjungan', [PelangganController::class, 'exportKunjungan'])->name('pelanggan.export-kunjungan');
 
         // API pencarian pelanggan berdasarkan PID
         Route::get('/api/pelanggan/search', [PelangganController::class, 'searchByPid'])->name('api.pelanggan.search');
@@ -182,6 +192,7 @@ Route::middleware([Authenticate::class])->group(function () {
         Route::get('/approval-requests/pelanggan-khusus', [ApprovalRequestController::class, 'indexPelangganKhusus'])->name('approval.pelanggan-khusus');
         Route::get('/approval-requests/kunjungan', [ApprovalRequestController::class, 'indexKunjungan'])->name('approval.kunjungan');
         Route::get('/approval-requests/pelanggan', [ApprovalRequestController::class, 'indexPelanggan'])->name('approval.pelanggan');
+        Route::get('/approval-requests/naik-kelas', [ApprovalRequestController::class, 'indexNaikKelas'])->name('approval.naik-kelas');
         Route::post('/approval-requests/{id}/approve', [ApprovalRequestController::class, 'approve'])->name('approval.approve');
         Route::post('/approval-requests/{id}/reject', [ApprovalRequestController::class, 'reject'])->name('approval.reject');
         Route::post('/approval-requests/{id}/process', [ApprovalRequestController::class, 'process'])->name('approval.process');

@@ -165,6 +165,40 @@
         #sidebar .approval-toggle[aria-expanded="true"] .fa-chevron-down {
             transform: rotate(180deg);
         }
+        /* Submenu Special Day */
+        #sidebar .submenu-special-day {
+            background: #f8f9fa;
+            border-left: 3px solid #0056b3;
+            margin-left: 0;
+        }
+        #sidebar .submenu-special-day li a {
+            padding: 10px 20px 10px 45px;
+            font-size: 0.92em;
+            color: #666;
+        }
+        #sidebar .submenu-special-day li a:hover {
+            color: #0056b3;
+            background: #e9ecef;
+        }
+        #sidebar .submenu-special-day li.active > a {
+            color: #0056b3;
+            background: #e9ecef;
+            border-right: 4px solid #0056b3;
+            font-weight: 600;
+        }
+        #sidebar .special-day-toggle {
+            cursor: pointer;
+        }
+        #sidebar .special-day-toggle .fa-chevron-down {
+            margin-left: auto;
+            margin-right: 0;
+            width: auto;
+            font-size: 0.75em;
+            transition: transform 0.3s;
+        }
+        #sidebar .special-day-toggle[aria-expanded="true"] .fa-chevron-down {
+            transform: rotate(180deg);
+        }
         #content {
             width: 100%;
             padding: 20px;
@@ -262,17 +296,38 @@
             </li>
             @endif
             @if(in_array(Auth::user()->role?->name, ['Admin', 'Super Admin']))
-            <li class="{{ request()->routeIs('special-day.*') ? 'active' : '' }}">
-                <a href="{{ route('special-day.index') }}">
+            @php
+                $specialDayActive = request()->routeIs('special-day.*');
+            @endphp
+            <li class="{{ $specialDayActive ? 'active' : '' }}">
+                <a href="#specialDaySubmenu"
+                   data-bs-toggle="collapse"
+                   class="special-day-toggle"
+                   aria-expanded="{{ $specialDayActive ? 'true' : 'false' }}"
+                   aria-controls="specialDaySubmenu">
                     <i class="fas fa-birthday-cake"></i> Special Day Member
+                    <i class="fas fa-chevron-down"></i>
                 </a>
+                <ul class="list-unstyled submenu-special-day collapse {{ $specialDayActive ? 'show' : '' }}" id="specialDaySubmenu">
+                    <li class="{{ request()->routeIs('special-day.birthday*') ? 'active' : '' }}">
+                        <a href="{{ route('special-day.birthday') }}">
+                            <i class="fas fa-birthday-cake me-2"></i>Birthday Reminder
+                        </a>
+                    </li>
+                    <li class="{{ request()->routeIs('special-day.kunjungan-terakhir*') ? 'active' : '' }}">
+                        <a href="{{ route('special-day.kunjungan-terakhir') }}">
+                            <i class="fas fa-calendar-times me-2"></i>Kunjungan Terakhir
+                        </a>
+                    </li>
+                </ul>
             </li>
             @endif
             @if(Auth::user()->role?->name === 'Super Admin')
             @php
                 $approvalActive = request()->routeIs('approval.pelanggan-khusus')
                                || request()->routeIs('approval.kunjungan')
-                               || request()->routeIs('approval.pelanggan');
+                               || request()->routeIs('approval.pelanggan')
+                               || request()->routeIs('approval.naik-kelas');
             @endphp
             <li class="{{ $approvalActive ? 'active' : '' }}">
                 <a href="#approvalSubmenu"
@@ -299,9 +354,13 @@
                             <i class="fas fa-users me-2"></i>Data Pelanggan
                         </a>
                     </li>
+                    <li class="{{ request()->routeIs('approval.naik-kelas') ? 'active' : '' }}">
+                        <a href="{{ route('approval.naik-kelas') }}">
+                            <i class="fas fa-arrow-up me-2"></i>Naik Kelas
+                        </a>
+                    </li>
                 </ul>
             </li>
-            
             @endif
             {{-- IT: hanya Manajemen User dan Log Aktivitas --}}
             @if(Auth::user()->role?->name === 'IT')

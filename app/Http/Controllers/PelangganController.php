@@ -6,10 +6,13 @@ use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Validator;
 use Illuminate\Support\Facades\Auth;
+use Carbon\Carbon;
+use Maatwebsite\Excel\Facades\Excel;
 
 use App\Models\Pelanggan;
 use App\Models\Cabang;
 use App\Models\ActivityLog;
+use App\Models\ApprovalRequest;
 use App\Models\KelompokPelanggan;
 use App\Models\User;
 
@@ -350,6 +353,7 @@ class PelangganController extends Controller
         }
 
         // Subquery untuk tgl_kunjungan terakhir sesuai periode
+        // Subquery untuk total_biaya & total_kedatangan kumulatif sesuai periode
         if ($type === 'perbulan' && $bulan && $tahun) {
             $safeBulan   = (int) $bulan;
             $safeTahun   = (int) $tahun;
@@ -357,19 +361,43 @@ class PelangganController extends Controller
                 WHERE kunjungans.pelanggan_id = pelanggans.id
                 AND MONTH(tanggal_kunjungan) = {$safeBulan}
                 AND YEAR(tanggal_kunjungan) = {$safeTahun}";
+            // Kumulatif: semua kunjungan s.d. akhir bulan yang dipilih
+            $endOfPeriod      = Carbon::create($safeTahun, $safeBulan, 1)->endOfMonth()->format('Y-m-d');
+            $biayaSubquery    = "SELECT COALESCE(SUM(biaya), 0) FROM kunjungans
+                WHERE kunjungans.pelanggan_id = pelanggans.id
+                AND DATE(tanggal_kunjungan) <= '{$endOfPeriod}'";
+            $kedatanganSubquery = "SELECT COUNT(*) FROM kunjungans
+                WHERE kunjungans.pelanggan_id = pelanggans.id
+                AND DATE(tanggal_kunjungan) <= '{$endOfPeriod}'";
         } elseif ($type === 'pertahun' && $tahun) {
             $safeTahun   = (int) $tahun;
             $tglSubquery = "SELECT MAX(tanggal_kunjungan) FROM kunjungans
                 WHERE kunjungans.pelanggan_id = pelanggans.id
                 AND YEAR(tanggal_kunjungan) = {$safeTahun}";
+            // Kumulatif: semua kunjungan s.d. akhir tahun yang dipilih
+            $endOfPeriod      = Carbon::create($safeTahun, 12, 31)->format('Y-m-d');
+            $biayaSubquery    = "SELECT COALESCE(SUM(biaya), 0) FROM kunjungans
+                WHERE kunjungans.pelanggan_id = pelanggans.id
+                AND DATE(tanggal_kunjungan) <= '{$endOfPeriod}'";
+            $kedatanganSubquery = "SELECT COUNT(*) FROM kunjungans
+                WHERE kunjungans.pelanggan_id = pelanggans.id
+                AND DATE(tanggal_kunjungan) <= '{$endOfPeriod}'";
         } else {
-            $tglSubquery = "SELECT MAX(tanggal_kunjungan) FROM kunjungans
+            $tglSubquery        = "SELECT MAX(tanggal_kunjungan) FROM kunjungans
                 WHERE kunjungans.pelanggan_id = pelanggans.id";
+            $biayaSubquery      = null;
+            $kedatanganSubquery = null;
         }
 
         $query = Pelanggan::with('cabang')
             ->select('pelanggans.*')
             ->selectRaw("({$tglSubquery}) as tgl_kunjungan");
+
+        // Tambahkan subquery kumulatif jika filter periode aktif
+        if ($biayaSubquery) {
+            $query->selectRaw("({$biayaSubquery}) as biaya_periode")
+                  ->selectRaw("({$kedatanganSubquery}) as kedatangan_periode");
+        }
 
         if ($search) {
             $query->where(function ($q) use ($search) {
@@ -474,7 +502,98 @@ class PelangganController extends Controller
             'sort'               => $sort,
             'direction'          => $direction,
             'searchMode'         => (bool) $search,
+            'usePeriodeBiaya'    => ($biayaSubquery !== null),
         ]);
+    }
+
+    /**
+     * Ajukan naik kelas ke Prioritas untuk pelanggan terpilih (bulk).
+     * Hanya Admin yang bisa mengajukan; Superadmin yang approve.
+     */
+    public function requestNaikKelas(Request $request)
+    {
+        $role = Auth::user()->role?->name;
+
+        if ($role !== 'Admin') {
+            return redirect()->back()->with('error', 'Hanya Admin yang dapat mengajukan naik kelas.');
+        }
+
+        $ids = $request->input('ids', []);
+        if (empty($ids)) {
+            return redirect()->back()->with('error', 'Tidak ada pelanggan yang dipilih.');
+        }
+
+        $ids = array_filter(array_map('intval', $ids));
+        if (empty($ids)) {
+            return redirect()->back()->with('error', 'ID pelanggan tidak valid.');
+        }
+
+        $pelanggans = Pelanggan::whereIn('id', $ids)->get(['id', 'pid', 'nama', 'class', 'cabang_id']);
+
+        // Filter: hanya yang belum Prioritas
+        $eligible = $pelanggans->filter(fn($p) => $p->class !== 'Prioritas');
+
+        if ($eligible->isEmpty()) {
+            return redirect()->back()->with('error', 'Semua pelanggan yang dipilih sudah berstatus Prioritas.');
+        }
+
+        $eligibleIds   = $eligible->pluck('id')->toArray();
+        $eligibleCount = count($eligibleIds);
+
+        // Auto-assign ke superadmin pertama dari cabang pelanggan pertama
+        $firstPelanggan = $eligible->first();
+        $assignedTo     = null;
+        if ($firstPelanggan) {
+            $superadmins = $this->getSuperadminsByCabang($firstPelanggan->cabang_id);
+            $assignedTo  = $superadmins->first()?->id;
+        }
+
+        ApprovalRequest::create([
+            'type'         => 'naik_kelas',
+            'action'       => 'upgrade_class',
+            'target_type'  => Pelanggan::class,
+            'target_id'    => null,
+            'payload'      => [
+                'ids'        => array_values($eligibleIds),
+                'count'      => $eligibleCount,
+                'pelanggans' => $eligible->map(fn($p) => [
+                    'id'    => $p->id,
+                    'pid'   => $p->pid,
+                    'nama'  => $p->nama,
+                    'class' => $p->class,
+                ])->values()->toArray(),
+            ],
+            'request_note' => "Pengajuan naik kelas ke Prioritas untuk {$eligibleCount} pelanggan.",
+            'status'       => 'pending',
+            'requested_by' => Auth::id(),
+            'assigned_to'  => $assignedTo,
+        ]);
+
+        ActivityLog::record(
+            'update', 'ApprovalRequest',
+            "Mengajukan naik kelas {$eligibleCount} pelanggan ke Prioritas untuk approval Superadmin.",
+            Auth::id(),
+            Auth::user()->username ?? 'unknown',
+            $role,
+            $request->ip(),
+            $request->userAgent()
+        );
+
+        return redirect()->back()->with('success', "Pengajuan naik kelas {$eligibleCount} pelanggan berhasil dikirim untuk approval Superadmin.");
+    }
+
+    /**
+     * Export riwayat kunjungan pelanggan ke Excel.
+     */
+    public function exportKunjungan(Request $request, Pelanggan $pelanggan)
+    {
+        $kunjungans = $pelanggan->kunjungans()
+            ->with('kelompokPelanggan')
+            ->orderBy('tanggal_kunjungan', 'asc')
+            ->get();
+
+        $filename = 'riwayat-kunjungan-' . $pelanggan->pid . '-' . now()->format('Y-m-d') . '.xlsx';
+        return Excel::download(new \App\Exports\KunjunganExport($pelanggan, $kunjungans), $filename);
     }
 
     /**

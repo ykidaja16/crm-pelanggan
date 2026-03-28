@@ -200,6 +200,10 @@
                                 <button type="button" class="btn btn-danger btn-sm" onclick="openBulkDeleteModal()">
                                     <i class="fas fa-trash me-1"></i>Hapus Terpilih
                                 </button>
+                                {{-- Revisi 3: Naikan Kelas (Admin only) --}}
+                                <button type="button" class="btn btn-warning btn-sm" onclick="openNaikKelasModal()">
+                                    <i class="fas fa-arrow-up me-1"></i>Naikan Kelas
+                                </button>
                             @endif
                             {{-- Point 5: User tidak tampil Hapus Terpilih --}}
                         </div>
@@ -312,9 +316,15 @@
                                     <td class="py-2 text-nowrap small">{{ $p->no_telp ?? '-' }}</td>
                                     <td class="py-2 text-center text-nowrap small">{{ $p->dob ? $p->dob->format('d-m-Y') : '-' }}</td>
                                     <td class="py-2 small">{{ Str::limit($p->alamat, 25) ?? '-' }}</td>
-                                    <td class="py-2 text-center"><span class="badge bg-secondary bg-opacity-10 text-secondary small">{{ $p->total_kedatangan ?? $p->kunjungans->count() }}</span></td>
+                                    <td class="py-2 text-center">
+                                        <span class="badge bg-secondary bg-opacity-10 text-secondary small">
+                                            {{ $usePeriodeBiaya ? ($p->kedatangan_periode ?? 0) : ($p->total_kedatangan ?? $p->kunjungans->count()) }}
+                                        </span>
+                                    </td>
                                     <td class="py-2 text-center text-nowrap small">{{ $p->tgl_kunjungan }}</td>
-                                    <td class="py-2 text-end fw-semibold text-nowrap small">Rp {{ number_format($p->total_biaya ?? $p->kunjungans->sum('biaya'), 0, ',', '.') }}</td>
+                                    <td class="py-2 text-end fw-semibold text-nowrap small">
+                                        Rp {{ number_format($usePeriodeBiaya ? ($p->biaya_periode ?? 0) : ($p->total_biaya ?? $p->kunjungans->sum('biaya')), 0, ',', '.') }}
+                                    </td>
                                     <td class="py-2 text-center">
                                         @php
                                             $class = $p->class ?? 'Potensial';
@@ -419,6 +429,42 @@
         </div>
     </div>
 
+    {{-- Modal Naikan Kelas untuk Admin (Revisi 3) --}}
+    @if($role === 'Admin')
+    <div class="modal fade" id="naikKelasModal" tabindex="-1" aria-hidden="true">
+        <div class="modal-dialog">
+            <div class="modal-content">
+                <form id="naikKelasForm" method="POST" action="{{ route('pelanggan.bulk-naik-kelas') }}">
+                    @csrf
+                    <div id="naikKelasIds"></div>
+                    <div class="modal-header">
+                        <h5 class="modal-title text-warning">
+                            <i class="fas fa-arrow-up me-2"></i>Ajukan Naikan Kelas ke Prioritas
+                        </h5>
+                        <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+                    </div>
+                    <div class="modal-body">
+                        <div class="alert alert-info border-0 small mb-3">
+                            <i class="fas fa-info-circle me-1"></i>
+                            Pengajuan ini akan dikirim ke <strong>Superadmin</strong> untuk disetujui. Pelanggan yang dipilih akan diusulkan naik kelas menjadi <strong>Prioritas</strong>.
+                        </div>
+                        <p>Anda akan mengajukan kenaikan kelas untuk <strong id="naikKelasCount">0</strong> pelanggan terpilih.</p>
+                        <label class="form-label fw-semibold">Catatan / Alasan Pengajuan <span class="text-danger">*</span></label>
+                        <textarea name="request_note" class="form-control" rows="3"
+                                  placeholder="Wajib diisi. Contoh: Pelanggan memenuhi kriteria kelas Prioritas." required></textarea>
+                    </div>
+                    <div class="modal-footer">
+                        <button type="button" class="btn btn-outline-secondary" data-bs-dismiss="modal">Batal</button>
+                        <button type="submit" class="btn btn-warning">
+                            <i class="fas fa-paper-plane me-1"></i>Ajukan Naikan Kelas
+                        </button>
+                    </div>
+                </form>
+            </div>
+        </div>
+    </div>
+    @endif
+
     {{-- Modal Bulk Delete untuk Admin (Point 10) --}}
     @if($role === 'Admin')
     <div class="modal fade" id="bulkDeleteModal" tabindex="-1" aria-hidden="true">
@@ -482,6 +528,7 @@ document.addEventListener('DOMContentLoaded', function() {
     const bulkExportIds      = document.getElementById('bulkExportIds');
     const bulkDeleteIdsSA    = document.getElementById('bulkDeleteIdsSA');
     const bulkDeleteIdsAdmin = document.getElementById('bulkDeleteIdsAdmin');
+    const naikKelasIds       = document.getElementById('naikKelasIds');
 
     if (!selectAll || !bulkToolbar) return;
 
@@ -531,8 +578,20 @@ document.addEventListener('DOMContentLoaded', function() {
             });
         }
 
+        if (naikKelasIds) {
+            naikKelasIds.innerHTML = '';
+            ids.forEach(id => {
+                const inp = document.createElement('input');
+                inp.type = 'hidden'; inp.name = 'ids[]'; inp.value = id;
+                naikKelasIds.appendChild(inp);
+            });
+        }
+
         const countEl = document.getElementById('bulkDeleteCount');
         if (countEl) countEl.textContent = count;
+
+        const naikKelasCountEl = document.getElementById('naikKelasCount');
+        if (naikKelasCountEl) naikKelasCountEl.textContent = count;
 
         const allCbs = document.querySelectorAll('.row-checkbox');
         if (allCbs.length > 0) {
@@ -570,6 +629,13 @@ function openBulkDeleteModal() {
     const checked = document.querySelectorAll('.row-checkbox:checked');
     if (checked.length === 0) { alert('Tidak ada pelanggan yang dipilih.'); return; }
     const modal = new bootstrap.Modal(document.getElementById('bulkDeleteModal'));
+    modal.show();
+}
+
+function openNaikKelasModal() {
+    const checked = document.querySelectorAll('.row-checkbox:checked');
+    if (checked.length === 0) { alert('Tidak ada pelanggan yang dipilih.'); return; }
+    const modal = new bootstrap.Modal(document.getElementById('naikKelasModal'));
     modal.show();
 }
 </script>
