@@ -13,13 +13,7 @@
         </span>
     </div>
 
-    @if(session('success'))
-        <div class="alert alert-success alert-dismissible fade show shadow-sm" role="alert">
-            <i class="fas fa-check-circle me-2"></i>{{ session('success') }}
-            <button type="button" class="btn-close" data-bs-dismiss="alert"></button>
-        </div>
-    @endif
-    @if(session('error'))
+@if(session('error'))
         <div class="alert alert-danger alert-dismissible fade show shadow-sm" role="alert">
             <i class="fas fa-exclamation-circle me-2"></i>{{ session('error') }}
             <button type="button" class="btn-close" data-bs-dismiss="alert"></button>
@@ -118,8 +112,14 @@
                     </table>
                 </div>
 
-                <div class="px-3 py-2">
-                    {{ $requests->links() }}
+                <div class="d-flex justify-content-between align-items-center p-3 border-top bg-light small">
+                    <div class="text-muted">
+                        Menampilkan <strong>{{ $requests->firstItem() ?? 0 }} - {{ $requests->lastItem() ?? 0 }}</strong>
+                        dari <strong>{{ $requests->total() }}</strong> data
+                    </div>
+                    <div>
+                        {{ $requests->appends(request()->query())->links('pagination::bootstrap-5') }}
+                    </div>
                 </div>
             @endif
         </div>

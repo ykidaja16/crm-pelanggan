@@ -127,14 +127,14 @@
                                 $lastVisit = $p->kunjungans_max_tanggal_kunjungan
                                     ? \Carbon\Carbon::parse($p->kunjungans_max_tanggal_kunjungan)
                                     : null;
-                                $diffDays = $lastVisit ? $lastVisit->diffInDays(now()) : null;
+$diffDays = $lastVisit ? round($lastVisit->diffInDays(now())) : null;
                             @endphp
                             <tr>
                                 <td class="text-center text-muted small">
                                     {{ ($pelanggans->currentPage() - 1) * $pelanggans->perPage() + $i + 1 }}
                                 </td>
                                 <td>
-                                    <span class="badge bg-secondary bg-opacity-10 text-secondary font-monospace small">
+                                    <span class="badge bg-secondary bg-opacity-10 text-secondary font-monospace small text-dark">
                                         {{ $p->pid }}
                                     </span>
                                 </td>
@@ -142,7 +142,7 @@
                                 <td class="small text-muted">{{ $p->cabang?->nama ?? '-' }}</td>
                                 <td class="text-center small">
                                     @if($lastVisit)
-                                        <span class="text-danger fw-semibold">
+                                        <span class="text-danger fw-semibold text-dark">
                                             {{ $lastVisit->format('d-m-Y') }}
                                         </span>
                                     @else
@@ -151,7 +151,7 @@
                                 </td>
                                 <td class="text-center small">
                                     @if($diffDays !== null)
-                                        <span class="badge bg-danger bg-opacity-15 text-danger border border-danger">
+                                        <span class="badge bg-danger bg-opacity-15 text-danger border border-danger text-dark">
                                             {{ $diffDays }} hari
                                         </span>
                                     @else
@@ -167,7 +167,7 @@
                                             default     => 'secondary',
                                         };
                                     @endphp
-                                    <span class="badge bg-{{ $kelasColor }} bg-opacity-15 text-{{ $kelasColor }} border border-{{ $kelasColor }} small">
+                                    <span class="badge bg-{{ $kelasColor }} bg-opacity-15 text-{{ $kelasColor }} border border-{{ $kelasColor }} small text-dark">
                                         {{ $p->class ?? '-' }}
                                     </span>
                                 </td>

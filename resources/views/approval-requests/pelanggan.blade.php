@@ -70,11 +70,11 @@
                                             <i class="fas fa-edit me-1"></i>Edit Data
                                         </span>
                                     @elseif($item->action === 'delete')
-                                        <span class="badge bg-danger">
+                                        <span class="badge bg-danger text-dark">
                                             <i class="fas fa-trash me-1"></i>Hapus
                                         </span>
                                     @elseif($item->action === 'bulk_delete')
-                                        <span class="badge bg-danger">
+                                        <span class="badge bg-danger text-dark">
                                             <i class="fas fa-trash-alt me-1"></i>Hapus Massal
                                         </span>
                                     @else
@@ -117,12 +117,14 @@
                     </table>
                 </div>
 
-                <div class="px-3 py-2 border-top d-flex justify-content-between align-items-center flex-wrap gap-2">
-                    <small class="text-muted">
-                        Menampilkan {{ $requests->firstItem() ?? 0 }}–{{ $requests->lastItem() ?? 0 }}
-                        dari {{ $requests->total() }} pengajuan
-                    </small>
-                    {{ $requests->links() }}
+                <div class="d-flex justify-content-between align-items-center p-3 border-top bg-light small">
+                    <div class="text-muted">
+                        Menampilkan <strong>{{ $requests->firstItem() ?? 0 }} - {{ $requests->lastItem() ?? 0 }}</strong>
+                        dari <strong>{{ $requests->total() }}</strong> data
+                    </div>
+                    <div>
+                        {{ $requests->appends(request()->query())->links('pagination::bootstrap-5') }}
+                    </div>
                 </div>
             @endif
         </div>

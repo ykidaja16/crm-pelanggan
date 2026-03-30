@@ -124,7 +124,7 @@
                         <div class="col-md-3" id="tahunContainer" style="{{ !($type ?? '') || ($type ?? '') == 'semua' ? 'display:none;' : '' }}">
                             <label class="form-label fw-medium small">Tahun</label>
                             <select name="tahun" class="form-select">
-                                @for($i = date('Y'); $i >= date('Y') - 5; $i--)
+                                @for($i = date('Y'); $i >= date('Y') - 8; $i--)
                                     <option value="{{ $i }}" {{ ($tahun ?? date('Y')) == $i ? 'selected' : '' }}>{{ $i }}</option>
                                 @endfor
                             </select>

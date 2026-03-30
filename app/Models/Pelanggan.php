@@ -93,7 +93,7 @@ class Pelanggan extends Model
      * Potensial: Kedatangan minimal 2x dengan biaya berapapun OR 1x datang dengan minimal biaya 1 Juta
      * Loyal: Kedatangan minimal 5x dengan total biaya berapapun
      * Prioritas: 1x Kedatangan minimal 4 Juta OR total biaya sudah lebih dari 4 juta
-     */
+     -->
     public static function calculateClass(
         int $totalKedatangan,
         float $totalBiaya,
@@ -232,4 +232,31 @@ class Pelanggan extends Model
         $this->class = $newClass;
         $this->save();
     }
+
+    /**
+     * Manually upgrade/downgrade customer class and record history.
+     * Used for approval-based class changes (naik kelas).
+     * Does not recalculate stats - direct class assignment.
+     */
+    public function updateAndRecordClass(string $newClass, ?int $userId = null, string $reason = 'Manual class update'): void
+    {
+        $oldClass = $this->class;
+        
+        if ($oldClass === $newClass) {
+            return; // No change needed
+        }
+        
+        DB::transaction(function () use ($newClass, $oldClass, $userId, $reason) {
+            $this->update(['class' => $newClass]);
+            
+            $this->classHistories()->create([
+                'previous_class' => $oldClass,
+                'new_class'      => $newClass,
+                'changed_at'     => now(),
+                'changed_by'     => $userId,
+                'reason'         => $reason,
+            ]);
+        });
+    }
 }
+

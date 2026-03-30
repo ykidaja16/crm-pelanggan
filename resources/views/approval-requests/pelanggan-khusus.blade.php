@@ -119,8 +119,14 @@
                     </table>
                 </div>
 
-                <div class="px-3 py-2">
-                    {{ $requests->links() }}
+                <div class="d-flex justify-content-between align-items-center p-3 border-top bg-light small">
+                    <div class="text-muted">
+                        Menampilkan <strong>{{ $requests->firstItem() ?? 0 }} - {{ $requests->lastItem() ?? 0 }}</strong>
+                        dari <strong>{{ $requests->total() }}</strong> data
+                    </div>
+                    <div>
+                        {{ $requests->appends(request()->query())->links('pagination::bootstrap-5') }}
+                    </div>
                 </div>
             @endif
         </div>

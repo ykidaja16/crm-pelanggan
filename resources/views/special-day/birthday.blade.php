@@ -148,7 +148,7 @@
                                             default     => 'secondary',
                                         };
                                     @endphp
-                                    <span class="badge bg-{{ $kelasColor }} bg-opacity-15 text-{{ $kelasColor }} border border-{{ $kelasColor }} small">
+                                    <span class="badge bg-{{ $kelasColor }} bg-opacity-15 text-{{ $kelasColor }} border border-{{ $kelasColor }} small text-dark">
                                         {{ $p->class ?? '-' }}
                                     </span>
                                 </td>

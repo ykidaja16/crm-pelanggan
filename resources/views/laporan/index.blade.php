@@ -64,7 +64,7 @@
                 <div class="col-md-3" id="tahunContainer" style="display:none;">
                     <label class="form-label fw-medium small">Tahun</label>
                     <select name="tahun" class="form-select">
-                        @for($i = date('Y'); $i >= date('Y') - 5; $i--)
+                        @for($i = date('Y'); $i >= date('Y') - 8; $i--)
                             <option value="{{ $i }}" {{ date('Y') == $i ? 'selected' : '' }}>{{ $i }}</option>
                         @endfor
                     </select>
