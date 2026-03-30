@@ -121,7 +121,7 @@
                     <hr class="my-4">
 
                     <div class="d-flex justify-content-between align-items-center">
-                        <a href="{{ route('pelanggan.show', $pelanggan->id) }}" class="btn btn-outline-secondary btn-lg px-4">
+                        <a href="{{ route('pelanggan.index') }}" class="btn btn-outline-secondary btn-lg px-4">
                             <i class="fas fa-arrow-left me-2"></i> Kembali
                         </a>
                         <button type="submit" class="btn btn-warning btn-lg px-5 text-dark">
@@ -197,7 +197,7 @@
                     <hr class="my-4">
 
                     <div class="d-flex justify-content-between align-items-center">
-                        <a href="{{ route('pelanggan.show', $pelanggan->id) }}" class="btn btn-outline-secondary btn-lg px-4">
+                        <a href="{{ route('pelanggan.index') }}" class="btn btn-outline-secondary btn-lg px-4">
                             <i class="fas fa-arrow-left me-2"></i> Kembali
                         </a>
                         <button type="submit" class="btn btn-warning btn-lg px-5 text-dark">

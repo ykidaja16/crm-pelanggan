@@ -304,8 +304,11 @@ class PelangganController extends Controller
         $omsetRange      = $request->omset_range;
         $kedatanganRange = $request->kedatangan_range;
         $kelas           = $request->kelas;
+        $tanggal_mulai   = $request->tanggal_mulai;
+        $tanggal_selesai = $request->tanggal_selesai;
         $kelompokPelanggan = $request->kelompok_pelanggan;
         $tipePelanggan   = $request->tipe_pelanggan;
+
 
         // Filter cabangs dropdown by accessible cabangs
         /** @var User $user */
@@ -382,12 +385,24 @@ class PelangganController extends Controller
             $kedatanganSubquery = "SELECT COUNT(*) FROM kunjungans
                 WHERE kunjungans.pelanggan_id = pelanggans.id
                 AND DATE(tanggal_kunjungan) <= '{$endOfPeriod}'";
+        } elseif ($type === 'range' && $tanggal_mulai && $tanggal_selesai) {
+            $tglSubquery = "SELECT MAX(tanggal_kunjungan) FROM kunjungans
+                WHERE kunjungans.pelanggan_id = pelanggans.id
+                AND tanggal_kunjungan BETWEEN '{$tanggal_mulai}' AND '{$tanggal_selesai}'";
+            $biayaSubquery    = "SELECT COALESCE(SUM(biaya), 0) FROM kunjungans
+                WHERE kunjungans.pelanggan_id = pelanggans.id
+                AND tanggal_kunjungan BETWEEN '{$tanggal_mulai}' AND '{$tanggal_selesai}'";
+            $kedatanganSubquery = "SELECT COUNT(*) FROM kunjungans
+                WHERE kunjungans.pelanggan_id = pelanggans.id
+                AND tanggal_kunjungan BETWEEN '{$tanggal_mulai}' AND '{$tanggal_selesai}'";
+            $endOfPeriod = $tanggal_selesai;
         } else {
             $tglSubquery        = "SELECT MAX(tanggal_kunjungan) FROM kunjungans
                 WHERE kunjungans.pelanggan_id = pelanggans.id";
             $biayaSubquery      = null;
             $kedatanganSubquery = null;
         }
+
 
         $query = Pelanggan::with('cabang')
             ->select('pelanggans.*')
@@ -416,8 +431,13 @@ class PelangganController extends Controller
                 $query->whereHas('kunjungans', function ($q) use ($tahun) {
                     $q->whereYear('tanggal_kunjungan', $tahun);
                 });
+            } elseif ($type === 'range' && $tanggal_mulai && $tanggal_selesai) {
+                $query->whereHas('kunjungans', function ($q) use ($tanggal_mulai, $tanggal_selesai) {
+                    $q->whereBetween('tanggal_kunjungan', [$tanggal_mulai, $tanggal_selesai]);
+                });
             }
         }
+
 
         // Filter by accessible cabangs
         if (!empty($accessibleCabangIds)) {
@@ -497,8 +517,11 @@ class PelangganController extends Controller
             'kedatangan_range'   => $kedatanganRange,
             'kelas'              => $kelas,
             'kelompok_pelanggan' => $kelompokPelanggan,
+'tanggal_mulai'    => $tanggal_mulai,
+            'tanggal_selesai'   => $tanggal_selesai,
             'tipe_pelanggan'     => $tipePelanggan,
             'cabangs'            => $cabangs,
+
             'sort'               => $sort,
             'direction'          => $direction,
             'searchMode'         => (bool) $search,

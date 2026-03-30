@@ -106,7 +106,9 @@
                             <select name="type" id="typeSelect" class="form-select">
                                 <option value="semua" {{ ($type ?? 'semua') == 'semua' ? 'selected' : '' }}>Semua Data</option>
                                 <option value="perbulan" {{ ($type ?? '') == 'perbulan' ? 'selected' : '' }}>Per Bulan</option>
-                                <option value="pertahun" {{ ($type ?? '') == 'pertahun' ? 'selected' : '' }}>Per Tahun</option>
+<option value="pertahun" {{ ($type ?? '') == 'pertahun' ? 'selected' : '' }}>Per Tahun</option>
+<option value="range" {{ ($type ?? '') == 'range' ? 'selected' : '' }}>Range Tanggal</option>
+
                             </select>
                         </div>
 
@@ -130,7 +132,18 @@
                             </select>
                         </div>
 
+                        <!-- Range Tanggal -->
+                        <div class="col-md-3" id="rangeContainer" style="{{ ($type ?? '') != 'range' ? 'display:none;' : '' }}">
+                            <label class="form-label fw-medium small">Tanggal Mulai</label>
+                            <input type="date" name="tanggal_mulai" class="form-control" value="{{ request('tanggal_mulai') }}">
+                        </div>
+                        <div class="col-md-3" id="rangeContainer2" style="{{ ($type ?? '') != 'range' ? 'display:none;' : '' }}">
+                            <label class="form-label fw-medium small">Tanggal Selesai</label>
+                            <input type="date" name="tanggal_selesai" class="form-control" value="{{ request('tanggal_selesai') }}">
+                        </div>
+
                         {{-- Point 4: Kelompok Pelanggan --}}
+
                         {{-- <div class="col-md-3">
                             <label class="form-label fw-medium small">Kelompok Pelanggan</label>
                             <select name="kelompok_pelanggan" class="form-select">
@@ -509,13 +522,31 @@ document.addEventListener('DOMContentLoaded', function() {
     const typeSelect      = document.getElementById('typeSelect');
     const bulanContainer  = document.getElementById('bulanContainer');
     const tahunContainer  = document.getElementById('tahunContainer');
+    const rangeContainer  = document.getElementById('rangeContainer');
+    const rangeContainer2 = document.getElementById('rangeContainer2');
 
     function updatePeriodContainers() {
         if (!typeSelect) return;
         const val = typeSelect.value;
-        if (bulanContainer) bulanContainer.style.display = (val === 'perbulan') ? 'block' : 'none';
-        if (tahunContainer) tahunContainer.style.display = (val === 'semua') ? 'none' : 'block';
+        
+        // Hide all containers first
+        if (bulanContainer) bulanContainer.style.display = 'none';
+        if (tahunContainer) tahunContainer.style.display = 'none';
+        if (rangeContainer) rangeContainer.style.display = 'none';
+        if (rangeContainer2) rangeContainer2.style.display = 'none';
+        
+        // Show relevant containers
+        if (val === 'perbulan') {
+            if (bulanContainer) bulanContainer.style.display = 'block';
+            if (tahunContainer) tahunContainer.style.display = 'block';
+        } else if (val === 'pertahun') {
+            if (tahunContainer) tahunContainer.style.display = 'block';
+        } else if (val === 'range') {
+            if (rangeContainer) rangeContainer.style.display = 'block';
+            if (rangeContainer2) rangeContainer2.style.display = 'block';
+        }
     }
+
     updatePeriodContainers();
     if (typeSelect) typeSelect.addEventListener('change', updatePeriodContainers);
 
