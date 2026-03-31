@@ -262,14 +262,18 @@ class PelangganImportExportController extends Controller
      */
     public function export(Request $request)
     {
-        $bulan           = $request->bulan ?? date('m');
-        $tahun           = $request->tahun ?? date('Y');
-        $type            = $request->type ?? 'perbulan';
+        // Gunakan ?: agar empty string juga di-fallback (bukan hanya null)
+        $bulan           = $request->bulan   ?: date('m');
+        $tahun           = $request->tahun   ?: date('Y');
+        $type            = $request->type    ?: 'semua';
         $search          = $request->search;
         $cabangId        = $request->cabang_id;
         $omsetRange      = $request->omset_range;
         $kedatanganRange = $request->kedatangan_range;
         $kelas           = $request->kelas;
+        $tipePelanggan   = $request->tipe_pelanggan;
+        $tanggalMulai    = $request->tanggal_mulai;
+        $tanggalSelesai  = $request->tanggal_selesai;
 
         // Build filename based on filters
         $filename = 'pelanggan';
@@ -280,12 +284,17 @@ class PelangganImportExportController extends Controller
                 $filename .= '_' . $bulan . '_' . $tahun;
             } elseif ($type == 'pertahun') {
                 $filename .= '_tahun_' . $tahun;
+            } elseif ($type == 'range' && $tanggalMulai && $tanggalSelesai) {
+                $filename .= '_' . str_replace('-', '', $tanggalMulai) . '_sd_' . str_replace('-', '', $tanggalSelesai);
             } else {
                 $filename .= '_semua';
             }
         }
         if ($kelas) {
             $filename .= '_' . $kelas;
+        }
+        if ($tipePelanggan) {
+            $filename .= '_' . $tipePelanggan;
         }
         if ($cabangId) {
             $cabang    = Cabang::find($cabangId);
@@ -294,7 +303,19 @@ class PelangganImportExportController extends Controller
         $filename .= '.xlsx';
 
         return Excel::download(
-            new \App\Exports\PelangganExport($bulan, $tahun, $type, $search, $cabangId, $omsetRange, $kedatanganRange, $kelas),
+            new \App\Exports\PelangganExport(
+                $bulan,
+                $tahun,
+                $type,
+                $search,
+                $cabangId,
+                $omsetRange,
+                $kedatanganRange,
+                $kelas,
+                $tipePelanggan,
+                $tanggalMulai,
+                $tanggalSelesai
+            ),
             $filename
         );
     }

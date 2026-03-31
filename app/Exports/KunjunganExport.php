@@ -16,11 +16,62 @@ class KunjunganExport implements FromCollection, WithHeadings, WithStyles, WithC
 {
     protected Pelanggan $pelanggan;
     protected Collection $kunjungans;
+    protected Collection $classHistories;
 
     public function __construct(Pelanggan $pelanggan, Collection $kunjungans)
     {
         $this->pelanggan  = $pelanggan;
         $this->kunjungans = $kunjungans;
+        // Load riwayat perubahan kelas urut ASC agar bisa lookup historis per kunjungan
+        $this->classHistories = $pelanggan->classHistories()
+            ->reorder()
+            ->orderBy('changed_at', 'asc')
+            ->get();
+    }
+
+    /**
+     * Tentukan kelas pelanggan pada saat tanggal kunjungan tertentu
+     * berdasarkan riwayat perubahan kelas (pelanggan_class_histories).
+     *
+     * Logika:
+     * - Cari entry history terakhir yang changed_at <= tanggal kunjungan → ambil new_class-nya.
+     * - Jika tidak ada entry yang cocok (kunjungan terjadi SEBELUM perubahan kelas pertama),
+     *   gunakan previous_class dari entry pertama (kelas awal sebelum ada perubahan).
+     * - Jika tidak ada history sama sekali, default 'Potensial'.
+     *
+     * PENTING: Jangan fallback ke $this->pelanggan->class karena itu kelas SAAT INI,
+     * bukan kelas historis saat kunjungan terjadi.
+     */
+    private function getClassAtDate($visitDate): string
+    {
+        $visitDateStr = \Carbon\Carbon::parse($visitDate)->toDateString();
+        $classAtTime  = null;
+
+        foreach ($this->classHistories as $history) {
+            $historyDateStr = $history->changed_at->toDateString();
+            if ($historyDateStr <= $visitDateStr) {
+                $classAtTime = $history->new_class;
+            } else {
+                // Karena sudah urut ASC, begitu melewati tanggal kunjungan bisa break
+                break;
+            }
+        }
+
+        // Ada history yang cocok → kembalikan kelas pada saat itu
+        if ($classAtTime !== null) {
+            return $classAtTime;
+        }
+
+        // Tidak ada history entry sebelum tanggal kunjungan ini.
+        // Berarti kunjungan terjadi SEBELUM perubahan kelas pertama.
+        // Gunakan previous_class dari entry pertama = kelas awal sebelum ada perubahan.
+        $firstHistory = $this->classHistories->first();
+        if ($firstHistory && $firstHistory->previous_class) {
+            return $firstHistory->previous_class;
+        }
+
+        // Tidak ada history sama sekali → default Potensial
+        return 'Potensial';
     }
 
     public function collection()
@@ -42,7 +93,8 @@ class KunjunganExport implements FromCollection, WithHeadings, WithStyles, WithC
                                             : '-',
                 'Biaya'              => $k->biaya ?? 0,
                 'Kelompok Pelanggan' => $k->kelompokPelanggan?->nama ?? '-',
-                'Kelas'              => $this->pelanggan->class ?? 'Potensial',
+                // Kelas historis: kelas yang berlaku pada saat tanggal kunjungan ini
+                'Kelas'              => $this->getClassAtDate($k->tanggal_kunjungan),
             ];
         });
     }

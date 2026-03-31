@@ -224,16 +224,18 @@
 
                         @if(isset($pelanggan) && method_exists($pelanggan, 'count') && $pelanggan->count() > 0)
                         <a href="{{ route('pelanggan.export', [
-                            'bulan' => $bulan ?? '',
-                            'tahun' => $tahun ?? '',
-                            'type' => $type ?? '',
-                            'search' => $search ?? '',
-                            'cabang_id' => $cabang_id ?? '',
-                            'kelas' => $kelas ?? '',
-                            'omset_range' => $omset_range ?? '',
-                            'kedatangan_range' => $kedatangan_range ?? '',
+                            'bulan'              => $bulan ?? '',
+                            'tahun'              => $tahun ?? '',
+                            'type'               => $type ?? '',
+                            'search'             => $search ?? '',
+                            'cabang_id'          => $cabang_id ?? '',
+                            'kelas'              => $kelas ?? '',
+                            'omset_range'        => $omset_range ?? '',
+                            'kedatangan_range'   => $kedatangan_range ?? '',
                             'kelompok_pelanggan' => $kelompok_pelanggan ?? '',
-                            'tipe_pelanggan' => $tipe_pelanggan ?? '',
+                            'tipe_pelanggan'     => $tipe_pelanggan ?? '',
+                            'tanggal_mulai'      => $tanggal_mulai ?? '',
+                            'tanggal_selesai'    => $tanggal_selesai ?? '',
                         ]) }}" class="btn btn-success btn-sm" id="exportAllBtn">
                             <i class="fas fa-file-excel me-2"></i>Export Excel
                         </a>

@@ -3,6 +3,7 @@
 namespace App\Exports;
 
 use App\Models\Pelanggan;
+use Carbon\Carbon;
 use Maatwebsite\Excel\Concerns\FromCollection;
 use Maatwebsite\Excel\Concerns\WithHeadings;
 
@@ -16,17 +17,34 @@ class PelangganExport implements FromCollection, WithHeadings
     protected $omsetRange;
     protected $kedatanganRange;
     protected $kelas;
+    protected $tipePelanggan;
+    protected $tanggalMulai;
+    protected $tanggalSelesai;
 
-    public function __construct($bulan, $tahun, $type, $search, $cabangId = null, $omsetRange = null, $kedatanganRange = null, $kelas = null)
-    {
-        $this->bulan = $bulan;
-        $this->tahun = $tahun;
-        $this->type = $type;
-        $this->search = $search;
-        $this->cabangId = $cabangId;
-        $this->omsetRange = $omsetRange;
+    public function __construct(
+        $bulan,
+        $tahun,
+        $type,
+        $search,
+        $cabangId        = null,
+        $omsetRange      = null,
+        $kedatanganRange = null,
+        $kelas           = null,
+        $tipePelanggan   = null,
+        $tanggalMulai    = null,
+        $tanggalSelesai  = null
+    ) {
+        $this->bulan           = $bulan;
+        $this->tahun           = $tahun;
+        $this->type            = $type;
+        $this->search          = $search;
+        $this->cabangId        = $cabangId;
+        $this->omsetRange      = $omsetRange;
         $this->kedatanganRange = $kedatanganRange;
-        $this->kelas = $kelas;
+        $this->kelas           = $kelas;
+        $this->tipePelanggan   = $tipePelanggan;
+        $this->tanggalMulai    = $tanggalMulai;
+        $this->tanggalSelesai  = $tanggalSelesai;
     }
 
     /**
@@ -34,91 +52,90 @@ class PelangganExport implements FromCollection, WithHeadings
     */
     public function collection()
     {
-        // Jika ada pencarian pelanggan spesifik
+        // Jika ada pencarian pelanggan spesifik (by PID atau nama)
         if ($this->search) {
-            $pelanggan = Pelanggan::with('cabang')
-                ->where('pid', 'like', '%' . $this->search . '%')
-                ->orWhere('nama', 'like', '%' . $this->search . '%')
+            $pelanggan = Pelanggan::with(['cabang', 'kunjungans.kelompokPelanggan'])
+                ->where(function ($q) {
+                    $q->where('pid', 'like', '%' . $this->search . '%')
+                      ->orWhere('nama', 'like', '%' . $this->search . '%');
+                })
                 ->first();
 
             if (!$pelanggan) {
                 return collect();
             }
 
-            // Ambil semua kunjungan pelanggan
-            $kunjungans = $pelanggan->kunjungans()->orderBy('tanggal_kunjungan')->get();
+            // Load riwayat perubahan kelas urut ASC untuk lookup historis per kunjungan
+            $classHistories = $pelanggan->classHistories()
+                ->reorder()
+                ->orderBy('changed_at', 'asc')
+                ->get();
 
-            // Hitung kumulatif per bulan
-            $history = [];
-            $cumulative = 0;
-            $currentMonth = null;
-            $monthlyTotal = 0;
+            // Ambil semua kunjungan pelanggan urut ASC by tanggal
+            $kunjungans = $pelanggan->kunjungans()
+                ->with('kelompokPelanggan')
+                ->orderBy('tanggal_kunjungan', 'asc')
+                ->get();
+
+            // Buat satu baris per kunjungan (bukan per bulan)
+            $data        = [];
+            $cumulative  = 0;
 
             foreach ($kunjungans as $k) {
-                $monthKey = $k->tanggal_kunjungan->format('Y-m');
-                if ($currentMonth !== $monthKey) {
-                    if ($currentMonth) {
-                        $history[] = [
-                            'bulan' => $currentMonth,
-                            'total_bulanan' => $monthlyTotal,
-                            'total_kumulatif' => $cumulative,
-                            'class' => $this->getClass($cumulative, $kunjungans->count()),
-                            'kunjungan_terakhir' => $k->tanggal_kunjungan->format('d-m-Y')
-                        ];
-                    }
-                    $currentMonth = $monthKey;
-                    $monthlyTotal = 0;
-                }
-                $monthlyTotal += $k->biaya;
-                $cumulative += $k->biaya;
-            }
+                $cumulative += $k->biaya ?? 0;
 
-            // Tambahkan bulan terakhir
-            if ($currentMonth) {
-                $history[] = [
-                    'bulan' => $currentMonth,
-                    'total_bulanan' => $monthlyTotal,
-                    'total_kumulatif' => $cumulative,
-                    'class' => $this->getClass($cumulative, $kunjungans->count()),
-                    'kunjungan_terakhir' => $kunjungans->last()->tanggal_kunjungan->format('d-m-Y')
-                ];
-            }
+                // Kelas historis: kelas yang berlaku pada saat tanggal kunjungan ini
+                $classAtTime = $this->getClassAtDate(
+                    $k->tanggal_kunjungan,
+                    $classHistories,
+                    $pelanggan->class
+                );
 
-            // Untuk export, kembalikan data pelanggan dengan history sebagai baris terpisah
-            $data = [];
-            foreach ($history as $h) {
                 $data[] = [
-                    'id' => $pelanggan->id,
-                    'pid' => $pelanggan->pid,
-                    'nama' => $pelanggan->nama,
-                    'cabang' => $pelanggan->cabang?->nama ?? '-',
-                    'no_telp' => $pelanggan->no_telp ?? '-',
-                    'dob' => $pelanggan->dob ? $pelanggan->dob->format('d-m-Y') : '-',
-                    'alamat' => $pelanggan->alamat ?? '-',
-                    'kota' => $pelanggan->kota ?? '-',
-                    'bulan' => $h['bulan'],
-                    'total_bulanan' => $h['total_bulanan'],
-                    'total_kumulatif' => $h['total_kumulatif'],
-                    'class' => $h['class'],
-                    'kunjungan_terakhir' => $h['kunjungan_terakhir']
+                    'id'                => $pelanggan->id,
+                    'pid'               => $pelanggan->pid,
+                    'nama'              => $pelanggan->nama,
+                    'cabang'            => $pelanggan->cabang?->nama ?? '-',
+                    'no_telp'           => $pelanggan->no_telp ?? '-',
+                    'dob'               => $pelanggan->dob ? $pelanggan->dob->format('d-m-Y') : '-',
+                    'alamat'            => $pelanggan->alamat ?? '-',
+                    'kota'              => $pelanggan->kota ?? '-',
+                    // Tanggal lengkap (dd-mm-yyyy), bukan hanya bulan-tahun
+                    'tanggal_kunjungan' => $k->tanggal_kunjungan
+                                            ? $k->tanggal_kunjungan->format('d-m-Y')
+                                            : '-',
+                    'biaya'             => $k->biaya ?? 0,
+                    'total_kumulatif'   => $cumulative,
+                    'class'             => $classAtTime,
                 ];
             }
+
             return collect($data);
         }
 
         // Tentukan tanggal akhir periode berdasarkan type
         $endDate = null;
-        if ($this->type == 'perbulan') {
+        if ($this->type == 'perbulan' && $this->bulan && $this->tahun) {
             $endDate = \Carbon\Carbon::createFromDate($this->tahun, $this->bulan, 1)->endOfMonth();
-        } elseif ($this->type == 'pertahun') {
-            $endDate = \Carbon\Carbon::createFromDate($this->tahun, 12, 31);
+        } elseif ($this->type == 'pertahun' && $this->tahun) {
+            $endDate = \Carbon\Carbon::createFromDate($this->tahun, 12, 31)->endOfDay();
+        } elseif ($this->type == 'range' && $this->tanggalMulai && $this->tanggalSelesai) {
+            $endDate = \Carbon\Carbon::parse($this->tanggalSelesai)->endOfDay();
         }
 
-        $query = Pelanggan::with(['cabang', 'kunjungans' => function($q) use ($endDate) {
-            if ($endDate) {
-                $q->where('tanggal_kunjungan', '<=', $endDate);
-            }
-        }]);
+        $query = Pelanggan::with([
+            'cabang',
+            'kunjungans' => function($q) use ($endDate) {
+                if ($endDate) {
+                    $q->where('tanggal_kunjungan', '<=', $endDate);
+                }
+                $q->orderBy('tanggal_kunjungan', 'asc');
+            },
+            'classHistories' => function($q) {
+                // Urut ASC agar getClassAtDate() bisa break lebih awal
+                $q->reorder()->orderBy('changed_at', 'asc');
+            },
+        ]);
 
         // Apply cabang filter
         if ($this->cabangId) {
@@ -130,79 +147,129 @@ class PelangganExport implements FromCollection, WithHeadings
             $query->where('class', $this->kelas);
         }
 
+        // Apply tipe pelanggan filter
+        if ($this->tipePelanggan === 'khusus') {
+            $query->where('is_pelanggan_khusus', true);
+        } elseif ($this->tipePelanggan === 'biasa') {
+            $query->where(function ($q) {
+                $q->where('is_pelanggan_khusus', false)->orWhereNull('is_pelanggan_khusus');
+            });
+        }
+
         $pelanggan = $query->get();
 
         // Filter berdasarkan kunjungan di periode, tapi gunakan data asli dari database
         $pelanggan = $pelanggan->filter(function ($p) use ($endDate) {
             // Gunakan nilai yang sudah tersimpan di database (tidak dihitung ulang dari kunjungan filtered)
             // Hanya gunakan kunjungan filtered untuk menentukan apakah pelanggan masuk filter periode
-            
-            // Ambil kunjungan terakhir di periode untuk tanggal kunjungan
+
             if ($this->type == 'perbulan') {
                 $kunjunganFiltered = $p->kunjungans->filter(function($k) {
-                    return $k->tanggal_kunjungan->month == $this->bulan && $k->tanggal_kunjungan->year == $this->tahun;
+                    return $k->tanggal_kunjungan->month == $this->bulan
+                        && $k->tanggal_kunjungan->year  == $this->tahun;
                 });
                 $p->tgl_kunjungan = $kunjunganFiltered->sortByDesc('tanggal_kunjungan')->first()?->tanggal_kunjungan->format('d-m-Y') ?? '-';
                 return $kunjunganFiltered->isNotEmpty();
+
             } elseif ($this->type == 'pertahun') {
                 $kunjunganFiltered = $p->kunjungans->filter(function($k) {
                     return $k->tanggal_kunjungan->year == $this->tahun;
                 });
                 $p->tgl_kunjungan = $kunjunganFiltered->sortByDesc('tanggal_kunjungan')->first()?->tanggal_kunjungan->format('d-m-Y') ?? '-';
                 return $kunjunganFiltered->isNotEmpty();
+
+            } elseif ($this->type == 'range' && $this->tanggalMulai && $this->tanggalSelesai) {
+                $mulai   = $this->tanggalMulai;
+                $selesai = $this->tanggalSelesai;
+                $kunjunganFiltered = $p->kunjungans->filter(function($k) use ($mulai, $selesai) {
+                    $tgl = $k->tanggal_kunjungan->toDateString();
+                    return $tgl >= $mulai && $tgl <= $selesai;
+                });
+                $p->tgl_kunjungan = $kunjunganFiltered->sortByDesc('tanggal_kunjungan')->first()?->tanggal_kunjungan->format('d-m-Y') ?? '-';
+                return $kunjunganFiltered->isNotEmpty();
+
             } else {
+                // type = 'semua' atau kosong → tampilkan semua
                 $p->tgl_kunjungan = $p->kunjungans->sortByDesc('tanggal_kunjungan')->first()?->tanggal_kunjungan->format('d-m-Y') ?? '-';
                 return true;
             }
         });
 
-        // Apply omset range filter
+        // Hitung nilai akumulatif s/d endDate untuk setiap pelanggan.
+        // $p->kunjungans sudah di-load dengan constraint (<= endDate),
+        // sehingga sum() di bawah menghasilkan nilai kumulatif s/d endDate,
+        // bukan nilai ALL-TIME dari kolom total_biaya / total_kedatangan di DB.
+        $pelanggan->each(function ($p) use ($endDate) {
+            if ($endDate) {
+                // Akumulasi biaya s/d endDate
+                $p->total_biaya_range      = (float) $p->kunjungans->sum('biaya');
+                // Akumulasi kedatangan s/d endDate
+                $p->total_kedatangan_range = (int)   $p->kunjungans->sum('total_kedatangan');
+                // Kelas pelanggan pada saat endDate (berdasarkan riwayat kelas)
+                $p->class_at_range = $this->getClassAtDate(
+                    $endDate,
+                    $p->classHistories,
+                    $p->class
+                );
+            } else {
+                // type = 'semua' - tidak ada endDate, gunakan nilai ALL-TIME dari DB
+                $p->total_biaya_range      = (float) $p->total_biaya;
+                $p->total_kedatangan_range = (int)   $p->total_kedatangan;
+                $p->class_at_range         = $p->class;
+            }
+        });
+
+        // Apply omset range filter (gunakan nilai range, bukan ALL-TIME)
         if ($this->omsetRange !== null && $this->omsetRange !== '') {
             $pelanggan = $pelanggan->filter(function ($p) {
+                $biaya = $p->total_biaya_range;
                 switch ($this->omsetRange) {
                     case '0':
-                        return $p->total_biaya < 1000000;
+                        return $biaya < 1000000;
                     case '1':
-                        return $p->total_biaya >= 1000000 && $p->total_biaya < 4000000;
+                        return $biaya >= 1000000 && $biaya < 4000000;
                     case '2':
-                        return $p->total_biaya >= 4000000;
+                        return $biaya >= 4000000;
                     default:
                         return true;
                 }
             });
         }
 
-        // Apply kedatangan range filter
+        // Apply kedatangan range filter (gunakan nilai range, bukan ALL-TIME)
         if ($this->kedatanganRange !== null && $this->kedatanganRange !== '') {
             $pelanggan = $pelanggan->filter(function ($p) {
+                $kedatangan = $p->total_kedatangan_range;
                 switch ($this->kedatanganRange) {
                     case '0':
-                        return $p->total_kedatangan <= 2;
+                        return $kedatangan <= 2;
                     case '1':
-                        return $p->total_kedatangan >= 3 && $p->total_kedatangan <= 4;
+                        return $kedatangan >= 3 && $kedatangan <= 4;
                     case '2':
-                        return $p->total_kedatangan > 4;
+                        return $kedatangan > 4;
                     default:
                         return true;
                 }
             });
         }
 
-        // Kembalikan data pelanggan yang difilter
+        // Kembalikan data pelanggan yang difilter.
+        // Kolom total_biaya, total_kedatangan, class menggunakan nilai range (s/d endDate),
+        // bukan nilai ALL-TIME dari database.
         return $pelanggan->map(function ($p) {
             return [
-                'id' => $p->id,
-                'pid' => $p->pid,
-                'nama' => $p->nama,
-                'cabang' => $p->cabang?->nama ?? '-',
-                'no_telp' => $p->no_telp ?? '-',
-                'dob' => $p->dob ? $p->dob->format('d-m-Y') : '-',
-                'alamat' => $p->alamat ?? '-',
-                'kota' => $p->kota ?? '-',
-                'total_kedatangan' => $p->total_kedatangan,
-                'class' => $p->class,
-                'total_biaya' => $p->total_biaya,
-                'tgl_kunjungan' => $p->tgl_kunjungan
+                'id'               => $p->id,
+                'pid'              => $p->pid,
+                'nama'             => $p->nama,
+                'cabang'           => $p->cabang?->nama ?? '-',
+                'no_telp'          => $p->no_telp ?? '-',
+                'dob'              => $p->dob ? $p->dob->format('d-m-Y') : '-',
+                'alamat'           => $p->alamat ?? '-',
+                'kota'             => $p->kota ?? '-',
+                'total_kedatangan' => $p->total_kedatangan_range,
+                'class'            => $p->class_at_range,
+                'total_biaya'      => $p->total_biaya_range,
+                'tgl_kunjungan'    => $p->tgl_kunjungan,
             ];
         });
     }
@@ -213,6 +280,7 @@ class PelangganExport implements FromCollection, WithHeadings
     public function headings(): array
     {
         if ($this->search) {
+            // Search mode: satu baris per kunjungan dengan tanggal lengkap
             return [
                 'ID',
                 'PID',
@@ -222,11 +290,10 @@ class PelangganExport implements FromCollection, WithHeadings
                 'DOB',
                 'Alamat',
                 'Kota',
-                'Bulan',
-                'Total Bulanan',
+                'Tanggal Kunjungan',
+                'Biaya',
                 'Total Kumulatif',
                 'Kelas',
-                'Kunjungan Terakhir'
             ];
         } else {
             return [
@@ -247,28 +314,51 @@ class PelangganExport implements FromCollection, WithHeadings
     }
 
     /**
-     * Get class based on total biaya and total kedatangan
-     * Potensial: Kedatangan minimal 2x dengan biaya berapapun atau 1x datang dengan minimal biaya 1 Juta
-     * Loyal: Kedatangan minimal 5x dengan total biaya berapapun
-     * Prioritas: 1x Kedatangan minimal 4 Juta, atau total biaya sudah lebih dari 4 juta
+     * Tentukan kelas pelanggan pada saat tanggal kunjungan tertentu
+     * berdasarkan riwayat perubahan kelas (pelanggan_class_histories).
+     *
+     * Logika:
+     * - Cari entry history terakhir yang changed_at <= tanggal kunjungan, ambil new_class-nya.
+     * - Jika tidak ada entry yang cocok (kunjungan terjadi SEBELUM perubahan kelas pertama),
+     *   gunakan previous_class dari entry pertama (kelas awal sebelum ada perubahan).
+     * - Jika tidak ada history sama sekali, default 'Potensial'.
+     *
+     * PENTING: Jangan fallback ke $currentClass karena itu kelas SAAT INI,
+     * bukan kelas historis saat kunjungan terjadi.
+     *
+     * @param  mixed       $visitDate       Tanggal kunjungan (Carbon|string)
+     * @param  \Illuminate\Support\Collection $classHistories  History kelas urut ASC
+     * @param  string|null $currentClass    Tidak digunakan untuk fallback (deprecated)
      */
-    private function getClass($totalBiaya, $totalKedatangan)
+    private function getClassAtDate($visitDate, $classHistories, ?string $currentClass = null): string
     {
-        // Prioritas: 1x Kedatangan minimal 4 Juta, atau total biaya sudah lebih dari 4 juta
-        if ($totalKedatangan >= 1 && $totalBiaya >= 4000000) {
-            return 'Prioritas';
+        $visitDateStr = \Carbon\Carbon::parse($visitDate)->toDateString();
+        $classAtTime  = null;
+
+        foreach ($classHistories as $history) {
+            $historyDateStr = $history->changed_at->toDateString();
+            if ($historyDateStr <= $visitDateStr) {
+                $classAtTime = $history->new_class;
+            } else {
+                // Karena sudah urut ASC, begitu melewati tanggal kunjungan bisa break
+                break;
+            }
         }
-        
-        // Loyal: Kedatangan minimal 5x dengan total biaya berapapun
-        if ($totalKedatangan >= 5) {
-            return 'Loyal';
+
+        // Ada history yang cocok → kembalikan kelas pada saat itu
+        if ($classAtTime !== null) {
+            return $classAtTime;
         }
-        
-        // Potensial: Kedatangan minimal 2x dengan biaya berapapun atau 1x datang dengan minimal biaya 1 Juta
-        if ($totalKedatangan >= 2 || ($totalKedatangan >= 1 && $totalBiaya >= 1000000)) {
-            return 'Potensial';
+
+        // Tidak ada history entry sebelum tanggal kunjungan ini.
+        // Berarti kunjungan terjadi SEBELUM perubahan kelas pertama.
+        // Gunakan previous_class dari entry pertama = kelas awal sebelum ada perubahan.
+        $firstHistory = $classHistories->first();
+        if ($firstHistory && $firstHistory->previous_class) {
+            return $firstHistory->previous_class;
         }
-        
-        return 'Potensial'; // Default
+
+        // Tidak ada history sama sekali → default Potensial
+        return 'Potensial';
     }
 }
