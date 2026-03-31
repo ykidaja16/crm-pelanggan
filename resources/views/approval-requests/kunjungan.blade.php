@@ -13,7 +13,7 @@
         </span>
     </div>
 
-    @if(session('success'))
+    {{-- @if(session('success'))
         <div class="alert alert-success alert-dismissible fade show shadow-sm" role="alert">
             <i class="fas fa-check-circle me-2"></i>{{ session('success') }}
             <button type="button" class="btn-close" data-bs-dismiss="alert"></button>
@@ -24,7 +24,7 @@
             <i class="fas fa-exclamation-circle me-2"></i>{{ session('error') }}
             <button type="button" class="btn-close" data-bs-dismiss="alert"></button>
         </div>
-    @endif
+    @endif --}}
 
     <!-- Filter Card -->
     <div class="card shadow-sm border-0 mb-3">

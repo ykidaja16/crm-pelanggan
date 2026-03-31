@@ -13,7 +13,7 @@
         </span>
     </div>
 
-    @if(session('success'))
+    {{-- @if(session('success'))
         <div class="alert alert-success alert-dismissible fade show shadow-sm" role="alert">
             <i class="fas fa-check-circle me-2"></i>{{ session('success') }}
             <button type="button" class="btn-close" data-bs-dismiss="alert"></button>
@@ -24,7 +24,7 @@
             <i class="fas fa-exclamation-circle me-2"></i>{{ session('error') }}
             <button type="button" class="btn-close" data-bs-dismiss="alert"></button>
         </div>
-    @endif
+    @endif --}}
 
     <!-- Filter Card -->
     <div class="card shadow-sm border-0 mb-3">
@@ -174,9 +174,9 @@
                             <div class="text-muted small mb-1"><i class="fas fa-tag me-1"></i>Jenis Pengajuan</div>
                             <div class="small fw-medium">
                                 @if($item->action === 'create')
-                                    <span class="badge bg-success bg-opacity-15 text-success border border-success">Pelanggan Baru</span>
+                                    <span class="badge bg-success bg-opacity-15 text-success border border-success text-dark">Pelanggan Baru</span>
                                 @else
-                                    <span class="badge bg-info bg-opacity-15 text-info border border-info">Tambah Kunjungan</span>
+                                    <span class="badge bg-info bg-opacity-15 text-info border border-info text-dark">Tambah Kunjungan</span>
                                 @endif
                             </div>
                         </div>

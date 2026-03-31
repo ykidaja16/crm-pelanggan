@@ -93,7 +93,7 @@ class Pelanggan extends Model
      * Potensial: Kedatangan minimal 2x dengan biaya berapapun OR 1x datang dengan minimal biaya 1 Juta
      * Loyal: Kedatangan minimal 5x dengan total biaya berapapun
      * Prioritas: 1x Kedatangan minimal 4 Juta OR total biaya sudah lebih dari 4 juta
-     -->
+     */
     public static function calculateClass(
         int $totalKedatangan,
         float $totalBiaya,

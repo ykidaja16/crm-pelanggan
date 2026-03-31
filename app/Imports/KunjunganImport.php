@@ -284,7 +284,9 @@ class KunjunganImport implements ToCollection, WithStartRow
             ]);
         }
         
-
+        // ✅ FIX: Simpan DULU untuk pastikan instance lengkap sebelum calculateClass()
+        $pelanggan->save();
+        
         // Hitung class berdasarkan total yang sudah diakumulasi dan rule kunjungan high-value
         $hasHighValueVisit = $pelanggan->kunjungans()
             ->where('biaya', '>=', 4000000)
@@ -296,16 +298,18 @@ class KunjunganImport implements ToCollection, WithStartRow
             $hasHighValueVisit,
             (bool) $pelanggan->is_pelanggan_khusus
         );
-        $pelanggan->class = $newClass;
         
-        // Simpan pelanggan untuk dapatkan ID
-        $pelanggan->save();
+        // Update class jika berbeda
+        if ($pelanggan->class !== $newClass) {
+            $pelanggan->class = $newClass;
+            $pelanggan->save();
+        }
         
         // Catat riwayat perubahan kelas jika berbeda (hanya untuk pelanggan existing)
-        if ($isExisting && $oldClass !== $newClass) {
+        if ($isExisting && $oldClass !== $pelanggan->class) {
             $pelanggan->classHistories()->create([
                 'previous_class' => $oldClass,
-                'new_class'      => $newClass,
+                'new_class'      => $pelanggan->class,
                 'changed_at'     => $tanggalKedatangan ?? now(),
                 'changed_by'     => Auth::check() ? Auth::id() : null,
                 'reason'         => 'Perubahan dari import data Excel',
@@ -314,7 +318,7 @@ class KunjunganImport implements ToCollection, WithStartRow
             Log::info("Class change recorded during import", [
                 'pid' => $pid,
                 'old_class' => $oldClass,
-                'new_class' => $newClass
+                'new_class' => $pelanggan->class
             ]);
         }
 
