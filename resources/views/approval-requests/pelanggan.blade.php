@@ -145,10 +145,14 @@
         <div class="modal-content border-0 shadow">
 
             {{-- Header --}}
-            <div class="modal-header py-3
-                @if($item->action === 'edit') bg-warning text-dark
-                @elseif(in_array($item->action, ['delete','bulk_delete'])) bg-danger text-white
-                @else bg-primary text-white @endif">
+            @php
+                $headerClass = match($item->action) {
+                    'edit'                  => 'bg-warning text-dark',
+                    'delete', 'bulk_delete' => 'bg-danger text-white',
+                    default                 => 'bg-primary text-white',
+                };
+            @endphp
+            <div class="modal-header py-3 {{ $headerClass }}">
                 <h5 class="modal-title fw-semibold">
                     @if($item->action === 'edit')
                         <i class="fas fa-edit me-2"></i>Detail Pengajuan Edit Pelanggan
