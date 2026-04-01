@@ -488,7 +488,7 @@ class PelangganController extends Controller
         if ($sort === 'tgl_kunjungan') {
             $query->orderByRaw("(tgl_kunjungan IS NULL) ASC, tgl_kunjungan {$direction}");
         } elseif ($sort === 'class') {
-            $query->orderBy('total_biaya', $direction);
+            $query->orderByRaw("CASE class WHEN 'Prioritas' THEN 1 WHEN 'Loyal' THEN 2 WHEN 'Potensial' THEN 3 ELSE 4 END {$direction}");
         } elseif ($sort === 'nama') {
             $query->orderByRaw("LOWER(nama) {$direction}");
         } elseif ($sort === 'alamat') {
