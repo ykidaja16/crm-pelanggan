@@ -342,7 +342,7 @@
                                     </td>
                                     <td class="py-2 text-center">
                                         @php
-                                            $class = $p->class ?? 'Potensial';
+                                            $class = $p->class_at_period ?? $p->class ?? 'Potensial';
                                             $badgeClass = match($class) {
                                                 'Prioritas' => 'bg-danger bg-opacity-10 text-danger border border-danger',
                                                 'Loyal' => 'bg-success bg-opacity-10 text-success border border-success',

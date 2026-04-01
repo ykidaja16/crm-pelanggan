@@ -357,6 +357,7 @@ class PelangganController extends Controller
 
         // Subquery untuk tgl_kunjungan terakhir sesuai periode
         // Subquery untuk total_biaya & total_kedatangan kumulatif sesuai periode
+        $endOfPeriod = null;
         if ($type === 'perbulan' && $bulan && $tahun) {
             $safeBulan   = (int) $bulan;
             $safeTahun   = (int) $tahun;
@@ -505,6 +506,42 @@ class PelangganController extends Controller
         }
 
         $pelanggan = $query->paginate(30)->withQueryString();
+
+        // Hitung kelas historis pada akhir periode untuk setiap pelanggan di halaman ini
+        // Agar tampilan kolom Kelas di view sesuai dengan periode yang difilter
+        if (!empty($endOfPeriod)) {
+            $pelangganIds = $pelanggan->pluck('id');
+            $allHistories = \App\Models\PelangganClassHistory::whereIn('pelanggan_id', $pelangganIds)
+                ->orderBy('changed_at', 'asc')
+                ->get()
+                ->groupBy('pelanggan_id');
+
+            // Untuk pelanggan tanpa history (misal: data import lama),
+            // cek apakah ada kunjungan high-value (>= 4 juta) s.d. endOfPeriod
+            $highValuePelangganIds = \App\Models\Kunjungan::whereIn('pelanggan_id', $pelangganIds)
+                ->where('biaya', '>=', 4000000)
+                ->where('tanggal_kunjungan', '<=', $endOfPeriod)
+                ->pluck('pelanggan_id')
+                ->unique()
+                ->toArray();
+
+            $pelanggan->each(function ($p) use ($allHistories, $endOfPeriod, $highValuePelangganIds) {
+                $histories = $allHistories->get($p->id, collect());
+
+                if ($histories->isEmpty()) {
+                    // Tidak ada history → hitung dinamis berdasarkan kunjungan kumulatif s.d. endOfPeriod
+                    $hasHighValue = in_array($p->id, $highValuePelangganIds);
+                    $p->class_at_period = Pelanggan::calculateClass(
+                        (int)   ($p->kedatangan_periode ?? $p->total_kedatangan),
+                        (float) ($p->biaya_periode      ?? $p->total_biaya),
+                        $hasHighValue,
+                        (bool)  $p->is_pelanggan_khusus
+                    );
+                } else {
+                    $p->class_at_period = Pelanggan::resolveClassAtDate($endOfPeriod, $histories, $p->class);
+                }
+            });
+        }
 
         return view('pelanggan.index', [
             'pelanggan'          => $pelanggan,

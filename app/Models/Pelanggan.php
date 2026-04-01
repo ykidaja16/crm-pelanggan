@@ -9,6 +9,7 @@ use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\SoftDeletes;
 use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\DB;
+use Carbon\Carbon;
 
 class Pelanggan extends Model
 {
@@ -231,6 +232,42 @@ class Pelanggan extends Model
 
         $this->class = $newClass;
         $this->save();
+    }
+
+    /**
+     * Tentukan kelas pelanggan pada saat tanggal tertentu berdasarkan riwayat kelas.
+     * Digunakan oleh controller (view) dan export classes.
+     *
+     * @param  mixed       $date            Tanggal referensi (Carbon|string)
+     * @param  \Illuminate\Support\Collection $classHistories  History kelas urut ASC by changed_at
+     * @param  string|null $currentClass    Kelas saat ini (fallback jika tidak ada history)
+     */
+    public static function resolveClassAtDate($date, $classHistories, ?string $currentClass = null): string
+    {
+        $dateStr     = \Carbon\Carbon::parse($date)->toDateString();
+        $classAtTime = null;
+
+        foreach ($classHistories as $history) {
+            $historyDateStr = $history->changed_at->toDateString();
+            if ($historyDateStr <= $dateStr) {
+                $classAtTime = $history->new_class;
+            } else {
+                break;
+            }
+        }
+
+        if ($classAtTime !== null) {
+            return $classAtTime;
+        }
+
+        // Kunjungan terjadi SEBELUM perubahan kelas pertama → gunakan previous_class
+        $firstHistory = $classHistories->first();
+        if ($firstHistory && $firstHistory->previous_class) {
+            return $firstHistory->previous_class;
+        }
+
+        // Tidak ada history sama sekali → gunakan kelas saat ini sebagai fallback
+        return $currentClass ?? 'Potensial';
     }
 
     /**

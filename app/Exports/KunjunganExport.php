@@ -70,13 +70,39 @@ class KunjunganExport implements FromCollection, WithHeadings, WithStyles, WithC
             return $firstHistory->previous_class;
         }
 
-        // Tidak ada history sama sekali → default Potensial
-        return 'Potensial';
+        // Tidak ada history sama sekali → gunakan kelas saat ini sebagai fallback
+        return $this->pelanggan->class ?? 'Potensial';
     }
 
     public function collection()
     {
-        return $this->kunjungans->map(function ($k, $index) {
+        // Pastikan kunjungans urut ASC by tanggal untuk kalkulasi kumulatif yang benar
+        $kunjungans = $this->kunjungans->sortBy('tanggal_kunjungan')->values();
+
+        $cumulativeBiaya      = 0;
+        $cumulativeKedatangan = 0;
+        $hasHighValue         = false;
+
+        return $kunjungans->map(function ($k, $index) use (&$cumulativeBiaya, &$cumulativeKedatangan, &$hasHighValue) {
+            $cumulativeBiaya      += $k->biaya ?? 0;
+            $cumulativeKedatangan += $k->total_kedatangan ?? 1;
+            if (($k->biaya ?? 0) >= 4000000) {
+                $hasHighValue = true;
+            }
+
+            // Kelas historis: kelas yang berlaku pada saat tanggal kunjungan ini
+            if ($this->classHistories->isEmpty()) {
+                // Tidak ada history → hitung dinamis berdasarkan kunjungan kumulatif s.d. tanggal ini
+                $classAtTime = \App\Models\Pelanggan::calculateClass(
+                    $cumulativeKedatangan,
+                    $cumulativeBiaya,
+                    $hasHighValue,
+                    (bool) $this->pelanggan->is_pelanggan_khusus
+                );
+            } else {
+                $classAtTime = $this->getClassAtDate($k->tanggal_kunjungan);
+            }
+
             return [
                 'No'                 => $index + 1,
                 'PID'                => $this->pelanggan->pid,
@@ -93,8 +119,7 @@ class KunjunganExport implements FromCollection, WithHeadings, WithStyles, WithC
                                             : '-',
                 'Biaya'              => $k->biaya ?? 0,
                 'Kelompok Pelanggan' => $k->kelompokPelanggan?->nama ?? '-',
-                // Kelas historis: kelas yang berlaku pada saat tanggal kunjungan ini
-                'Kelas'              => $this->getClassAtDate($k->tanggal_kunjungan),
+                'Kelas'              => $classAtTime,
             ];
         });
     }

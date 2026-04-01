@@ -78,18 +78,37 @@ class PelangganExport implements FromCollection, WithHeadings
                 ->get();
 
             // Buat satu baris per kunjungan (bukan per bulan)
-            $data        = [];
-            $cumulative  = 0;
+            // Kunjungans sudah urut ASC by tanggal untuk kalkulasi kumulatif
+            $data                 = [];
+            $cumulative           = 0;
+            $cumulativeBiaya      = 0;
+            $cumulativeKedatangan = 0;
+            $hasHighValue         = false;
 
             foreach ($kunjungans as $k) {
-                $cumulative += $k->biaya ?? 0;
+                $cumulative           += $k->biaya ?? 0;
+                $cumulativeBiaya      += $k->biaya ?? 0;
+                $cumulativeKedatangan += $k->total_kedatangan ?? 1;
+                if (($k->biaya ?? 0) >= 4000000) {
+                    $hasHighValue = true;
+                }
 
                 // Kelas historis: kelas yang berlaku pada saat tanggal kunjungan ini
-                $classAtTime = $this->getClassAtDate(
-                    $k->tanggal_kunjungan,
-                    $classHistories,
-                    $pelanggan->class
-                );
+                if ($classHistories->isEmpty()) {
+                    // Tidak ada history → hitung dinamis berdasarkan kunjungan kumulatif s.d. tanggal ini
+                    $classAtTime = Pelanggan::calculateClass(
+                        $cumulativeKedatangan,
+                        $cumulativeBiaya,
+                        $hasHighValue,
+                        (bool) $pelanggan->is_pelanggan_khusus
+                    );
+                } else {
+                    $classAtTime = $this->getClassAtDate(
+                        $k->tanggal_kunjungan,
+                        $classHistories,
+                        $pelanggan->class
+                    );
+                }
 
                 $data[] = [
                     'id'                => $pelanggan->id,
@@ -205,12 +224,25 @@ class PelangganExport implements FromCollection, WithHeadings
                 $p->total_biaya_range      = (float) $p->kunjungans->sum('biaya');
                 // Akumulasi kedatangan s/d endDate
                 $p->total_kedatangan_range = (int)   $p->kunjungans->sum('total_kedatangan');
-                // Kelas pelanggan pada saat endDate (berdasarkan riwayat kelas)
-                $p->class_at_range = $this->getClassAtDate(
-                    $endDate,
-                    $p->classHistories,
-                    $p->class
-                );
+
+                // Kelas pelanggan pada saat endDate
+                if ($p->classHistories->isEmpty()) {
+                    // Tidak ada history (misal: data import lama) →
+                    // hitung dinamis berdasarkan kunjungan kumulatif s.d. endDate
+                    $hasHighValue = $p->kunjungans->contains(fn($k) => ($k->biaya ?? 0) >= 4000000);
+                    $p->class_at_range = \App\Models\Pelanggan::calculateClass(
+                        $p->total_kedatangan_range,
+                        $p->total_biaya_range,
+                        $hasHighValue,
+                        (bool) $p->is_pelanggan_khusus
+                    );
+                } else {
+                    $p->class_at_range = $this->getClassAtDate(
+                        $endDate,
+                        $p->classHistories,
+                        $p->class
+                    );
+                }
             } else {
                 // type = 'semua' - tidak ada endDate, gunakan nilai ALL-TIME dari DB
                 $p->total_biaya_range      = (float) $p->total_biaya;
@@ -358,7 +390,7 @@ class PelangganExport implements FromCollection, WithHeadings
             return $firstHistory->previous_class;
         }
 
-        // Tidak ada history sama sekali → default Potensial
-        return 'Potensial';
+        // Tidak ada history sama sekali → gunakan kelas saat ini sebagai fallback
+        return $currentClass ?? 'Potensial';
     }
 }
