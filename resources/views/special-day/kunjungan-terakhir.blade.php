@@ -114,7 +114,7 @@
                                 <th>Nama</th>
                                 <th>Cabang</th>
                                 <th class="text-center">Kunjungan Terakhir</th>
-                                <th class="text-center">Sudah Tidak Kunjungan</th>
+                                {{-- <th class="text-center">Sudah Tidak Kunjungan</th> --}}
                                 <th class="text-center">Kelas</th>
                                 <th>No. Telp</th>
                                 <th class="text-center">Kelompok</th>
@@ -149,7 +149,7 @@ $diffDays = $lastVisit ? round($lastVisit->diffInDays(now())) : null;
                                         <span class="text-muted">-</span>
                                     @endif
                                 </td>
-                                <td class="text-center small">
+                                {{-- <td class="text-center small">
                                     @if($diffDays !== null)
                                         <span class="badge bg-danger bg-opacity-15 text-danger border border-danger text-dark">
                                             {{ $diffDays }} hari
@@ -157,7 +157,7 @@ $diffDays = $lastVisit ? round($lastVisit->diffInDays(now())) : null;
                                     @else
                                         <span class="text-muted">-</span>
                                     @endif
-                                </td>
+                                </td> --}}
                                 <td class="text-center">
                                     @php
                                         $kelasColor = match($p->class) {

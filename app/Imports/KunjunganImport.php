@@ -147,8 +147,8 @@ class KunjunganImport implements ToCollection, WithStartRow
                 $pid = isset($rowArray[7]) ? trim((string) $rowArray[7]) : '';
                 $alamat = isset($rowArray[8]) ? trim((string) $rowArray[8]) : '';
                 $kota = isset($rowArray[9]) ? trim((string) $rowArray[9]) : '';
-                $kelompokPelanggan = isset($rowArray[10]) ? strtolower(trim((string) $rowArray[10])) : 'mandiri';
-                $kelompokPelanggan = in_array($kelompokPelanggan, ['mandiri', 'klinisi']) ? $kelompokPelanggan : 'mandiri';
+                $kelompokRaw       = isset($rowArray[10]) ? strtolower(trim((string) $rowArray[10])) : '';
+                $kelompokPelanggan = str_contains($kelompokRaw, 'klinisi') ? 'klinisi' : 'mandiri';
 
                 if (empty($pid) || empty($namaPasien)) {
                     continue;

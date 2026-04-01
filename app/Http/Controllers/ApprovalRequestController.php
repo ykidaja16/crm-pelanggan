@@ -376,8 +376,8 @@ class ApprovalRequestController extends Controller
                 $pid = strtoupper(trim((string) ($row[7] ?? '')));
                 $alamat = trim((string) ($row[8] ?? ''));
                 $kota = trim((string) ($row[9] ?? ''));
-                $kelompokPelanggan = strtolower(trim((string) ($row[10] ?? 'mandiri')));
-                $kelompokPelanggan = in_array($kelompokPelanggan, ['mandiri', 'klinisi']) ? $kelompokPelanggan : 'mandiri';
+                $kelompokRaw       = strtolower(trim((string) ($row[10] ?? '')));
+                $kelompokPelanggan = str_contains($kelompokRaw, 'klinisi') ? 'klinisi' : 'mandiri';
                 $kategoriKhusus = trim((string) ($row[11] ?? ''));
 
                 if ($pid === '' || $nama === '' || $kategoriKhusus === '') {

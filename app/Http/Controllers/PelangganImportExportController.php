@@ -498,8 +498,8 @@ class PelangganImportExportController extends Controller
             $pid              = trim($row[7] ?? '');
             $alamat           = trim($row[8] ?? '');
             $kota             = trim($row[9] ?? '');
-            $kelompokPelanggan = isset($row[10]) ? strtolower(trim((string) $row[10])) : 'mandiri';
-            $kelompokPelanggan = in_array($kelompokPelanggan, ['mandiri', 'klinisi']) ? $kelompokPelanggan : 'mandiri';
+            $kelompokRaw       = isset($row[10]) ? strtolower(trim((string) $row[10])) : '';
+            $kelompokPelanggan = str_contains($kelompokRaw, 'klinisi') ? 'klinisi' : 'mandiri';
 
             if (empty($pid) || empty($nama)) {
                 continue;
