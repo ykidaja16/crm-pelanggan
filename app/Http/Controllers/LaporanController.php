@@ -98,7 +98,10 @@ class LaporanController extends Controller
 
     private function buildQuery(Request $request)
     {
-        $query = Pelanggan::with(['cabang', 'kunjungans'])
+        // Optimasi: hapus 'kunjungans' dari eager load — tgl_kunjungan_terakhir sudah
+        // dihitung via correlated subquery di selectRaw, tidak perlu load semua kunjungan.
+        // 'kunjungans' hanya ditambahkan di export() jika benar-benar dibutuhkan.
+        $query = Pelanggan::with(['cabang'])
             ->select('pelanggans.*')
             ->selectRaw('(SELECT MAX(tanggal_kunjungan) FROM kunjungans WHERE kunjungans.pelanggan_id = pelanggans.id) as tgl_kunjungan_terakhir');
         
@@ -177,11 +180,16 @@ class LaporanController extends Controller
             }
         }
         
-        // Point 4: Filter kelompok pelanggan (mandiri/klinisi)
+        // Filter kelompok pelanggan (mandiri/klinisi)
+        // Optimasi: ganti nested whereHas (2x EXISTS subquery) dengan 1x EXISTS + JOIN
         if ($request->filled('kelompok_pelanggan')) {
             $kelompok = $request->get('kelompok_pelanggan');
-            $query->whereHas('kunjungans.kelompokPelanggan', function ($q) use ($kelompok) {
-                $q->where('kode', $kelompok);
+            $query->whereExists(function ($q) use ($kelompok) {
+                $q->select(DB::raw(1))
+                  ->from('kunjungans')
+                  ->join('kelompok_pelanggans', 'kelompok_pelanggans.id', '=', 'kunjungans.kelompok_pelanggan_id')
+                  ->whereColumn('kunjungans.pelanggan_id', 'pelanggans.id')
+                  ->where('kelompok_pelanggans.kode', $kelompok);
             });
         }
 
