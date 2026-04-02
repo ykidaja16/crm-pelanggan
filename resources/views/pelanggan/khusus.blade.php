@@ -148,9 +148,10 @@
                             </select>
                         </div>
                         <div class="col-md-6" id="kategori_lainnya_wrapper" style="display:none;">
-                            <label class="form-label">Keterangan Kategori Lainnya <span class="text-danger">*</span></label>
+                            <label class="form-label">Keterangan Kategori <span id="kategori_lainnya_required_mark" class="text-danger" style="display:none;">*</span></label>
                             <input type="text" name="kategori_khusus_lainnya" id="kategori_khusus_lainnya"
-                                class="form-control" placeholder="Sebutkan kategori">
+                                class="form-control" placeholder="Contoh: Pemkot Malang, RS UB, dll.">
+                            <div class="form-text text-muted" id="kategori_lainnya_hint"></div>
                         </div>
 
                         <div class="col-12">
@@ -393,17 +394,36 @@ function updateSuperadminDropdown(cabangId) {
     }
 }
 
-// ── Kategori Lainnya toggle ───────────────────────────────────────────────────
+// ── Kategori Khusus toggle (semua kategori tampilkan keterangan) ─────────────
 function toggleKategoriLainnya(select) {
-    const wrapper = document.getElementById('kategori_lainnya_wrapper');
-    const input   = document.getElementById('kategori_khusus_lainnya');
-    if (select.value === 'Lainnya') {
-        wrapper.style.display = 'block';
-        input.required = true;
-    } else {
+    const wrapper      = document.getElementById('kategori_lainnya_wrapper');
+    const input        = document.getElementById('kategori_khusus_lainnya');
+    const requiredMark = document.getElementById('kategori_lainnya_required_mark');
+    const hint         = document.getElementById('kategori_lainnya_hint');
+
+    if (!select.value) {
+        // Tidak ada pilihan → sembunyikan
         wrapper.style.display = 'none';
         input.required = false;
-        input.value = '';
+        input.value    = '';
+        return;
+    }
+
+    // Tampilkan untuk semua kategori
+    wrapper.style.display = 'block';
+
+    if (select.value === 'Lainnya') {
+        // Lainnya: wajib diisi, keterangan = nilai yang disimpan
+        input.required = true;
+        input.placeholder = 'Sebutkan kategori secara lengkap';
+        requiredMark.style.display = 'inline';
+        hint.textContent = 'Wajib diisi. Nilai ini yang akan disimpan sebagai kategori.';
+    } else {
+        // Kategori lain: opsional, keterangan digabung dengan nama kategori
+        input.required = false;
+        input.placeholder = 'Contoh: Pemkot Malang, RS UB, dll. (opsional)';
+        requiredMark.style.display = 'none';
+        hint.textContent = 'Opsional. Akan digabung: "' + select.value + ' [keterangan]".';
     }
 }
 
@@ -420,18 +440,27 @@ function attachBiayaFormat(selector) {
 attachBiayaFormat('.biaya-khusus-input');
 attachBiayaFormat('.biaya-lama-input');
 
-// ── Submit Pelanggan Baru: merge kategori lainnya + clean biaya ───────────────
+// ── Submit Pelanggan Baru: merge kategori + keterangan + clean biaya ──────────
 document.getElementById('formBaru').addEventListener('submit', function(e) {
-    const select      = document.getElementById('kategori_khusus_select');
-    const lainnyaInput= document.getElementById('kategori_khusus_lainnya');
+    const select       = document.getElementById('kategori_khusus_select');
+    const lainnyaInput = document.getElementById('kategori_khusus_lainnya');
+    const keterangan   = lainnyaInput.value.trim();
+
     if (select.value === 'Lainnya') {
-        if (!lainnyaInput.value.trim()) {
+        // Lainnya: wajib isi keterangan, simpan hanya keterangan
+        if (!keterangan) {
             e.preventDefault();
             alert('Harap isi keterangan untuk kategori Lainnya.');
+            lainnyaInput.focus();
             return false;
         }
-        select.value = lainnyaInput.value.trim();
+        select.value = keterangan;
+    } else if (select.value && keterangan) {
+        // Kategori lain + ada keterangan: gabungkan "Kategori Keterangan"
+        select.value = select.value + ' ' + keterangan;
     }
+    // Jika kategori lain tanpa keterangan: simpan nama kategori saja (tidak diubah)
+
     document.querySelectorAll('.biaya-khusus-input').forEach(function(inp) {
         inp.value = inp.value.replace(/\./g, '');
     });

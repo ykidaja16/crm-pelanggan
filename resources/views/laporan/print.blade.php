@@ -89,8 +89,8 @@
         }
         
         .text-center { text-align: center; }
-        .text-right { text-align: right; }
-        .text-left { text-align: left; }
+        .text-right  { text-align: right; }
+        .text-left   { text-align: left; }
         
         .summary-box {
             margin-top: 20px;
@@ -146,52 +146,23 @@
             font-weight: bold;
         }
         
-        .badge-prioritas { 
-            background-color: #dc3545; 
-            color: white; 
-        }
+        .badge-prioritas { background-color: #dc3545; color: white; }
+        .badge-loyal     { background-color: #28a745; color: white; }
+        .badge-potensial { background-color: #ffc107; color: #000; }
         
-        .badge-loyal { 
-            background-color: #28a745; 
-            color: white; 
-        }
-        
-        .badge-potensial { 
-            background-color: #ffc107; 
-            color: #000; 
-        }
-        
-        /* Print specific styles */
         @media print {
             body {
                 padding: 0;
                 -webkit-print-color-adjust: exact;
                 print-color-adjust: exact;
             }
-            
-            .no-print {
-                display: none !important;
-            }
-            
-            .header, .filters, .summary-box {
-                page-break-inside: avoid;
-            }
-            
-            table.data {
-                page-break-inside: auto;
-            }
-            
-            table.data tr {
-                page-break-inside: avoid;
-                page-break-after: auto;
-            }
-            
-            table.data thead {
-                display: table-header-group;
-            }
+            .no-print { display: none !important; }
+            .header, .filters, .summary-box { page-break-inside: avoid; }
+            table.data { page-break-inside: auto; }
+            table.data tr { page-break-inside: avoid; page-break-after: auto; }
+            table.data thead { display: table-header-group; }
         }
         
-        /* Print button */
         .print-controls {
             text-align: center;
             margin-bottom: 20px;
@@ -210,9 +181,7 @@
             border-radius: 5px;
         }
         
-        .btn-print:hover {
-            background-color: #0056b3;
-        }
+        .btn-print:hover { background-color: #0056b3; }
         
         .print-info {
             margin-top: 10px;
@@ -225,7 +194,7 @@
     <!-- Print Controls (hidden when printing) -->
     <div class="print-controls no-print">
         <button class="btn-print" onclick="window.print()">
-            <i class="fas fa-print"></i> Cetak Laporan
+            &#128438; Cetak Laporan
         </button>
         <div class="print-info">
             Klik tombol di atas untuk mencetak laporan. Pastikan printer sudah terhubung.
@@ -246,7 +215,7 @@
         <div>
             @foreach($filters as $key => $value)
                 <span class="filter-item">
-                    <strong>{{ ucfirst($key) }}:</strong> {{ $value }}
+                    <strong>{{ $key }}:</strong> {{ $value }}
                 </span>
             @endforeach
         </div>
@@ -269,9 +238,23 @@
                 <th style="width: 10%;">Kelas</th>
             </tr>
         </thead>
-
         <tbody>
             @forelse($pelanggan as $index => $p)
+            @php
+                // Pilih kolom period-specific jika filter periode aktif
+                $biaya      = $usePeriodeBiaya
+                    ? ($p->biaya_periode      ?? $p->total_biaya      ?? 0)
+                    : ($p->total_biaya        ?? 0);
+                $kedatangan = $usePeriodeBiaya
+                    ? ($p->kedatangan_periode ?? $p->total_kedatangan ?? 0)
+                    : ($p->total_kedatangan   ?? 0);
+                $kelas      = $p->class_at_period ?? $p->class ?? 'Potensial';
+                $badgeClass = match($kelas) {
+                    'Prioritas' => 'badge-prioritas',
+                    'Loyal'     => 'badge-loyal',
+                    default     => 'badge-potensial',
+                };
+            @endphp
             <tr>
                 <td class="text-center">{{ $index + 1 }}</td>
                 <td class="text-center">{{ $p->pid }}</td>
@@ -279,20 +262,15 @@
                 <td class="text-center">{{ $p->cabang?->nama ?? '-' }}</td>
                 <td class="text-center">{{ $p->no_telp ?? '-' }}</td>
                 <td class="text-center">{{ $p->dob ? $p->dob->format('d-m-Y') : '-' }}</td>
-                <td class="text-center">{{ $p->total_kedatangan ?? 0 }} kali</td>
-                <td class="text-center">{{ $p->tgl_kunjungan_terakhir ? \Carbon\Carbon::parse($p->tgl_kunjungan_terakhir)->format('d-m-Y') : '-' }}</td>
-                <td class="text-right">Rp {{ number_format($p->total_biaya ?? 0, 0, ',', '.') }}</td>
+                <td class="text-center">{{ (int) $kedatangan }} kali</td>
                 <td class="text-center">
-                    @php
-                        $class = $p->class ?? 'Potensial';
-                        $badgeClass = match($class) {
-                            'Prioritas' => 'badge-prioritas',
-                            'Loyal' => 'badge-loyal',
-                            'Potensial' => 'badge-potensial',
-                            default => 'badge-potensial'
-                        };
-                    @endphp
-                    <span class="badge {{ $badgeClass }}">{{ $class }}</span>
+                    {{ $p->tgl_kunjungan_terakhir
+                        ? \Carbon\Carbon::parse($p->tgl_kunjungan_terakhir)->format('d-m-Y')
+                        : '-' }}
+                </td>
+                <td class="text-right">Rp {{ number_format((float)$biaya, 0, ',', '.') }}</td>
+                <td class="text-center">
+                    <span class="badge {{ $badgeClass }}">{{ $kelas }}</span>
                 </td>
             </tr>
             @empty
@@ -300,11 +278,14 @@
                 <td colspan="10" class="text-center">Tidak ada data yang sesuai dengan filter.</td>
             </tr>
             @endforelse
-
         </tbody>
     </table>
 
     <!-- Summary -->
+    @php
+        $totalBiayaPrint      = $pelanggan->sum(fn($p) => $usePeriodeBiaya ? ($p->biaya_periode ?? $p->total_biaya ?? 0) : ($p->total_biaya ?? 0));
+        $totalKunjunganPrint  = $pelanggan->sum(fn($p) => $usePeriodeBiaya ? ($p->kedatangan_periode ?? $p->total_kedatangan ?? 0) : ($p->total_kedatangan ?? 0));
+    @endphp
     <div class="summary-box">
         <div class="summary-title">Ringkasan Laporan</div>
         <div class="summary-grid">
@@ -314,25 +295,19 @@
             </div>
             <div class="summary-item">
                 <div class="summary-label">Total Kunjungan</div>
-                <div class="summary-value">{{ $pelanggan->sum('total_kedatangan') }} kali</div>
+                <div class="summary-value">{{ number_format((int)$totalKunjunganPrint) }} kali</div>
+            </div>
+            <div class="summary-item">
+                <div class="summary-label">Total Biaya</div>
+                <div class="summary-value">Rp {{ number_format((float)$totalBiayaPrint, 0, ',', '.') }}</div>
             </div>
         </div>
     </div>
-
 
     <!-- Footer -->
     <div class="footer">
         <p>Medical Lab CRM - Sistem Informasi Pelanggan</p>
         <p>&copy; {{ date('Y') }} - All Rights Reserved</p>
     </div>
-
-    <script>
-        // Auto print when page loads (optional, can be enabled)
-        // window.onload = function() {
-        //     setTimeout(function() {
-        //         window.print();
-        //     }, 1000);
-        // };
-    </script>
 </body>
 </html>

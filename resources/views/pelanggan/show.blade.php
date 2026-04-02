@@ -32,6 +32,18 @@
                         <div class="fs-5 fw-semibold">{{ $pelanggan->nama }}</div>
                     </div>
                     <div class="mb-3">
+                        <label class="text-muted small fw-medium text-uppercase">No Telepon</label>
+                        <div class="fs-6">
+                            @if($pelanggan->no_telp)
+                                <a href="tel:{{ $pelanggan->no_telp }}" class="text-decoration-none">
+                                    <i class="fas fa-phone me-1 text-success"></i>{{ $pelanggan->no_telp }}
+                                </a>
+                            @else
+                                <span class="text-muted">-</span>
+                            @endif
+                        </div>
+                    </div>
+                    <div class="mb-3">
                         <label class="text-muted small fw-medium text-uppercase">Alamat</label>
                         <div class="fs-6">{{ $pelanggan->alamat ?? '-' }}</div>
                     </div>

@@ -5,14 +5,16 @@ namespace App\Http\Controllers;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\DB;
+use Carbon\Carbon;
 use App\Models\Pelanggan;
 use App\Models\Cabang;
 use App\Models\User;
+use App\Models\PelangganClassHistory;
+use App\Models\Kunjungan;
 use App\Exports\LaporanExport;
 use Maatwebsite\Excel\Facades\Excel;
 
 class LaporanController extends Controller
-
 {
     public function index()
     {
@@ -27,29 +29,31 @@ class LaporanController extends Controller
     }
 
     /**
-     * Point 4: Helper untuk validasi prefix PID sesuai cabang
+     * Preview data laporan (AJAX JSON) dengan filter yang benar.
+     * Filter periode menggunakan whereHas (ada kunjungan di periode),
+     * bukan whereRaw pada tanggal kunjungan terakhir.
      */
-    public static function validatePidCabang(string $pid, int $cabangId): bool
-    {
-        $cabang = Cabang::find($cabangId);
-        if (!$cabang) return false;
-        $pidPrefix = strtoupper(substr($pid, 0, 2));
-        return $pidPrefix === strtoupper($cabang->kode);
-    }
-
     public function preview(Request $request)
     {
         try {
-            // Build query utama dengan semua filter
-            $baseQuery = $this->buildQuery($request);
+            $usePeriodeBiaya = $this->isUsePeriodeBiaya($request);
 
-            // Untuk summary: wrap query sebagai subquery agar tidak konflik dengan
-            // only_full_group_by (karena buildQuery() sudah punya SELECT pelanggans.*)
+            // Build query utama
+            $baseQuery    = $this->buildQuery($request);
             $baseSql      = $baseQuery->toSql();
             $baseBindings = $baseQuery->getBindings();
 
+            // Kolom summary: gunakan period-specific jika ada filter periode
+            $biayaCol      = $usePeriodeBiaya ? 'biaya_periode'      : 'total_biaya';
+            $kedatanganCol = $usePeriodeBiaya ? 'kedatangan_periode'  : 'total_kedatangan';
+
             $summaryRaw = DB::table(DB::raw("({$baseSql}) as sub"))
-                ->selectRaw('COUNT(*) as total_pelanggan, COALESCE(SUM(total_biaya),0) as total_omset, COALESCE(AVG(total_biaya),0) as rata_rata_omset, COALESCE(SUM(total_kedatangan),0) as total_kunjungan')
+                ->selectRaw(
+                    "COUNT(*) as total_pelanggan,
+                     COALESCE(SUM({$biayaCol}), 0)  as total_omset,
+                     COALESCE(AVG({$biayaCol}), 0)  as rata_rata_omset,
+                     COALESCE(SUM({$kedatanganCol}), 0) as total_kunjungan"
+                )
                 ->setBindings($baseBindings)
                 ->first();
 
@@ -60,13 +64,27 @@ class LaporanController extends Controller
                 'total_kunjungan' => (int)    ($summaryRaw->total_kunjungan  ?? 0),
             ];
 
-            // Paginate menggunakan query baru (buildQuery dipanggil ulang agar bersih)
+            // Paginate (query baru agar bersih)
             $pelanggan = $this->buildQuery($request)->paginate(25);
 
+            // Hitung class_at_period jika ada filter periode
+            $endOfPeriod = $this->getEndOfPeriod($request);
+            if ($endOfPeriod) {
+                $this->enrichWithClassAtPeriod($pelanggan->getCollection(), $endOfPeriod);
+            }
+
+            // Tambahkan flag usePeriodeBiaya ke setiap item agar JS bisa memilih kolom
+            $pelanggan->getCollection()->transform(function ($item) use ($usePeriodeBiaya) {
+                $item->use_periode_biaya = $usePeriodeBiaya;
+                return $item;
+            });
+
             return response()->json([
-                'data'    => $pelanggan,
-                'summary' => $summary,
+                'data'            => $pelanggan,
+                'summary'         => $summary,
+                'usePeriodeBiaya' => $usePeriodeBiaya,
             ]);
+
         } catch (\Exception $e) {
             return response()->json([
                 'error'   => true,
@@ -77,189 +95,350 @@ class LaporanController extends Controller
         }
     }
 
+    /**
+     * Export laporan ke Excel atau Print.
+     */
     public function export(Request $request)
     {
-        $format = $request->get('format', 'excel');
-        $query = $this->buildQuery($request);
-        $pelanggan = $query->get();
-        
-        $filters = $this->getFilterLabels($request);
-        
-        switch ($format) {
-            case 'print':
-                return view('laporan.print', compact('pelanggan', 'filters'));
-                
-            case 'excel':
-            default:
-                return Excel::download(new LaporanExport($pelanggan, $filters), 'laporan-pelanggan-' . date('Y-m-d') . '.xlsx');
+        $format          = $request->get('format', 'excel');
+        $pelanggan       = $this->buildQuery($request)->get();
+        $filters         = $this->getFilterLabels($request);
+        $usePeriodeBiaya = $this->isUsePeriodeBiaya($request);
+        $endOfPeriod     = $this->getEndOfPeriod($request);
+
+        // Hitung class_at_period untuk export
+        if ($endOfPeriod) {
+            $this->enrichWithClassAtPeriod($pelanggan, $endOfPeriod);
         }
 
+        if ($format === 'print') {
+            return view('laporan.print', compact('pelanggan', 'filters', 'usePeriodeBiaya'));
+        }
+
+        // Excel
+        return Excel::download(
+            new LaporanExport($pelanggan, $filters, $usePeriodeBiaya),
+            'laporan-pelanggan-' . date('Y-m-d') . '.xlsx'
+        );
     }
 
-    private function buildQuery(Request $request)
+    // =========================================================================
+    // PRIVATE HELPERS
+    // =========================================================================
+
+    /**
+     * Apakah filter periode aktif (sehingga perlu kolom period-specific)?
+     */
+    private function isUsePeriodeBiaya(Request $request): bool
     {
-        // Optimasi: hapus 'kunjungans' dari eager load — tgl_kunjungan_terakhir sudah
-        // dihitung via correlated subquery di selectRaw, tidak perlu load semua kunjungan.
-        // 'kunjungans' hanya ditambahkan di export() jika benar-benar dibutuhkan.
-        $query = Pelanggan::with(['cabang'])
-            ->select('pelanggans.*')
-            ->selectRaw('(SELECT MAX(tanggal_kunjungan) FROM kunjungans WHERE kunjungans.pelanggan_id = pelanggans.id) as tgl_kunjungan_terakhir');
-        
-        // Filter Periode
-        $type = $request->get('type', 'semua');
-        $bulan = $request->get('bulan', date('m'));
-        $tahun = $request->get('tahun', date('Y'));
-        $tanggal_mulai = $request->get('tanggal_mulai');
-        $tanggal_selesai = $request->get('tanggal_selesai');
-        
-        // Subquery untuk last visit date (dipakai di WHERE — alias tidak bisa dipakai di WHERE MySQL)
-        $lastVisitSub = '(SELECT MAX(tanggal_kunjungan) FROM kunjungans WHERE kunjungans.pelanggan_id = pelanggans.id)';
+        $type           = $request->get('type', 'semua');
+        $tanggalMulai   = $request->get('tanggal_mulai');
+        $tanggalSelesai = $request->get('tanggal_selesai');
+
+        return $type === 'perbulan'
+            || $type === 'pertahun'
+            || ($type === 'range' && $tanggalMulai && $tanggalSelesai);
+    }
+
+    /**
+     * Dapatkan tanggal akhir periode (untuk subquery dan class_at_period).
+     */
+    private function getEndOfPeriod(Request $request): ?string
+    {
+        $type           = $request->get('type', 'semua');
+        $bulan          = (int) $request->get('bulan', date('m'));
+        $tahun          = (int) $request->get('tahun', date('Y'));
+        $tanggalMulai   = $request->get('tanggal_mulai');
+        $tanggalSelesai = $request->get('tanggal_selesai');
 
         if ($type === 'perbulan') {
-            $query->whereRaw("YEAR($lastVisitSub) = ?", [$tahun])
-                  ->whereRaw("MONTH($lastVisitSub) = ?", [$bulan]);
+            return Carbon::create($tahun, $bulan, 1)->endOfMonth()->format('Y-m-d');
+        }
+        if ($type === 'pertahun') {
+            return Carbon::create($tahun, 12, 31)->format('Y-m-d');
+        }
+        if ($type === 'range' && $tanggalMulai && $tanggalSelesai) {
+            return $tanggalSelesai;
+        }
+        return null;
+    }
+
+    /**
+     * Bangun query utama dengan semua filter.
+     *
+     * PERBAIKAN UTAMA:
+     * - Filter periode menggunakan whereHas('kunjungans', ...) bukan whereRaw pada last visit
+     * - Subquery biaya/kedatangan bersifat period-specific
+     */
+    private function buildQuery(Request $request)
+    {
+        $type           = $request->get('type', 'semua');
+        $bulan          = (int) $request->get('bulan', date('m'));
+        $tahun          = (int) $request->get('tahun', date('Y'));
+        $tanggalMulai   = $request->get('tanggal_mulai');
+        $tanggalSelesai = $request->get('tanggal_selesai');
+
+        // ── Subquery tgl_kunjungan_terakhir (period-specific) ─────────────────
+        if ($type === 'perbulan') {
+            $tglSub = "SELECT MAX(tanggal_kunjungan) FROM kunjungans
+                       WHERE kunjungans.pelanggan_id = pelanggans.id
+                         AND MONTH(tanggal_kunjungan) = {$bulan}
+                         AND YEAR(tanggal_kunjungan)  = {$tahun}";
         } elseif ($type === 'pertahun') {
-            $query->whereRaw("YEAR($lastVisitSub) = ?", [$tahun]);
-        } elseif ($type === 'range' && $tanggal_mulai && $tanggal_selesai) {
-            $query->whereRaw("$lastVisitSub BETWEEN ? AND ?", [$tanggal_mulai, $tanggal_selesai]);
+            $tglSub = "SELECT MAX(tanggal_kunjungan) FROM kunjungans
+                       WHERE kunjungans.pelanggan_id = pelanggans.id
+                         AND YEAR(tanggal_kunjungan) = {$tahun}";
+        } elseif ($type === 'range' && $tanggalMulai && $tanggalSelesai) {
+            $safeMulai   = addslashes($tanggalMulai);
+            $safeSelesai = addslashes($tanggalSelesai);
+            $tglSub = "SELECT MAX(tanggal_kunjungan) FROM kunjungans
+                       WHERE kunjungans.pelanggan_id = pelanggans.id
+                         AND tanggal_kunjungan BETWEEN '{$safeMulai}' AND '{$safeSelesai}'";
+        } else {
+            $tglSub = "SELECT MAX(tanggal_kunjungan) FROM kunjungans
+                       WHERE kunjungans.pelanggan_id = pelanggans.id";
         }
 
-        // Filter Cabang — dengan pembatasan akses berdasarkan hak akses user
+        // ── Subquery biaya & kedatangan period-specific ───────────────────────
+        $endOfPeriod = $this->getEndOfPeriod($request);
+
+        if ($type === 'perbulan') {
+            // Kumulatif sampai akhir bulan yang dipilih (bukan hanya bulan itu saja)
+            $endOfPeriodStr = Carbon::create($tahun, $bulan, 1)->endOfMonth()->format('Y-m-d');
+            $biayaSub      = "SELECT COALESCE(SUM(biaya), 0) FROM kunjungans
+                              WHERE kunjungans.pelanggan_id = pelanggans.id
+                                AND DATE(tanggal_kunjungan) <= '{$endOfPeriodStr}'";
+            $kedatanganSub = "SELECT COALESCE(SUM(total_kedatangan), 0) FROM kunjungans
+                              WHERE kunjungans.pelanggan_id = pelanggans.id
+                                AND DATE(tanggal_kunjungan) <= '{$endOfPeriodStr}'";
+        } elseif ($type === 'pertahun') {
+            // Kumulatif sampai akhir tahun yang dipilih
+            $endOfPeriodStr = "{$tahun}-12-31";
+            $biayaSub      = "SELECT COALESCE(SUM(biaya), 0) FROM kunjungans
+                              WHERE kunjungans.pelanggan_id = pelanggans.id
+                                AND DATE(tanggal_kunjungan) <= '{$endOfPeriodStr}'";
+            $kedatanganSub = "SELECT COALESCE(SUM(total_kedatangan), 0) FROM kunjungans
+                              WHERE kunjungans.pelanggan_id = pelanggans.id
+                                AND DATE(tanggal_kunjungan) <= '{$endOfPeriodStr}'";
+        } elseif ($type === 'range' && $tanggalMulai && $tanggalSelesai) {
+            $safeMulai   = addslashes($tanggalMulai);
+            $safeSelesai = addslashes($tanggalSelesai);
+            $biayaSub      = "SELECT COALESCE(SUM(biaya), 0) FROM kunjungans
+                              WHERE kunjungans.pelanggan_id = pelanggans.id
+                                AND tanggal_kunjungan BETWEEN '{$safeMulai}' AND '{$safeSelesai}'";
+            $kedatanganSub = "SELECT COALESCE(SUM(total_kedatangan), 0) FROM kunjungans
+                              WHERE kunjungans.pelanggan_id = pelanggans.id
+                                AND tanggal_kunjungan BETWEEN '{$safeMulai}' AND '{$safeSelesai}'";
+        } else {
+            $biayaSub      = null;
+            $kedatanganSub = null;
+        }
+
+        // ── Base query ────────────────────────────────────────────────────────
+        $query = Pelanggan::with(['cabang'])
+            ->select('pelanggans.*')
+            ->selectRaw("({$tglSub}) as tgl_kunjungan_terakhir");
+
+        if ($biayaSub) {
+            $query->selectRaw("({$biayaSub}) as biaya_periode")
+                  ->selectRaw("({$kedatanganSub}) as kedatangan_periode");
+        }
+
+        // ── Filter Periode (BENAR: whereHas, bukan whereRaw pada last visit) ──
+        if ($type === 'perbulan') {
+            $query->whereHas('kunjungans', function ($q) use ($bulan, $tahun) {
+                $q->whereMonth('tanggal_kunjungan', $bulan)
+                  ->whereYear('tanggal_kunjungan', $tahun);
+            });
+        } elseif ($type === 'pertahun') {
+            $query->whereHas('kunjungans', function ($q) use ($tahun) {
+                $q->whereYear('tanggal_kunjungan', $tahun);
+            });
+        } elseif ($type === 'range' && $tanggalMulai && $tanggalSelesai) {
+            $query->whereHas('kunjungans', function ($q) use ($tanggalMulai, $tanggalSelesai) {
+                $q->whereBetween('tanggal_kunjungan', [$tanggalMulai, $tanggalSelesai]);
+            });
+        }
+
+        // ── Filter Cabang ─────────────────────────────────────────────────────
         /** @var User $user */
         $user = Auth::user();
         $accessibleCabangIds = $user->getAccessibleCabangIds();
 
+        if (!empty($accessibleCabangIds)) {
+            $query->whereIn('pelanggans.cabang_id', $accessibleCabangIds);
+        }
+
         if ($request->filled('cabang_id')) {
-            $requestedCabangId = (int) $request->cabang_id;
-
-            if (!empty($accessibleCabangIds) && !in_array($requestedCabangId, $accessibleCabangIds)) {
-                // User mencoba akses cabang yang tidak diizinkan → paksa ke cabang yang diizinkan
-                $query->whereIn('cabang_id', $accessibleCabangIds);
-            } else {
-                // Cabang yang dipilih valid (atau user punya akses penuh)
-                $query->where('cabang_id', $requestedCabangId);
+            $cabangId = (int) $request->get('cabang_id');
+            if (empty($accessibleCabangIds) || in_array($cabangId, $accessibleCabangIds)) {
+                $query->where('pelanggans.cabang_id', $cabangId);
             }
-        } elseif (!empty($accessibleCabangIds)) {
-            // User pilih "Semua Cabang" tapi aksesnya terbatas → batasi ke cabang miliknya saja
-            $query->whereIn('cabang_id', $accessibleCabangIds);
         }
-        // Jika $accessibleCabangIds kosong = user punya akses penuh → tidak perlu filter cabang
-        
-        // Filter Kelas
+
+        // ── Filter Kelas ──────────────────────────────────────────────────────
         if ($request->filled('kelas')) {
-            $query->where('class', $request->kelas);
-        }
-        
-        // Filter Range Omset
-        if ($request->filled('omset_range')) {
-            switch ($request->omset_range) {
-                case '0':
-                    $query->where('total_biaya', '<', 1000000);
-                    break;
-                case '1':
-                    $query->whereBetween('total_biaya', [1000000, 4000000]);
-                    break;
-                case '2':
-                    $query->where('total_biaya', '>', 4000000);
-                    break;
-            }
-        }
-        
-        // Filter Range Kedatangan
-        if ($request->filled('kedatangan_range')) {
-            switch ($request->kedatangan_range) {
-                case '0':
-                    $query->where('total_kedatangan', '<=', 2);
-                    break;
-                case '1':
-                    $query->whereBetween('total_kedatangan', [3, 4]);
-                    break;
-                case '2':
-                    $query->where('total_kedatangan', '>', 4);
-                    break;
-            }
-        }
-        
-        // Filter kelompok pelanggan (mandiri/klinisi)
-        // Optimasi: ganti nested whereHas (2x EXISTS subquery) dengan 1x EXISTS + JOIN
-        if ($request->filled('kelompok_pelanggan')) {
-            $kelompok = $request->get('kelompok_pelanggan');
-            $query->whereExists(function ($q) use ($kelompok) {
-                $q->select(DB::raw(1))
-                  ->from('kunjungans')
-                  ->join('kelompok_pelanggans', 'kelompok_pelanggans.id', '=', 'kunjungans.kelompok_pelanggan_id')
-                  ->whereColumn('kunjungans.pelanggan_id', 'pelanggans.id')
-                  ->where('kelompok_pelanggans.kode', $kelompok);
-            });
+            $query->where('pelanggans.class', $request->get('kelas'));
         }
 
-        // Point 4: Filter tipe pelanggan (biasa/khusus)
+        // ── Filter Omset Range ────────────────────────────────────────────────
+        if ($request->filled('omset_range')) {
+            switch ($request->get('omset_range')) {
+                case '0': $query->where('pelanggans.total_biaya', '<', 1000000); break;
+                case '1': $query->whereBetween('pelanggans.total_biaya', [1000000, 4000000]); break;
+                case '2': $query->where('pelanggans.total_biaya', '>=', 4000000); break;
+            }
+        }
+
+        // ── Filter Kedatangan Range ───────────────────────────────────────────
+        if ($request->filled('kedatangan_range')) {
+            switch ($request->get('kedatangan_range')) {
+                case '0': $query->where('pelanggans.total_kedatangan', '<=', 2); break;
+                case '1': $query->whereBetween('pelanggans.total_kedatangan', [3, 4]); break;
+                case '2': $query->where('pelanggans.total_kedatangan', '>', 4); break;
+            }
+        }
+
+        // ── Filter Tipe Pelanggan ─────────────────────────────────────────────
         if ($request->filled('tipe_pelanggan')) {
             $tipe = $request->get('tipe_pelanggan');
             if ($tipe === 'khusus') {
-                $query->where('is_pelanggan_khusus', true);
+                $query->where('pelanggans.is_pelanggan_khusus', true);
             } elseif ($tipe === 'biasa') {
-                $query->where('is_pelanggan_khusus', false);
+                $query->where('pelanggans.is_pelanggan_khusus', false);
             }
         }
 
-        // Sorting
-        $sort = $request->get('sort', 'nama');
+        // ── Sorting ───────────────────────────────────────────────────────────
+        $allowedSorts = [
+            'nama'                  => 'pelanggans.nama',
+            'pid'                   => 'pelanggans.pid',
+            'total_biaya'           => 'pelanggans.total_biaya',
+            'total_kedatangan'      => 'pelanggans.total_kedatangan',
+            'tgl_kunjungan_terakhir'=> 'tgl_kunjungan_terakhir',
+            'class'                 => 'pelanggans.class',
+        ];
+
+        $sort      = $request->get('sort', 'nama');
         $direction = $request->get('direction', 'asc');
-        $query->orderBy($sort, $direction);
-        
+        $sortCol   = $allowedSorts[$sort] ?? 'pelanggans.nama';
+        $direction = in_array(strtolower($direction), ['asc', 'desc']) ? $direction : 'asc';
+
+        $query->orderBy($sortCol, $direction);
+
         return $query;
     }
 
-    private function getFilterLabels(Request $request)
+    /**
+     * Hitung class_at_period untuk koleksi pelanggan.
+     * Menggunakan PelangganClassHistory dan logika resolveClassAtDate.
+     *
+     * @param \Illuminate\Support\Collection|\Illuminate\Database\Eloquent\Collection $collection
+     * @param string $endOfPeriod  Format Y-m-d
+     */
+    private function enrichWithClassAtPeriod($collection, string $endOfPeriod): void
+    {
+        if ($collection->isEmpty()) return;
+
+        $pelangganIds = $collection->pluck('id');
+
+        // Ambil semua histories sekaligus (1 query)
+        $allHistories = PelangganClassHistory::whereIn('pelanggan_id', $pelangganIds)
+            ->orderBy('changed_at', 'asc')
+            ->get()
+            ->groupBy('pelanggan_id');
+
+        // Ambil pelanggan yang punya kunjungan high-value s.d. endOfPeriod (1 query)
+        $highValueIds = Kunjungan::whereIn('pelanggan_id', $pelangganIds)
+            ->where('biaya', '>=', 4000000)
+            ->where('tanggal_kunjungan', '<=', $endOfPeriod)
+            ->pluck('pelanggan_id')
+            ->unique()
+            ->flip()
+            ->toArray(); // [id => true] untuk O(1) lookup
+
+        $collection->each(function ($p) use ($allHistories, $endOfPeriod, $highValueIds) {
+            $histories = $allHistories->get($p->id, collect());
+
+            if ($histories->isEmpty()) {
+                // Tidak ada history → hitung dari stats period-specific
+                $kedatangan = (int)   ($p->kedatangan_periode ?? $p->total_kedatangan ?? 0);
+                $biaya      = (float) ($p->biaya_periode      ?? $p->total_biaya      ?? 0);
+                $hasHigh    = isset($highValueIds[$p->id]);
+
+                $p->class_at_period = Pelanggan::calculateClass(
+                    $kedatangan,
+                    $biaya,
+                    $hasHigh,
+                    (bool) $p->is_pelanggan_khusus
+                );
+            } else {
+                $p->class_at_period = Pelanggan::resolveClassAtDate(
+                    $endOfPeriod,
+                    $histories,
+                    $p->class
+                );
+            }
+        });
+    }
+
+    /**
+     * Label filter untuk print/export.
+     */
+    private function getFilterLabels(Request $request): array
     {
         $labels = [];
-        
+
         // Periode
         $type = $request->get('type', 'semua');
         if ($type === 'perbulan') {
-            $bulan = \DateTime::createFromFormat('!m', $request->get('bulan', date('m')))->format('F');
-
-            $labels['periode'] = "Periode: $bulan " . $request->get('tahun', date('Y'));
+            $bulanNum = $request->get('bulan', date('m'));
+            $bulanNama = Carbon::create()->month((int)$bulanNum)->locale('id')->monthName;
+            $labels['Periode'] = ucfirst($bulanNama) . ' ' . $request->get('tahun', date('Y'));
         } elseif ($type === 'pertahun') {
-            $labels['periode'] = "Tahun: " . $request->get('tahun', date('Y'));
+            $labels['Periode'] = 'Tahun ' . $request->get('tahun', date('Y'));
         } elseif ($type === 'range') {
-            $labels['periode'] = "Range: " . $request->get('tanggal_mulai') . " s/d " . $request->get('tanggal_selesai');
+            $labels['Periode'] = $request->get('tanggal_mulai') . ' s/d ' . $request->get('tanggal_selesai');
         } else {
-            $labels['periode'] = "Semua Periode";
+            $labels['Periode'] = 'Semua Periode';
         }
-        
+
         // Cabang
         if ($request->filled('cabang_id')) {
             $cabang = Cabang::find($request->cabang_id);
-            $labels['cabang'] = "Cabang: " . ($cabang ? $cabang->nama : '-');
+            $labels['Cabang'] = $cabang ? $cabang->nama : '-';
         }
-        
+
         // Kelas
         if ($request->filled('kelas')) {
-            $labels['kelas'] = "Kelas: " . $request->kelas;
+            $labels['Kelas'] = $request->kelas;
         }
-        
+
         // Omset
         if ($request->filled('omset_range')) {
             $omsetLabels = [
-                '0' => 'Omset: < 1 Juta',
-                '1' => 'Omset: 1 - 4 Juta',
-                '2' => 'Omset: > 4 Juta'
+                '0' => '< Rp 1 Juta',
+                '1' => 'Rp 1 Juta - Rp 4 Juta',
+                '2' => '> Rp 4 Juta',
             ];
-            $labels['omset'] = $omsetLabels[$request->omset_range] ?? '';
+            $labels['Omset'] = $omsetLabels[$request->omset_range] ?? '';
         }
-        
+
         // Kedatangan
         if ($request->filled('kedatangan_range')) {
             $kedatanganLabels = [
-                '0' => 'Kunjungan: ≤ 2 Kali',
-                '1' => 'Kunjungan: 3 - 4 Kali',
-                '2' => 'Kunjungan: > 4 Kali'
+                '0' => '≤ 2 Kali',
+                '1' => '3 - 4 Kali',
+                '2' => '> 4 Kali',
             ];
-            $labels['kedatangan'] = $kedatanganLabels[$request->kedatangan_range] ?? '';
+            $labels['Kunjungan'] = $kedatanganLabels[$request->kedatangan_range] ?? '';
         }
-        
+
+        // Tipe
+        if ($request->filled('tipe_pelanggan')) {
+            $labels['Tipe'] = $request->tipe_pelanggan === 'khusus' ? 'Pelanggan Khusus' : 'Pelanggan Biasa';
+        }
+
         return $labels;
     }
 }
