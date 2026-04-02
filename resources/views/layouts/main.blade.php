@@ -379,6 +379,11 @@
                     <i class="fas fa-history"></i> Log Aktivitas
                 </a>
             </li>
+            <li class="{{ request()->routeIs('import-batch*') ? 'active' : '' }}">
+                <a href="{{ route('import-batch.index') }}">
+                    <i class="fas fa-undo-alt"></i> Riwayat Import
+                </a>
+            </li>
             @endif
         </ul>
 

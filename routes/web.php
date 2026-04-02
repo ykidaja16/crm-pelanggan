@@ -14,6 +14,7 @@ use App\Http\Controllers\ApprovalRequestController;
 use App\Http\Controllers\CabangController;
 use App\Http\Controllers\SpecialDayController;
 use App\Http\Controllers\ProfileController;
+use App\Http\Controllers\ImportBatchController;
 use App\Http\Middleware\EnsureUserIsAdmin;
 use App\Http\Middleware\EnsureUserIsSuperAdmin;
 use App\Http\Middleware\EnsureUserIsIT;
@@ -219,5 +220,9 @@ Route::middleware([Authenticate::class])->group(function () {
         Route::get('/users/{user}/reset-password', [\App\Http\Controllers\UserController::class, 'showResetForm'])->name('users.reset-password.form');
         Route::post('/users/{user}/reset-password', [\App\Http\Controllers\UserController::class, 'resetPassword'])->name('users.reset-password');
         Route::post('/password-reset-requests/{resetRequest}/reject', [\App\Http\Controllers\UserController::class, 'rejectPasswordResetRequest'])->name('users.password-reset.reject');
+
+        // Import Batch Rollback (Riwayat Import)
+        Route::get('/import-batches', [ImportBatchController::class, 'index'])->name('import-batch.index');
+        Route::post('/import-batches/{batchId}/rollback', [ImportBatchController::class, 'rollback'])->name('import-batch.rollback');
     });
 });

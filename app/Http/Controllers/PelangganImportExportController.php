@@ -12,7 +12,10 @@ use App\Models\Pelanggan;
 use App\Models\Kunjungan;
 use App\Models\Cabang;
 use App\Models\KelompokPelanggan;
+use App\Models\ImportBatch;
+use App\Models\ImportBatchPelangganSnapshot;
 use App\Imports\KunjunganImport;
+use Illuminate\Support\Str;
 use Maatwebsite\Excel\Facades\Excel;
 
 /**
@@ -223,16 +226,29 @@ class PelangganImportExportController extends Controller
 
             Log::info('Starting import', ['valid_rows' => $validRows, 'file_type' => $extension]);
 
-            if ($extension === 'csv' || $extension === 'txt') {
-                $this->processCsvImport($rows[0], (int) $userId);
-            } else {
-                Excel::import(new KunjunganImport, $file);
-            }
+            // Generate UUID unik untuk sesi import ini (digunakan untuk rollback)
+            $batchId = Str::uuid()->toString();
+
+            // Gunakan processCsvImport untuk SEMUA format (CSV maupun Excel)
+            // karena $rows[0] sudah tersedia dari readCsvFile() / Excel::toArray()
+            // Ini memastikan snapshot dan import_batch_id selalu tersimpan
+            $processedCount = $this->processCsvImport($rows[0], (int) $userId, $batchId);
+
+            // Catat sesi import ke tabel import_batches untuk keperluan rollback
+            ImportBatch::create([
+                'batch_id'    => $batchId,
+                'user_id'     => Auth::id(),
+                'cabang_id'   => $selectedCabang->id,
+                'filename'    => $file->getClientOriginalName() ?? 'unknown',
+                'total_rows'  => $processedCount,
+                'status'      => 'completed',
+                'imported_at' => now(),
+            ]);
 
             Cache::put("import_progress_{$userId}", 100, now()->addMinutes(30));
 
             $filename = $file->getClientOriginalName() ?? 'unknown';
-            Log::info('Import completed successfully', ['filename' => $filename]);
+            Log::info('Import completed successfully', ['filename' => $filename, 'batch_id' => $batchId]);
 
             $successMessage = "Import berhasil! File '$filename' dengan $validRows data telah diproses.";
             if ($isAjax) {
@@ -465,7 +481,7 @@ class PelangganImportExportController extends Controller
      * 2. STEP 2 - PROCESS: Loop data yang sudah di-aggregate, simpan ke database
      * 3. Setiap pelanggan baru dicatat riwayat kelas awalnya
      */
-    private function processCsvImport(array $rows, int $importUserId = 0): void
+    private function processCsvImport(array $rows, int $importUserId = 0, string $batchId = ''): int
     {
         $processedCount   = 0;
         $duplicateSkipped = 0;
@@ -557,10 +573,33 @@ class PelangganImportExportController extends Controller
                 $tanggal,
                 $no,
                 $kelompokPelanggan,
+                $batchId,
                 &$processedCount
             ) {
-                $pelanggan    = Pelanggan::firstOrNew(['pid' => $pid]);
+                $pelanggan      = Pelanggan::firstOrNew(['pid' => $pid]);
                 $isNewPelanggan = !$pelanggan->exists;
+
+                // ── Simpan snapshot data pelanggan SEBELUM diubah (untuk rollback) ──
+                if (!empty($batchId)) {
+                    // Cek apakah snapshot untuk pelanggan ini di batch ini sudah ada
+                    // (bisa terjadi jika PID muncul lebih dari 1x dalam file)
+                    $snapshotExists = ImportBatchPelangganSnapshot::where('import_batch_id', $batchId)
+                        ->where('pelanggan_id', $pelanggan->id ?? 0)
+                        ->exists();
+
+                    if (!$snapshotExists && !$isNewPelanggan) {
+                        // Pelanggan lama: simpan nilai sebelum diubah
+                        ImportBatchPelangganSnapshot::create([
+                            'import_batch_id'         => $batchId,
+                            'pelanggan_id'            => $pelanggan->id,
+                            'is_new_pelanggan'        => false,
+                            'total_kedatangan_before' => $pelanggan->total_kedatangan ?? 0,
+                            'total_biaya_before'      => $pelanggan->total_biaya ?? 0,
+                            'class_before'            => $pelanggan->class,
+                        ]);
+                    }
+                }
+                // ─────────────────────────────────────────────────────────────────
 
                 $pelanggan->cabang_id = $cabang->id;
                 $pelanggan->nama      = $nama;
@@ -590,16 +629,30 @@ class PelangganImportExportController extends Controller
 
                 $pelanggan->save();
 
+                // ── Simpan snapshot untuk pelanggan BARU (setelah save agar ada ID) ──
+                if (!empty($batchId) && $isNewPelanggan) {
+                    ImportBatchPelangganSnapshot::create([
+                        'import_batch_id'         => $batchId,
+                        'pelanggan_id'            => $pelanggan->id,
+                        'is_new_pelanggan'        => true,
+                        'total_kedatangan_before' => 0,
+                        'total_biaya_before'      => 0,
+                        'class_before'            => null,
+                    ]);
+                }
+                // ─────────────────────────────────────────────────────────────────
+
                 $kelompok = KelompokPelanggan::where('kode', $kelompokPelanggan)->first();
 
                 Kunjungan::create([
-                    'no'                   => $no,
-                    'pelanggan_id'         => $pelanggan->id,
-                    'cabang_id'            => $cabang->id,
-                    'tanggal_kunjungan'    => $tanggal,
-                    'biaya'                => $biayaValue,
-                    'total_kedatangan'     => $totalKedatangan,
+                    'no'                    => $no,
+                    'pelanggan_id'          => $pelanggan->id,
+                    'cabang_id'             => $cabang->id,
+                    'tanggal_kunjungan'     => $tanggal,
+                    'biaya'                 => $biayaValue,
+                    'total_kedatangan'      => $totalKedatangan,
                     'kelompok_pelanggan_id' => $kelompok?->id,
+                    'import_batch_id'       => $batchId ?: null, // Tag kunjungan dengan batch_id
                 ]);
 
                 if ($isNewPelanggan) {
@@ -619,22 +672,49 @@ class PelangganImportExportController extends Controller
 
         Log::info('CSV import completed', [
             'processed'          => $processedCount,
-            'duplicates_skipped' => $duplicateSkipped
+            'duplicates_skipped' => $duplicateSkipped,
+            'batch_id'           => $batchId,
         ]);
+
+        return $processedCount;
     }
 
     /**
      * Parse tanggal dari berbagai format CSV/Excel
-     * Support format: Y-m-d, d/m/Y, d-m-Y, d/m/y, d-m-y, Y/m/d
+     * Support:
+     * - Excel serial date (angka numerik, misal: 45678) dari Excel::toArray()
+     * - String format: Y-m-d, d/m/Y, d-m-Y, d/m/y, d-m-y, Y/m/d
+     * - Carbon/DateTime instance
      * Return null jika format tidak valid
      */
     private function parseCsvDate($value): ?\Carbon\Carbon
     {
-        if (empty($value)) {
+        if (empty($value) && $value !== 0) {
             return null;
         }
 
         try {
+            // Handle Excel serial date (angka numerik dari Excel::toArray())
+            // Excel menyimpan tanggal sebagai angka hari sejak 1 Jan 1900
+            if (is_numeric($value) && !is_string($value)) {
+                $dateTime = \PhpOffice\PhpSpreadsheet\Shared\Date::excelToDateTimeObject((float) $value);
+                $date = \Carbon\Carbon::instance($dateTime);
+                if ($date->year > 1900 && $date->year < 2100) {
+                    return $date;
+                }
+                return null;
+            }
+
+            // Handle Carbon instance
+            if ($value instanceof \Carbon\Carbon) {
+                return $value;
+            }
+
+            // Handle DateTime instance
+            if ($value instanceof \DateTime) {
+                return \Carbon\Carbon::instance($value);
+            }
+
             $dateString = trim((string) $value);
 
             $formats = [
@@ -644,6 +724,8 @@ class PelangganImportExportController extends Controller
                 'd/m/y',
                 'd-m-y',
                 'Y/m/d',
+                'd F Y',
+                'd M Y',
             ];
 
             foreach ($formats as $format) {
