@@ -221,14 +221,14 @@ class LaporanController extends Controller
                               WHERE kunjungans.pelanggan_id = pelanggans.id
                                 AND DATE(tanggal_kunjungan) <= '{$endOfPeriodStr}'";
         } elseif ($type === 'range' && $tanggalMulai && $tanggalSelesai) {
-            $safeMulai   = addslashes($tanggalMulai);
             $safeSelesai = addslashes($tanggalSelesai);
+            // Kumulatif sampai akhir range (tanggal_selesai), konsisten dengan perbulan/pertahun
             $biayaSub      = "SELECT COALESCE(SUM(biaya), 0) FROM kunjungans
                               WHERE kunjungans.pelanggan_id = pelanggans.id
-                                AND tanggal_kunjungan BETWEEN '{$safeMulai}' AND '{$safeSelesai}'";
+                                AND DATE(tanggal_kunjungan) <= '{$safeSelesai}'";
             $kedatanganSub = "SELECT COALESCE(SUM(total_kedatangan), 0) FROM kunjungans
                               WHERE kunjungans.pelanggan_id = pelanggans.id
-                                AND tanggal_kunjungan BETWEEN '{$safeMulai}' AND '{$safeSelesai}'";
+                                AND DATE(tanggal_kunjungan) <= '{$safeSelesai}'";
         } else {
             $biayaSub      = null;
             $kedatanganSub = null;
