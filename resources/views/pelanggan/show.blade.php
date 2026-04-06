@@ -204,11 +204,7 @@
                                 $hasPending = $pendingApprovals->has($k->id);
                                 $pendingGroup = $hasPending ? $pendingApprovals->get($k->id) : collect();
                                 $pendingAction = $pendingGroup->first()?->action;
-                                $classAtVisit = $visitClasses[$k->id] ?? \App\Models\Pelanggan::resolveClassAtDate(
-                                    $k->tanggal_kunjungan,
-                                    $allClassHistories ?? collect(),
-                                    $pelanggan->class
-                                );
+                                $classAtVisit = $visitClassesDetail[$k->id];
                             @endphp
                             <tr>
                                 <td class="px-4">{{ $index + 1 }}</td>

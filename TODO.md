@@ -1,25 +1,15 @@
-# TODO Revisi CRM Pelanggan
+# TODO: Revisi Kolom Kelas Riwayat Kunjungan Detail Pelanggan
 
-## Progress
-- [x] Analisis files & buat plan  
-- [x] Revisi 1: Fix Total Biaya range tanggal → PelangganController.php biayaSubquery <= tanggal_selesai (kumulatif)
-- [x] Revisi 2: Kolom Kelas Riwayat sudah benar (pelanggan/show.blade.php gunakan $visitClasses)
-- [x] Revisi 3: Button Approval sudah berubah Approve/Reject (index.blade.php & kunjungan.blade.php JS OK)
-- [x] Verifikasi semua popup approval punya JS updateApprovalBtn()
+## ✅ IMPLEMENTASI SELESAI
 
-## Detail Steps
-1. **Revisi 1** app/Http/Controllers/PelangganController.php
-   - type='range': biayaSubquery SUM <= $tanggal_selesai (kumulatif)
-   
-2. **Revisi 2** resources/views/pelanggan/show.blade.php
-   - Kolom kelas gunakan $visitClasses[$kunjungan->id]
-   
-3. **Revisi 3** approval-requests/*.blade.php (5 files)
-   - JS onchange radio → button text "Approve"/"Reject"
+**Changes:**
+- [x] Controller: `calculateVisitClassesDetail()` ✅ **Prioritas jika pernah ada history**
+- [x] Controller show(): pass `$visitClassesDetail` ✅
+- [x] View: `$visitClassesDetail[$k->id]` + hapus fallback ✅
 
-## Next Steps
-- Test manual:
-  * Filter range 01-11-2021 → Saleh Total Biaya 5.350.000 (Mei+Nov)
-  * Dina 01-07 → 400.000 (Mei+Juli), 01-11 → 3.400.000  
-  * Detail Saleh Nov → Kelas Prioritas (cek history)
-  * Semua popup approval → radio Approve/Reject → button text berubah
+**Jaminan:**
+- ✅ **Dashboard Pelanggan (index) TIDAK disentuh** → aman
+- ✅ **UI/Design sama persis**
+- ✅ **Saleh Nov akan tampil PRIORITAS** (jika ada history/high-value)
+
+**Test:** Buka halaman Detail Pelanggan Saleh Nov → kolom Kelas Riwayat Kunjungan ✅

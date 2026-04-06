@@ -651,6 +651,64 @@ class PelangganController extends Controller
     }
 
     /**
+     * KHUSUS: Hitung kelas per kunjungan untuk Detail Pelanggan (Riwayat Kunjungan)
+     * Logic: Kumulatif sampai tanggal kunjungan → Prioritas jika pernah ada history Prioritas
+     * Tidak ganggu Dashboard (index())
+     */
+    private function calculateVisitClassesDetail($pelangganId): array
+    {
+        $pelanggan = Pelanggan::findOrFail($pelangganId);
+        $allKunjungans = $pelanggan->kunjungans()
+            ->orderBy('tanggal_kunjungan', 'asc')
+            ->get(['id', 'tanggal_kunjungan', 'biaya']);
+        
+        $allClassHistories = $pelanggan->classHistories()
+            ->orderBy('changed_at', 'asc')
+            ->get();
+
+        $visitClasses = [];
+        $cumulativeKedatangan = 0;
+        $cumulativeBiaya = 0;
+        $hasHighValue = false;
+
+        foreach ($allKunjungans as $kunjungan) {
+            $kunjunganDate = Carbon::parse($kunjungan->tanggal_kunjungan);
+            
+            // Update kumulatif
+            $cumulativeKedatangan += 1;
+            $cumulativeBiaya += $kunjungan->biaya;
+            if ($kunjungan->biaya >= 4000000) {
+                $hasHighValue = true;
+            }
+
+            // Cek history <= tanggal kunjungan
+            $classFromHistory = null;
+            foreach ($allClassHistories as $history) {
+                if (Carbon::parse($history->changed_at)->lte($kunjunganDate)) {
+                    $classFromHistory = $history->new_class;
+                } else {
+                    break;
+                }
+            }
+
+            // Prioritas jika pernah ada history Prioritas ATAU high-value
+            if ($classFromHistory === 'Prioritas' || $hasHighValue) {
+                $visitClasses[$kunjungan->id] = 'Prioritas';
+            } else {
+                // Fallback calculateClass kumulatif
+                $visitClasses[$kunjungan->id] = Pelanggan::calculateClass(
+                    $cumulativeKedatangan,
+                    $cumulativeBiaya,
+                    $hasHighValue,
+                    (bool) $pelanggan->is_pelanggan_khusus
+                );
+            }
+        }
+
+        return $visitClasses;
+    }
+
+    /**
      * Export riwayat kunjungan pelanggan ke Excel.
      */
     public function exportKunjungan(Request $request, Pelanggan $pelanggan)
@@ -809,41 +867,8 @@ class PelangganController extends Controller
             ->orderBy('changed_at', 'asc')
             ->get();
 
-        // Pre-calculate kelas per kunjungan (untuk kolom Kelas di riwayat kunjungan)
-        // Gunakan kalkulasi kumulatif dinamis jika tidak ada history
-        $allKunjungansForClass = $pelanggan->kunjungans()
-            ->orderBy('tanggal_kunjungan', 'asc')
-            ->get(['id', 'tanggal_kunjungan', 'biaya', 'total_kedatangan']);
-
-        $visitClasses = [];
-        if ($allClassHistories->isEmpty()) {
-            // Tidak ada history → hitung dinamis berdasarkan kunjungan kumulatif s.d. tanggal masing-masing
-            $cumulativeKedatangan = 0;
-            $cumulativeBiaya      = 0;
-            $hasHighValue         = false;
-            foreach ($allKunjungansForClass as $kv) {
-                $cumulativeKedatangan += $kv->total_kedatangan ?? 1;
-                $cumulativeBiaya      += $kv->biaya ?? 0;
-                if (($kv->biaya ?? 0) >= 4000000) {
-                    $hasHighValue = true;
-                }
-                $visitClasses[$kv->id] = Pelanggan::calculateClass(
-                    $cumulativeKedatangan,
-                    $cumulativeBiaya,
-                    $hasHighValue,
-                    (bool) $pelanggan->is_pelanggan_khusus
-                );
-            }
-        } else {
-            // Ada history → gunakan resolveClassAtDate per kunjungan
-            foreach ($allKunjungansForClass as $kv) {
-                $visitClasses[$kv->id] = Pelanggan::resolveClassAtDate(
-                    $kv->tanggal_kunjungan,
-                    $allClassHistories,
-                    $pelanggan->class
-                );
-            }
-        }
+        // KHUSUS Riwayat Kunjungan Detail: gunakan method baru (Prioritas jika pernah ada history)
+        $visitClassesDetail = $this->calculateVisitClassesDetail($pelanggan->id);
 
         $kunjunganIds     = $kunjungans->pluck('id')->toArray();
         $pendingApprovals = \App\Models\ApprovalRequest::whereIn('target_id', $kunjunganIds)
@@ -869,7 +894,7 @@ class PelangganController extends Controller
             'totalTransaksi',
             'classHistories',
             'allClassHistories',
-            'visitClasses',
+            'visitClassesDetail',
             'pendingApprovals',
             'approvalHistories'
         ));
