@@ -225,29 +225,34 @@ class PelangganExport implements FromCollection, WithHeadings
                 // Akumulasi kedatangan s/d endDate
                 $p->total_kedatangan_range = (int)   $p->kunjungans->sum('total_kedatangan');
 
-                // Kelas pelanggan pada saat endDate
+                // Hitung kelas berdasarkan data kumulatif s/d endDate
                 if ($p->classHistories->isEmpty()) {
-                    // Tidak ada history (misal: data import lama) →
-                    // hitung dinamis berdasarkan kunjungan kumulatif s.d. endDate
                     $hasHighValue = $p->kunjungans->contains(fn($k) => ($k->biaya ?? 0) >= 4000000);
-                    $p->class_at_range = \App\Models\Pelanggan::calculateClass(
+                    $p->class_at_range = Pelanggan::calculateClass(
                         $p->total_kedatangan_range,
                         $p->total_biaya_range,
                         $hasHighValue,
                         (bool) $p->is_pelanggan_khusus
                     );
                 } else {
-                    $p->class_at_range = $this->getClassAtDate(
-                        $endDate,
-                        $p->classHistories,
-                        $p->class
-                    );
+                    $p->class_at_range = $this->getClassAtDate($endDate, $p->classHistories, $p->class);
                 }
             } else {
                 // type = 'semua' - tidak ada endDate, gunakan nilai ALL-TIME dari DB
                 $p->total_biaya_range      = (float) $p->total_biaya;
                 $p->total_kedatangan_range = (int)   $p->total_kedatangan;
-                $p->class_at_range         = $p->class;
+                // Hitung kelas dari total keseluruhan
+                if ($p->classHistories->isEmpty()) {
+                    $hasHighValue = $p->kunjungans->contains(fn($k) => ($k->biaya ?? 0) >= 4000000);
+                    $p->class_at_range = Pelanggan::calculateClass(
+                        $p->total_kedatangan_range,
+                        $p->total_biaya_range,
+                        $hasHighValue,
+                        (bool) $p->is_pelanggan_khusus
+                    );
+                } else {
+                    $p->class_at_range = $p->class ?? 'Umum';
+                }
             }
         });
 
@@ -391,6 +396,6 @@ class PelangganExport implements FromCollection, WithHeadings
         }
 
         // Tidak ada history sama sekali → gunakan kelas saat ini sebagai fallback
-        return $currentClass ?? 'Potensial';
+        return $currentClass ?? 'Umum';
     }
 }

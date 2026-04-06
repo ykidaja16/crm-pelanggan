@@ -37,7 +37,7 @@ class LaporanExport implements FromCollection, WithHeadings, WithStyles, WithCol
                 : ($item->total_kedatangan   ?? 0);
 
             // Kelas: gunakan class_at_period jika tersedia (filter periode aktif)
-            $kelas = $item->class_at_period ?? $item->class ?? 'Potensial';
+            $kelas = $item->class_at_period ?? $item->class ?? 'Umum';
 
             // Kunjungan terakhir: sudah period-specific dari subquery
             $kunjunganTerakhir = $item->tgl_kunjungan_terakhir

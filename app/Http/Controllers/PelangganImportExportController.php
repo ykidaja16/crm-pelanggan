@@ -608,24 +608,24 @@ class PelangganImportExportController extends Controller
                 $pelanggan->alamat    = $alamat;
                 $pelanggan->kota      = $kota;
 
-                if ($pelanggan->exists) {
-                    $pelanggan->total_kedatangan += $totalKedatangan;
-                    $pelanggan->total_biaya      += $biayaValue;
-                } else {
+                if ($isNewPelanggan) {
+                    // Pelanggan baru: set nilai awal dan hitung kelas
                     $pelanggan->total_kedatangan = $totalKedatangan;
                     $pelanggan->total_biaya      = $biayaValue;
+
+                    $hasHighValueVisit = ($biayaValue >= 4000000);
+
+                    $pelanggan->class = Pelanggan::calculateClass(
+                        $pelanggan->total_kedatangan,
+                        $pelanggan->total_biaya,
+                        $hasHighValueVisit,
+                        (bool) $pelanggan->is_pelanggan_khusus
+                    );
                 }
-
-                $hasHighValueVisit = $pelanggan->kunjungans()
-                    ->where('biaya', '>=', 4000000)
-                    ->exists() || ($biayaValue >= 4000000);
-
-                $pelanggan->class = Pelanggan::calculateClass(
-                    $pelanggan->total_kedatangan,
-                    $pelanggan->total_biaya,
-                    $hasHighValueVisit,
-                    (bool) $pelanggan->is_pelanggan_khusus
-                );
+                // Untuk pelanggan existing: JANGAN update total_kedatangan, total_biaya,
+                // atau class di sini. updateStats() akan menghitung ulang dari semua
+                // kunjungan setelah kunjungan baru dibuat, dan mencatat perubahan kelas
+                // ke class_histories jika ada perubahan.
 
                 $pelanggan->save();
 

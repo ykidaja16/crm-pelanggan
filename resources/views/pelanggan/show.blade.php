@@ -62,6 +62,8 @@
                                 <span class="badge bg-success bg-opacity-10 text-success border border-success px-3 py-2 fs-6">LOYAL</span>
                             @elseif($pelanggan->class == 'Potensial')
                                 <span class="badge bg-warning bg-opacity-10 text-warning border border-warning px-3 py-2 fs-6">POTENSIAL</span>
+                            @elseif($pelanggan->class == 'Umum')
+                                <span class="badge bg-secondary bg-opacity-10 text-secondary border border-secondary px-3 py-2 fs-6">UMUM</span>
                             @else
                                 <span class="badge bg-secondary bg-opacity-10 text-secondary border border-secondary px-3 py-2 fs-6">-</span>
                             @endif
@@ -130,6 +132,8 @@
                                         <span class="badge bg-success bg-opacity-10 text-success border border-success">LOYAL</span>
                                     @elseif($history->new_class == 'Potensial')
                                         <span class="badge bg-warning bg-opacity-10 text-warning border border-warning">POTENSIAL</span>
+                                    @elseif($history->new_class == 'Umum')
+                                        <span class="badge bg-secondary bg-opacity-10 text-secondary border border-secondary">UMUM</span>
                                     @else
                                         <span class="badge bg-secondary bg-opacity-10 text-secondary border border-secondary">{{ $history->new_class }}</span>
                                     @endif
@@ -186,7 +190,7 @@
                         <tr>
                             <th class="px-4 py-3">No</th>
                             <th class="py-3">Tanggal Kunjungan</th>
-                            <th class="py-3 text-center">Total Kedatangan</th>
+                            <th class="py-3 text-center">Kelas</th>
                             <th class="py-3">Biaya</th>
                             <th class="py-3 text-center">Kelompok Pelanggan</th>
                             <th class="py-3 text-center">Status</th>
@@ -200,12 +204,26 @@
                                 $hasPending = $pendingApprovals->has($k->id);
                                 $pendingGroup = $hasPending ? $pendingApprovals->get($k->id) : collect();
                                 $pendingAction = $pendingGroup->first()?->action;
+                                $classAtVisit = $visitClasses[$k->id] ?? \App\Models\Pelanggan::resolveClassAtDate(
+                                    $k->tanggal_kunjungan,
+                                    $allClassHistories ?? collect(),
+                                    $pelanggan->class
+                                );
                             @endphp
                             <tr>
                                 <td class="px-4">{{ $index + 1 }}</td>
                                 <td>{{ \Carbon\Carbon::parse($k->tanggal_kunjungan)->format('d-m-Y') }}</td>
                                 <td class="text-center">
-                                    <span class="badge bg-info bg-opacity-10 text-info border border-info px-2 py-1">{{ $k->total_kedatangan }} kali</span>
+                                    @php
+                                        $visitClassBadge = match($classAtVisit) {
+                                            'Prioritas' => 'bg-danger bg-opacity-10 text-danger border border-danger',
+                                            'Loyal'     => 'bg-success bg-opacity-10 text-success border border-success',
+                                            'Potensial' => 'bg-warning bg-opacity-10 text-warning border border-warning',
+                                            'Umum'      => 'bg-secondary bg-opacity-10 text-secondary border border-secondary',
+                                            default     => 'bg-secondary bg-opacity-10 text-secondary border border-secondary'
+                                        };
+                                    @endphp
+                                    <span class="badge {{ $visitClassBadge }}">{{ $classAtVisit }}</span>
                                 </td>
                                 <td class="fw-semibold">Rp {{ number_format($k->biaya, 0, ',', '.') }}</td>
                                 <td class="text-center">

@@ -75,8 +75,9 @@
                             <select name="kelas" class="form-select">
                                 <option value="">Semua Kelas</option>
                                 <option value="Prioritas" {{ ($kelas ?? '') == 'Prioritas' ? 'selected' : '' }}>Prioritas</option>
-                                <option value="Loyal" {{ ($kelas ?? '') == 'Loyal' ? 'selected' : '' }}>Loyal</option>
+                                <option value="Loyal"     {{ ($kelas ?? '') == 'Loyal'     ? 'selected' : '' }}>Loyal</option>
                                 <option value="Potensial" {{ ($kelas ?? '') == 'Potensial' ? 'selected' : '' }}>Potensial</option>
+                                <option value="Umum"      {{ ($kelas ?? '') == 'Umum'      ? 'selected' : '' }}>Umum</option>
                             </select>
                         </div>
 
@@ -215,7 +216,7 @@
                                 </button>
                                 {{-- Revisi 3: Naikan Kelas (Admin only) --}}
                                 <button type="button" class="btn btn-warning btn-sm" onclick="openNaikKelasModal()">
-                                    <i class="fas fa-arrow-up me-1"></i>Naikan Kelas
+                                    <i class="fas fa-exchange-alt me-1"></i>Ubah Kelas
                                 </button>
                             @endif
                             {{-- Point 5: User tidak tampil Hapus Terpilih --}}
@@ -342,12 +343,13 @@
                                     </td>
                                     <td class="py-2 text-center">
                                         @php
-                                            $class = $p->class_at_period ?? $p->class ?? 'Potensial';
+                                            $class = ($usePeriodeBiaya && isset($p->class_at_period)) ? $p->class_at_period : ($p->class ?? 'Umum');
                                             $badgeClass = match($class) {
                                                 'Prioritas' => 'bg-danger bg-opacity-10 text-danger border border-danger',
-                                                'Loyal' => 'bg-success bg-opacity-10 text-success border border-success',
+                                                'Loyal'     => 'bg-success bg-opacity-10 text-success border border-success',
                                                 'Potensial' => 'bg-warning bg-opacity-10 text-warning border border-warning',
-                                                default => 'bg-secondary bg-opacity-10 text-secondary border border-secondary'
+                                                'Umum'      => 'bg-secondary bg-opacity-10 text-secondary border border-secondary',
+                                                default     => 'bg-secondary bg-opacity-10 text-secondary border border-secondary'
                                             };
                                         @endphp
                                         <span class="badge {{ $badgeClass }} small">{{ $class }}</span>
@@ -444,7 +446,7 @@
         </div>
     </div>
 
-    {{-- Modal Naikan Kelas untuk Admin (Revisi 3) --}}
+    {{-- Modal Ubah Kelas untuk Admin --}}
     @if($role === 'Admin')
     <div class="modal fade" id="naikKelasModal" tabindex="-1" aria-hidden="true">
         <div class="modal-dialog">
@@ -454,24 +456,31 @@
                     <div id="naikKelasIds"></div>
                     <div class="modal-header">
                         <h5 class="modal-title text-warning">
-                            <i class="fas fa-arrow-up me-2"></i>Ajukan Naikan Kelas ke Prioritas
+                            <i class="fas fa-exchange-alt me-2"></i>Ajukan Ubah Kelas
                         </h5>
                         <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
                     </div>
                     <div class="modal-body">
                         <div class="alert alert-info border-0 small mb-3">
                             <i class="fas fa-info-circle me-1"></i>
-                            Pengajuan ini akan dikirim ke <strong>Superadmin</strong> untuk disetujui. Pelanggan yang dipilih akan diusulkan naik kelas menjadi <strong>Prioritas</strong>.
+                            Pengajuan ini akan dikirim ke <strong>Superadmin</strong> untuk disetujui.
                         </div>
-                        <p>Anda akan mengajukan kenaikan kelas untuk <strong id="naikKelasCount">0</strong> pelanggan terpilih.</p>
+                        <p>Anda akan mengajukan perubahan kelas untuk <strong id="naikKelasCount">0</strong> pelanggan terpilih.</p>
+                        <label class="form-label fw-semibold">Ubah ke Kelas <span class="text-danger">*</span></label>
+                        <select name="target_class" class="form-select mb-3" required>
+                            <option value="Umum">Umum</option>
+                            <option value="Potensial">Potensial</option>
+                            <option value="Loyal">Loyal</option>
+                            <option value="Prioritas" selected>Prioritas</option>
+                        </select>
                         <label class="form-label fw-semibold">Catatan / Alasan Pengajuan <span class="text-danger">*</span></label>
                         <textarea name="request_note" class="form-control" rows="3"
-                                  placeholder="Wajib diisi. Contoh: Pelanggan memenuhi kriteria kelas Prioritas." required></textarea>
+                                  placeholder="Wajib diisi. Contoh: Penyesuaian kelas berdasarkan evaluasi terbaru." required></textarea>
                     </div>
                     <div class="modal-footer">
                         <button type="button" class="btn btn-outline-secondary" data-bs-dismiss="modal">Batal</button>
                         <button type="submit" class="btn btn-warning">
-                            <i class="fas fa-paper-plane me-1"></i>Ajukan Naikan Kelas
+                            <i class="fas fa-paper-plane me-1"></i>Ajukan Ubah Kelas
                         </button>
                     </div>
                 </form>

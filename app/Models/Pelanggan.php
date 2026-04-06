@@ -121,8 +121,8 @@ class Pelanggan extends Model
             return 'Potensial';
         }
 
-        // Default to Potensial for new customers
-        return 'Potensial';
+        // Default: belum memenuhi syarat kelas apapun → Umum
+        return 'Umum';
     }
 
     /**
@@ -267,7 +267,7 @@ class Pelanggan extends Model
         }
 
         // Tidak ada history sama sekali → gunakan kelas saat ini sebagai fallback
-        return $currentClass ?? 'Potensial';
+        return $currentClass ?? 'Umum';
     }
 
     /**

@@ -71,7 +71,7 @@ class KunjunganExport implements FromCollection, WithHeadings, WithStyles, WithC
         }
 
         // Tidak ada history sama sekali → gunakan kelas saat ini sebagai fallback
-        return $this->pelanggan->class ?? 'Potensial';
+        return $this->pelanggan->class ?? 'Umum';
     }
 
     public function collection()

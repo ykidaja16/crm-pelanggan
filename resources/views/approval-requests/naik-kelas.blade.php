@@ -1,12 +1,12 @@
 @extends('layouts.main')
 
-@section('title', 'Approval Naik Kelas - Medical Lab CRM')
+@section('title', 'Approval Ubah Kelas - Medical Lab CRM')
 
 @section('content')
 <div class="container-fluid py-3">
     <div class="d-flex justify-content-between align-items-center mb-4">
         <h4 class="text-primary mb-0 fw-semibold">
-            <i class="fas fa-arrow-up me-2"></i>Approval Naik Kelas
+            <i class="fas fa-exchange-alt me-2"></i>Approval Ubah Kelas
         </h4>
         <span class="badge bg-warning bg-opacity-10 text-warning border border-warning px-3 py-2">
             Total: {{ $requests->total() }} pengajuan
@@ -51,7 +51,7 @@
             @if($requests->isEmpty())
                 <div class="text-center py-5 text-muted">
                     <i class="fas fa-inbox fa-3x mb-3 opacity-25"></i>
-                    <p class="mb-0">Tidak ada pengajuan naik kelas.</p>
+                    <p class="mb-0">Tidak ada pengajuan ubah kelas.</p>
                 </div>
             @else
                 <div class="table-responsive">
@@ -103,7 +103,7 @@
                                         class="btn btn-outline-primary btn-sm"
                                         data-bs-toggle="modal"
                                         data-bs-target="#modalNaikKelas{{ $item->id }}">
-                                        <i class="fas fa-eye me-1"></i>Detail
+                                        <i class="fas fa-pencil-alt"></i>
                                     </button>
                                 </td>
                             </tr>
@@ -140,8 +140,8 @@
             {{-- Header --}}
             <div class="modal-header bg-warning bg-opacity-10 border-bottom">
                 <h6 class="modal-title fw-semibold">
-                    <i class="fas fa-arrow-up text-warning me-2"></i>
-                    Detail Pengajuan Naik Kelas #{{ $item->id }}
+                    <i class="fas fa-exchange-alt text-warning me-2"></i>
+                    Detail Pengajuan Ubah Kelas #{{ $item->id }}
                 </h6>
                 <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
             </div>
@@ -204,25 +204,40 @@
                                 <th class="small">PID</th>
                                 <th class="small">Nama</th>
                                 <th class="small">Kelas Saat Ini</th>
-                                <th class="small">Naik Ke</th>
+                                <th class="small">Ubah Ke</th>
                             </tr>
                         </thead>
                         <tbody>
                             @foreach($pelanggans as $idx => $p)
+                            @php
+                                $targetClass = $p['target_class'] ?? ($payload['target_class'] ?? 'Prioritas');
+                                $targetBadge = match($targetClass) {
+                                    'Prioritas' => 'bg-danger',
+                                    'Loyal'     => 'bg-success',
+                                    'Potensial' => 'bg-warning text-dark',
+                                    'Umum'      => 'bg-secondary',
+                                    default     => 'bg-secondary',
+                                };
+                            @endphp
                             <tr>
                                 <td class="small text-muted">{{ $idx + 1 }}</td>
                                 <td class="small fw-medium">{{ $p['pid'] ?? '-' }}</td>
                                 <td class="small">{{ $p['nama'] ?? '-' }}</td>
                                 <td class="small">
-                                    <span class="badge
-                                        @if(($p['class'] ?? '') === 'Prioritas') bg-danger
-                                        @elseif(($p['class'] ?? '') === 'Loyal') bg-warning text-dark
-                                        @else bg-secondary @endif">
-                                        {{ $p['class'] ?? 'Potensial' }}
-                                    </span>
+                                    @php
+                                        $curClass = $p['class'] ?? 'Umum';
+                                        $curBadge = match($curClass) {
+                                            'Prioritas' => 'bg-danger',
+                                            'Loyal'     => 'bg-success',
+                                            'Potensial' => 'bg-warning text-dark',
+                                            'Umum'      => 'bg-secondary',
+                                            default     => 'bg-secondary',
+                                        };
+                                    @endphp
+                                    <span class="badge {{ $curBadge }}">{{ $curClass }}</span>
                                 </td>
                                 <td class="small">
-                                    <span class="badge bg-danger">Prioritas</span>
+                                    <span class="badge {{ $targetBadge }}">{{ $targetClass }}</span>
                                 </td>
                             </tr>
                             @endforeach
@@ -243,20 +258,31 @@
                         @csrf
                         <div class="row g-2">
                             <div class="col-md-4">
-                                <label class="form-label small fw-medium">Aksi</label>
-                                <select name="action" class="form-select form-select-sm" required>
-                                    <option value="">-- Pilih --</option>
-                                    <option value="approve">✅ Approve</option>
-                                    <option value="reject">❌ Reject</option>
-                                </select>
-                            </div>
-                            <div class="col-md-8">
-                                <label class="form-label small fw-medium">Catatan Keputusan <span class="text-danger">*</span></label>
-                                <input type="text" name="decision_note" class="form-control form-control-sm"
-                                       placeholder="Tulis catatan keputusan..." required maxlength="500">
+                                <label class="form-label small fw-medium mb-2">Keputusan</label>
+                                <div class="d-flex gap-3 mb-2">
+                                    <div class="form-check">
+                                        <input class="form-check-input" type="radio" name="action" id="nk_approve_{{ $item->id }}" value="approve" required
+                                               onchange="updateApprovalBtn(this)">
+                                        <label class="form-check-label text-success fw-semibold" for="nk_approve_{{ $item->id }}">
+                                            ✅ Approve
+                                        </label>
+                                    </div>
+                                    <div class="form-check">
+                                        <input class="form-check-input" type="radio" name="action" id="nk_reject_{{ $item->id }}" value="reject"
+                                               onchange="updateApprovalBtn(this)">
+                                        <label class="form-check-label text-danger fw-semibold" for="nk_reject_{{ $item->id }}">
+                                            ❌ Reject
+                                        </label>
+                                    </div>
+                                </div>
                             </div>
                             <div class="col-12">
-                                <button type="submit" class="btn btn-primary btn-sm px-4">
+                                <label class="form-label small fw-medium">Catatan Keputusan <span class="text-danger">*</span></label>
+                                <textarea name="decision_note" class="form-control form-control-sm"
+                                          rows="3" placeholder="Tulis catatan keputusan..." required maxlength="500"></textarea>
+                            </div>
+                            <div class="col-12">
+                                <button type="submit" class="btn btn-primary btn-sm px-4 approval-submit-btn">
                                     <i class="fas fa-paper-plane me-1"></i>Kirim Keputusan
                                 </button>
                             </div>
@@ -278,5 +304,23 @@
     </div>
 </div>
 @endforeach
+
+@push('scripts')
+<script>
+function updateApprovalBtn(radio) {
+    const form = radio.closest('form');
+    if (!form) return;
+    const btn = form.querySelector('.approval-submit-btn');
+    if (!btn) return;
+    if (radio.value === 'approve') {
+        btn.className = 'btn btn-success btn-sm px-4 approval-submit-btn';
+        btn.innerHTML = '<i class="fas fa-check me-1"></i>Approve';
+    } else {
+        btn.className = 'btn btn-danger btn-sm px-4 approval-submit-btn';
+        btn.innerHTML = '<i class="fas fa-times me-1"></i>Reject';
+    }
+}
+</script>
+@endpush
 
 @endsection

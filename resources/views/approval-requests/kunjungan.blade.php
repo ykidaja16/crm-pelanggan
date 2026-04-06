@@ -112,7 +112,7 @@
                                         class="btn btn-outline-primary btn-sm"
                                         data-bs-toggle="modal"
                                         data-bs-target="#modalKunjungan{{ $item->id }}">
-                                        <i class="fas fa-eye me-1"></i>Detail
+                                        <i class="fas fa-pencil-alt"></i>
                                     </button>
                                 </td>
                             </tr>
@@ -243,8 +243,13 @@
                 @if($item->action === 'edit' && $kunjungan)
                 @php
                     $original = $payload['original_data'] ?? [];
+                    // Normalize tanggal ke format Y-m-d sebelum dibandingkan (fix timezone issue)
+                    $origTgl  = $original['tanggal_kunjungan'] ?? '';
+                    $newTgl   = $payload['tanggal_kunjungan'] ?? '';
+                    try { $origTgl = $origTgl ? \Carbon\Carbon::parse($origTgl)->toDateString() : ''; } catch(\Exception $e) {}
+                    try { $newTgl  = $newTgl  ? \Carbon\Carbon::parse($newTgl)->toDateString()  : ''; } catch(\Exception $e) {}
                     $changed  = [
-                        'tanggal_kunjungan'  => ($original['tanggal_kunjungan'] ?? '') !== ($payload['tanggal_kunjungan'] ?? ''),
+                        'tanggal_kunjungan'  => $origTgl !== $newTgl,
                         'biaya'              => (string)($original['biaya'] ?? '') !== (string)($payload['biaya'] ?? ''),
                         'kelompok_pelanggan' => ($original['kelompok_pelanggan'] ?? '') !== ($payload['kelompok_pelanggan'] ?? ''),
                     ];
@@ -264,9 +269,9 @@
                         <tbody>
                             <tr @if($changed['tanggal_kunjungan']) style="background:#fffde7" @endif>
                                 <td class="small fw-medium">Tanggal Kunjungan</td>
-                                <td class="small">{{ $original['tanggal_kunjungan'] ?? '-' }}</td>
+                                <td class="small">{{ $origTgl ? \Carbon\Carbon::parse($origTgl)->format('d-m-Y') : '-' }}</td>
                                 <td class="small @if($changed['tanggal_kunjungan']) fw-semibold text-warning @endif">
-                                    {{ $payload['tanggal_kunjungan'] ?? '-' }}
+                                    {{ $newTgl ? \Carbon\Carbon::parse($newTgl)->format('d-m-Y') : '-' }}
                                     @if($changed['tanggal_kunjungan'])<i class="fas fa-arrow-right ms-1 text-warning small"></i>@endif
                                 </td>
                             </tr>
@@ -349,20 +354,31 @@
                         @csrf
                         <div class="row g-2">
                             <div class="col-md-4">
-                                <label class="form-label small fw-medium">Aksi</label>
-                                <select name="action" class="form-select form-select-sm" required>
-                                    <option value="">-- Pilih --</option>
-                                    <option value="approve">✅ Approve</option>
-                                    <option value="reject">❌ Reject</option>
-                                </select>
-                            </div>
-                            <div class="col-md-8">
-                                <label class="form-label small fw-medium">Catatan Keputusan <span class="text-danger">*</span></label>
-                                <input type="text" name="decision_note" class="form-control form-control-sm"
-                                       placeholder="Tulis catatan keputusan..." required maxlength="500">
+                                <label class="form-label small fw-medium mb-2">Keputusan</label>
+                                <div class="d-flex gap-3 mb-2">
+                                    <div class="form-check">
+                                        <input class="form-check-input approval-radio" type="radio" name="action" id="approve_{{ $item->id }}" value="approve" required
+                                               onchange="updateApprovalBtn(this)">
+                                        <label class="form-check-label text-success fw-semibold" for="approve_{{ $item->id }}">
+                                            ✅ Approve
+                                        </label>
+                                    </div>
+                                    <div class="form-check">
+                                        <input class="form-check-input approval-radio" type="radio" name="action" id="reject_{{ $item->id }}" value="reject"
+                                               onchange="updateApprovalBtn(this)">
+                                        <label class="form-check-label text-danger fw-semibold" for="reject_{{ $item->id }}">
+                                            ❌ Reject
+                                        </label>
+                                    </div>
+                                </div>
                             </div>
                             <div class="col-12">
-                                <button type="submit" class="btn btn-primary btn-sm px-4">
+                                <label class="form-label small fw-medium">Catatan Keputusan <span class="text-danger">*</span></label>
+                                <textarea name="decision_note" class="form-control form-control-sm"
+                                          rows="3" placeholder="Tulis catatan keputusan..." required maxlength="500"></textarea>
+                            </div>
+                            <div class="col-12">
+                                <button type="submit" class="btn btn-primary btn-sm px-4 approval-submit-btn">
                                     <i class="fas fa-paper-plane me-1"></i>Kirim Keputusan
                                 </button>
                             </div>
@@ -384,5 +400,24 @@
     </div>
 </div>
 @endforeach
+
+@push('scripts')
+<script>
+function updateApprovalBtn(radio) {
+    // Cari form terdekat dari radio button
+    const form = radio.closest('form');
+    if (!form) return;
+    const btn = form.querySelector('.approval-submit-btn');
+    if (!btn) return;
+    if (radio.value === 'approve') {
+        btn.className = 'btn btn-success btn-sm px-4 approval-submit-btn';
+        btn.innerHTML = '<i class="fas fa-check me-1"></i>Approve';
+    } else {
+        btn.className = 'btn btn-danger btn-sm px-4 approval-submit-btn';
+        btn.innerHTML = '<i class="fas fa-times me-1"></i>Reject';
+    }
+}
+</script>
+@endpush
 
 @endsection

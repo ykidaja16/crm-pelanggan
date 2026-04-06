@@ -110,7 +110,7 @@
                                         class="btn btn-outline-primary btn-sm"
                                         data-bs-toggle="modal"
                                         data-bs-target="#modalKhusus{{ $item->id }}">
-                                        <i class="fas fa-eye me-1"></i>Detail
+                                        <i class="fas fa-pencil-alt"></i>
                                     </button>
                                 </td>
                             </tr>
@@ -359,20 +359,31 @@
                         @csrf
                         <div class="row g-2">
                             <div class="col-md-4">
-                                <label class="form-label small fw-medium">Aksi</label>
-                                <select name="action" class="form-select form-select-sm" required>
-                                    <option value="">-- Pilih --</option>
-                                    <option value="approve">✅ Approve</option>
-                                    <option value="reject">❌ Reject</option>
-                                </select>
-                            </div>
-                            <div class="col-md-8">
-                                <label class="form-label small fw-medium">Catatan Keputusan <span class="text-danger">*</span></label>
-                                <input type="text" name="decision_note" class="form-control form-control-sm"
-                                       placeholder="Tulis catatan keputusan..." required maxlength="500">
+                                <label class="form-label small fw-medium mb-2">Keputusan</label>
+                                <div class="d-flex gap-3 mb-2">
+                                    <div class="form-check">
+                                        <input class="form-check-input" type="radio" name="action" id="pk_approve_{{ $item->id }}" value="approve" required
+                                               onchange="updateApprovalBtn(this)">
+                                        <label class="form-check-label text-success fw-semibold" for="pk_approve_{{ $item->id }}">
+                                            ✅ Approve
+                                        </label>
+                                    </div>
+                                    <div class="form-check">
+                                        <input class="form-check-input" type="radio" name="action" id="pk_reject_{{ $item->id }}" value="reject"
+                                               onchange="updateApprovalBtn(this)">
+                                        <label class="form-check-label text-danger fw-semibold" for="pk_reject_{{ $item->id }}">
+                                            ❌ Reject
+                                        </label>
+                                    </div>
+                                </div>
                             </div>
                             <div class="col-12">
-                                <button type="submit" class="btn btn-primary btn-sm px-4">
+                                <label class="form-label small fw-medium">Catatan Keputusan <span class="text-danger">*</span></label>
+                                <textarea name="decision_note" class="form-control form-control-sm"
+                                          rows="3" placeholder="Tulis catatan keputusan..." required maxlength="500"></textarea>
+                            </div>
+                            <div class="col-12">
+                                <button type="submit" class="btn btn-primary btn-sm px-4 approval-submit-btn">
                                     <i class="fas fa-paper-plane me-1"></i>Kirim Keputusan
                                 </button>
                             </div>
@@ -394,5 +405,23 @@
     </div>
 </div>
 @endforeach
+
+@push('scripts')
+<script>
+function updateApprovalBtn(radio) {
+    const form = radio.closest('form');
+    if (!form) return;
+    const btn = form.querySelector('.approval-submit-btn');
+    if (!btn) return;
+    if (radio.value === 'approve') {
+        btn.className = 'btn btn-success btn-sm px-4 approval-submit-btn';
+        btn.innerHTML = '<i class="fas fa-check me-1"></i>Approve';
+    } else {
+        btn.className = 'btn btn-danger btn-sm px-4 approval-submit-btn';
+        btn.innerHTML = '<i class="fas fa-times me-1"></i>Reject';
+    }
+}
+</script>
+@endpush
 
 @endsection

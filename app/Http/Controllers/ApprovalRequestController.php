@@ -575,9 +575,11 @@ class ApprovalRequestController extends Controller
         $kunjungan = Kunjungan::with('pelanggan')->findOrFail($kunjunganId);
         $pelanggan = $kunjungan->pelanggan;
 
-        // Simpan data original (sebelum perubahan)
+        // Simpan data original (sebelum perubahan) — format tanggal sebagai Y-m-d agar perbandingan string akurat
         $originalData = [
-            'tanggal_kunjungan'  => $kunjungan->tanggal_kunjungan,
+            'tanggal_kunjungan'  => $kunjungan->tanggal_kunjungan
+                ? \Carbon\Carbon::parse($kunjungan->tanggal_kunjungan)->format('Y-m-d')
+                : null,
             'biaya'              => $kunjungan->biaya,
             'kelompok_pelanggan' => $kunjungan->kelompokPelanggan?->kode ?? null,
         ];
@@ -902,15 +904,16 @@ class ApprovalRequestController extends Controller
                 }
             }
 
-            // Naik Kelas: upgrade class ke Prioritas untuk pelanggan terpilih
+            // Ubah Kelas: ubah class pelanggan ke target_class yang dipilih
             if ($approval->type === 'naik_kelas' && $approval->action === 'upgrade_class') {
-                $payload = $approval->payload ?? [];
-                $ids     = $payload['ids'] ?? [];
+                $payload     = $approval->payload ?? [];
+                $ids         = $payload['ids'] ?? [];
+                $targetClass = $payload['target_class'] ?? 'Prioritas';
                 if (!empty($ids)) {
                     $pelanggans = Pelanggan::whereIn('id', $ids)->get();
                     foreach ($pelanggans as $p) {
-                        if ($p->class !== 'Prioritas') {
-                            $p->updateAndRecordClass('Prioritas', Auth::id(), 'Naik kelas via approval #' . $approval->id);
+                        if ($p->class !== $targetClass) {
+                            $p->updateAndRecordClass($targetClass, Auth::id(), 'Ubah kelas via approval #' . $approval->id);
                         }
                     }
                 }

@@ -370,7 +370,7 @@ class PelangganController extends Controller
             $biayaSubquery    = "SELECT COALESCE(SUM(biaya), 0) FROM kunjungans
                 WHERE kunjungans.pelanggan_id = pelanggans.id
                 AND DATE(tanggal_kunjungan) <= '{$endOfPeriod}'";
-            $kedatanganSubquery = "SELECT COUNT(*) FROM kunjungans
+            $kedatanganSubquery = "SELECT COALESCE(SUM(total_kedatangan), 0) FROM kunjungans
                 WHERE kunjungans.pelanggan_id = pelanggans.id
                 AND DATE(tanggal_kunjungan) <= '{$endOfPeriod}'";
         } elseif ($type === 'pertahun' && $tahun) {
@@ -383,19 +383,20 @@ class PelangganController extends Controller
             $biayaSubquery    = "SELECT COALESCE(SUM(biaya), 0) FROM kunjungans
                 WHERE kunjungans.pelanggan_id = pelanggans.id
                 AND DATE(tanggal_kunjungan) <= '{$endOfPeriod}'";
-            $kedatanganSubquery = "SELECT COUNT(*) FROM kunjungans
+            $kedatanganSubquery = "SELECT COALESCE(SUM(total_kedatangan), 0) FROM kunjungans
                 WHERE kunjungans.pelanggan_id = pelanggans.id
                 AND DATE(tanggal_kunjungan) <= '{$endOfPeriod}'";
         } elseif ($type === 'range' && $tanggal_mulai && $tanggal_selesai) {
             $tglSubquery = "SELECT MAX(tanggal_kunjungan) FROM kunjungans
                 WHERE kunjungans.pelanggan_id = pelanggans.id
                 AND tanggal_kunjungan BETWEEN '{$tanggal_mulai}' AND '{$tanggal_selesai}'";
+            // Fix: kumulatif semua kunjungan <= tanggal_selesai (seperti LaporanController)
             $biayaSubquery    = "SELECT COALESCE(SUM(biaya), 0) FROM kunjungans
                 WHERE kunjungans.pelanggan_id = pelanggans.id
-                AND tanggal_kunjungan BETWEEN '{$tanggal_mulai}' AND '{$tanggal_selesai}'";
-            $kedatanganSubquery = "SELECT COUNT(*) FROM kunjungans
+                AND DATE(tanggal_kunjungan) <= '{$tanggal_selesai}'";
+            $kedatanganSubquery = "SELECT COALESCE(SUM(total_kedatangan), 0) FROM kunjungans
                 WHERE kunjungans.pelanggan_id = pelanggans.id
-                AND tanggal_kunjungan BETWEEN '{$tanggal_mulai}' AND '{$tanggal_selesai}'";
+                AND DATE(tanggal_kunjungan) <= '{$tanggal_selesai}'";
             $endOfPeriod = $tanggal_selesai;
         } else {
             $tglSubquery        = "SELECT MAX(tanggal_kunjungan) FROM kunjungans
@@ -567,7 +568,7 @@ class PelangganController extends Controller
     }
 
     /**
-     * Ajukan naik kelas ke Prioritas untuk pelanggan terpilih (bulk).
+     * Ajukan ubah kelas untuk pelanggan terpilih (bulk).
      * Hanya Admin yang bisa mengajukan; Superadmin yang approve.
      */
     public function requestNaikKelas(Request $request)
@@ -575,7 +576,7 @@ class PelangganController extends Controller
         $role = Auth::user()->role?->name;
 
         if ($role !== 'Admin') {
-            return redirect()->back()->with('error', 'Hanya Admin yang dapat mengajukan naik kelas.');
+            return redirect()->back()->with('error', 'Hanya Admin yang dapat mengajukan ubah kelas.');
         }
 
         $ids = $request->input('ids', []);
@@ -588,13 +589,19 @@ class PelangganController extends Controller
             return redirect()->back()->with('error', 'ID pelanggan tidak valid.');
         }
 
+        // Validasi target_class
+        $targetClass = $request->input('target_class', 'Prioritas');
+        if (!in_array($targetClass, ['Umum', 'Potensial', 'Loyal', 'Prioritas'])) {
+            return redirect()->back()->with('error', 'Kelas tujuan tidak valid.');
+        }
+
         $pelanggans = Pelanggan::whereIn('id', $ids)->get(['id', 'pid', 'nama', 'class', 'cabang_id']);
 
-        // Filter: hanya yang belum Prioritas
-        $eligible = $pelanggans->filter(fn($p) => $p->class !== 'Prioritas');
+        // Filter: hanya yang kelasnya berbeda dari target
+        $eligible = $pelanggans->filter(fn($p) => $p->class !== $targetClass);
 
         if ($eligible->isEmpty()) {
-            return redirect()->back()->with('error', 'Semua pelanggan yang dipilih sudah berstatus Prioritas.');
+            return redirect()->back()->with('error', "Semua pelanggan yang dipilih sudah berstatus {$targetClass}.");
         }
 
         $eligibleIds   = $eligible->pluck('id')->toArray();
@@ -614,16 +621,17 @@ class PelangganController extends Controller
             'target_type'  => Pelanggan::class,
             'target_id'    => null,
             'payload'      => [
-                'ids'        => array_values($eligibleIds),
-                'count'      => $eligibleCount,
-                'pelanggans' => $eligible->map(fn($p) => [
+                'ids'          => array_values($eligibleIds),
+                'count'        => $eligibleCount,
+                'target_class' => $targetClass,
+                'pelanggans'   => $eligible->map(fn($p) => [
                     'id'    => $p->id,
                     'pid'   => $p->pid,
                     'nama'  => $p->nama,
                     'class' => $p->class,
                 ])->values()->toArray(),
             ],
-            'request_note' => "Pengajuan naik kelas ke Prioritas untuk {$eligibleCount} pelanggan.",
+            'request_note' => "Pengajuan ubah kelas ke {$targetClass} untuk {$eligibleCount} pelanggan.",
             'status'       => 'pending',
             'requested_by' => Auth::id(),
             'assigned_to'  => $assignedTo,
@@ -631,7 +639,7 @@ class PelangganController extends Controller
 
         ActivityLog::record(
             'update', 'ApprovalRequest',
-            "Mengajukan naik kelas {$eligibleCount} pelanggan ke Prioritas untuk approval Superadmin.",
+            "Mengajukan ubah kelas {$eligibleCount} pelanggan ke {$targetClass} untuk approval Superadmin.",
             Auth::id(),
             Auth::user()->username ?? 'unknown',
             $role,
@@ -639,7 +647,7 @@ class PelangganController extends Controller
             $request->userAgent()
         );
 
-        return redirect()->back()->with('success', "Pengajuan naik kelas {$eligibleCount} pelanggan berhasil dikirim untuk approval Superadmin.");
+        return redirect()->back()->with('success', "Pengajuan ubah kelas {$eligibleCount} pelanggan ke {$targetClass} berhasil dikirim untuk approval Superadmin.");
     }
 
     /**
@@ -796,6 +804,47 @@ class PelangganController extends Controller
             ->orderBy('tanggal_kunjungan', 'asc')
             ->paginate(10, ['*'], 'kunjungan_page');
 
+        // Semua riwayat kelas urut ASC untuk kalkulasi kelas per kunjungan
+        $allClassHistories = $pelanggan->classHistories()
+            ->orderBy('changed_at', 'asc')
+            ->get();
+
+        // Pre-calculate kelas per kunjungan (untuk kolom Kelas di riwayat kunjungan)
+        // Gunakan kalkulasi kumulatif dinamis jika tidak ada history
+        $allKunjungansForClass = $pelanggan->kunjungans()
+            ->orderBy('tanggal_kunjungan', 'asc')
+            ->get(['id', 'tanggal_kunjungan', 'biaya', 'total_kedatangan']);
+
+        $visitClasses = [];
+        if ($allClassHistories->isEmpty()) {
+            // Tidak ada history → hitung dinamis berdasarkan kunjungan kumulatif s.d. tanggal masing-masing
+            $cumulativeKedatangan = 0;
+            $cumulativeBiaya      = 0;
+            $hasHighValue         = false;
+            foreach ($allKunjungansForClass as $kv) {
+                $cumulativeKedatangan += $kv->total_kedatangan ?? 1;
+                $cumulativeBiaya      += $kv->biaya ?? 0;
+                if (($kv->biaya ?? 0) >= 4000000) {
+                    $hasHighValue = true;
+                }
+                $visitClasses[$kv->id] = Pelanggan::calculateClass(
+                    $cumulativeKedatangan,
+                    $cumulativeBiaya,
+                    $hasHighValue,
+                    (bool) $pelanggan->is_pelanggan_khusus
+                );
+            }
+        } else {
+            // Ada history → gunakan resolveClassAtDate per kunjungan
+            foreach ($allKunjungansForClass as $kv) {
+                $visitClasses[$kv->id] = Pelanggan::resolveClassAtDate(
+                    $kv->tanggal_kunjungan,
+                    $allClassHistories,
+                    $pelanggan->class
+                );
+            }
+        }
+
         $kunjunganIds     = $kunjungans->pluck('id')->toArray();
         $pendingApprovals = \App\Models\ApprovalRequest::whereIn('target_id', $kunjunganIds)
             ->where('target_type', \App\Models\Kunjungan::class)
@@ -819,6 +868,8 @@ class PelangganController extends Controller
             'kunjungans',
             'totalTransaksi',
             'classHistories',
+            'allClassHistories',
+            'visitClasses',
             'pendingApprovals',
             'approvalHistories'
         ));

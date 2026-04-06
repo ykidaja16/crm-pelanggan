@@ -102,25 +102,35 @@
                             <td class="small text-muted" style="max-width:200px;">{{ $item->decision_note ?? '-' }}</td>
                             <td>
                                 @if($item->status === 'pending')
-                                    {{-- Point 3: Dropdown Approve/Reject dengan 1 textbox catatan --}}
                                     <form method="POST" action="{{ route('approval.process', $item->id) }}">
                                         @csrf
-                                        <div class="mb-2">
-                                            <select name="action" class="form-select form-select-sm" required>
-                                                <option value="">-- Pilih Keputusan --</option>
-                                                <option value="approve">✅ Approve</option>
-                                                <option value="reject">❌ Reject</option>
-                                            </select>
+                                        <div class="d-flex gap-3 mb-2">
+                                            <div class="form-check">
+                                                <input class="form-check-input" type="radio" name="action"
+                                                       id="idx_approve_{{ $item->id }}" value="approve" required
+                                                       onchange="updateApprovalBtn(this)">
+                                                <label class="form-check-label text-success fw-semibold small" for="idx_approve_{{ $item->id }}">
+                                                    ✅ Approve
+                                                </label>
+                                            </div>
+                                            <div class="form-check">
+                                                <input class="form-check-input" type="radio" name="action"
+                                                       id="idx_reject_{{ $item->id }}" value="reject"
+                                                       onchange="updateApprovalBtn(this)">
+                                                <label class="form-check-label text-danger fw-semibold small" for="idx_reject_{{ $item->id }}">
+                                                    ❌ Reject
+                                                </label>
+                                            </div>
                                         </div>
                                         <div class="mb-2">
-                                            <input type="text"
-                                                   name="decision_note"
-                                                   class="form-control form-control-sm"
-                                                   placeholder="Catatan keputusan..."
-                                                   required>
+                                            <textarea name="decision_note"
+                                                      class="form-control form-control-sm"
+                                                      rows="2"
+                                                      placeholder="Catatan keputusan..."
+                                                      required maxlength="500"></textarea>
                                         </div>
-                                        <button type="submit" class="btn btn-primary btn-sm w-100">
-                                            <i class="fas fa-paper-plane me-1"></i>Proses
+                                        <button type="submit" class="btn btn-primary btn-sm w-100 approval-submit-btn">
+                                            <i class="fas fa-paper-plane me-1"></i>Kirim Keputusan
                                         </button>
                                     </form>
                                 @else
@@ -162,4 +172,22 @@
         @endif
     </div>
 </div>
+@push('scripts')
+<script>
+function updateApprovalBtn(radio) {
+    const form = radio.closest('form');
+    if (!form) return;
+    const btn = form.querySelector('.approval-submit-btn');
+    if (!btn) return;
+    if (radio.value === 'approve') {
+        btn.className = 'btn btn-success btn-sm w-100 approval-submit-btn';
+        btn.innerHTML = '<i class="fas fa-check me-1"></i>Approve';
+    } else {
+        btn.className = 'btn btn-danger btn-sm w-100 approval-submit-btn';
+        btn.innerHTML = '<i class="fas fa-times me-1"></i>Reject';
+    }
+}
+</script>
+@endpush
+
 @endsection

@@ -149,6 +149,7 @@
         .badge-prioritas { background-color: #dc3545; color: white; }
         .badge-loyal     { background-color: #28a745; color: white; }
         .badge-potensial { background-color: #ffc107; color: #000; }
+        .badge-umum      { background-color: #6c757d; color: white; }
         
         @media print {
             body {
@@ -248,11 +249,12 @@
                 $kedatangan = $usePeriodeBiaya
                     ? ($p->kedatangan_periode ?? $p->total_kedatangan ?? 0)
                     : ($p->total_kedatangan   ?? 0);
-                $kelas      = $p->class_at_period ?? $p->class ?? 'Potensial';
+                $kelas      = $p->class_at_period ?? $p->class ?? 'Umum';
                 $badgeClass = match($kelas) {
                     'Prioritas' => 'badge-prioritas',
                     'Loyal'     => 'badge-loyal',
-                    default     => 'badge-potensial',
+                    'Potensial' => 'badge-potensial',
+                    default     => 'badge-umum',
                 };
             @endphp
             <tr>

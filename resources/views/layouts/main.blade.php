@@ -356,7 +356,7 @@
                     </li>
                     <li class="{{ request()->routeIs('approval.naik-kelas') ? 'active' : '' }}">
                         <a href="{{ route('approval.naik-kelas') }}">
-                            <i class="fas fa-arrow-up me-2"></i>Naik Kelas
+                            <i class="fas fa-arrow-up me-2"></i>Ubah Kelas
                         </a>
                     </li>
                 </ul>
@@ -505,7 +505,24 @@
     //     document.getElementById('sidebar').classList.toggle('active');
     // });
 </script>
-@yield('scripts')
+        <script>
+        // Global Approval Button Handler - untuk semua popup approval
+        function updateApprovalBtn(radio) {
+            const form = radio.closest('form');
+            if (!form) return;
+            const btn = form.querySelector('.approval-submit-btn');
+            if (!btn) return;
+            
+            if (radio.value === 'approve') {
+                btn.className = 'btn btn-success btn-sm px-4 approval-submit-btn';
+                btn.innerHTML = '<i class="fas fa-check me-1"></i>Approve';
+            } else if (radio.value === 'reject') {
+                btn.className = 'btn btn-danger btn-sm px-4 approval-submit-btn';
+                btn.innerHTML = '<i class="fas fa-times me-1"></i>Reject';
+            }
+        }
+        </script>
+        @yield('scripts')
 </body>
 
 </html>

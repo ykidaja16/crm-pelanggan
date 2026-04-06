@@ -91,6 +91,7 @@
                         <option value="Prioritas">Prioritas</option>
                         <option value="Loyal">Loyal</option>
                         <option value="Potensial">Potensial</option>
+                        <option value="Umum">Umum</option>
                     </select>
                 </div>
 
@@ -395,7 +396,7 @@ document.addEventListener('DOMContentLoaded', function() {
                 // Kelas: gunakan class_at_period jika tersedia
                 var kelas = (usePeriodeBiaya && item.class_at_period)
                     ? item.class_at_period
-                    : (item.class || 'Potensial');
+                    : (item.class || 'Umum');
 
                 var row = document.createElement('tr');
                 row.innerHTML =
@@ -433,10 +434,11 @@ document.addEventListener('DOMContentLoaded', function() {
         var badgeMap = {
             'Prioritas': 'bg-danger bg-opacity-10 text-danger border border-danger',
             'Loyal':     'bg-success bg-opacity-10 text-success border border-success',
-            'Potensial': 'bg-warning bg-opacity-10 text-warning border border-warning'
+            'Potensial': 'bg-warning bg-opacity-10 text-warning border border-warning',
+            'Umum':      'bg-secondary bg-opacity-10 text-secondary border border-secondary'
         };
         var cls = badgeMap[kelas] || 'bg-secondary bg-opacity-10 text-secondary border border-secondary';
-        return '<span class="badge ' + cls + ' small">' + (kelas || 'Potensial') + '</span>';
+        return '<span class="badge ' + cls + ' small">' + (kelas || 'Umum') + '</span>';
     }
 
     // ── Helper: Format Date ───────────────────────────────────────────────────
