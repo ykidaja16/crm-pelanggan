@@ -193,7 +193,7 @@
                             <th class="py-3 text-center">Kelas</th>
                             <th class="py-3">Biaya</th>
                             <th class="py-3 text-center">Kelompok Pelanggan</th>
-                            <th class="py-3 text-center">Status</th>
+                            <th class="py-3 text-center">Status Perubahan Data</th>
                             <th class="py-3 text-center">Aksi</th>
                         </tr>
                     </thead>
@@ -235,15 +235,15 @@
                                     @if($hasPending)
                                         @if($pendingAction === 'delete')
                                             <span class="badge bg-danger bg-opacity-10 text-danger border border-danger">
-                                                <i class="fas fa-clock me-1"></i>Menunggu Hapus
+                                                <i class="fas fa-clock me-1"></i>Menunggu Approval
                                             </span>
                                         @else
                                             <span class="badge bg-warning bg-opacity-10 text-warning border border-warning">
-                                                <i class="fas fa-clock me-1"></i>Menunggu Edit
+                                                <i class="fas fa-clock me-1"></i>Menunggu Approval
                                             </span>
                                         @endif
                                     @else
-                                        <span class="badge bg-success bg-opacity-10 text-success border border-success">Selesai</span>
+                                        <span class="badge bg-success bg-opacity-10 text-success border border-success">Tidak Ada Pengajuan</span>
                                     @endif
                                 </td>
                                 <td class="text-center">
