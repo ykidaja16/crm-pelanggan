@@ -77,11 +77,20 @@ class DashboardController extends Controller
             $thisYear  = $now->year;
             $firstDay  = $now->startOfMonth()->toDateString();
 
+            // Hitung bulan kemarin
+            $lastMonth = $now->copy()->subMonth();
+            $lastMonthNumber = $lastMonth->month;
+            $lastMonthYear   = $lastMonth->year;
+
             return [
                 'totalPelanggan' => Pelanggan::count(),
 
                 'totalKunjunganBulanIni' => Kunjungan::whereMonth('tanggal_kunjungan', $thisMonth)
                     ->whereYear('tanggal_kunjungan', $thisYear)
+                    ->count(),
+
+                'totalKunjunganBulanKemarin' => Kunjungan::whereMonth('tanggal_kunjungan', $lastMonthNumber)
+                    ->whereYear('tanggal_kunjungan', $lastMonthYear)
                     ->count(),
 
                 'totalKunjunganTahunIni' => Kunjungan::whereYear('tanggal_kunjungan', $thisYear)->count(),
@@ -104,16 +113,17 @@ class DashboardController extends Controller
         });
 
         return view('dashboard.index', [
-            'chartData'              => $chartData,
-            'chartLabels'            => $chartLabels,
-            'chartTitle'             => $chartTitle,
-            'filterType'             => $filterType,
-            'year'                   => $year,
-            'month'                  => $month,
-            'totalPelanggan'         => $stats['totalPelanggan'],
-            'totalKunjunganBulanIni' => $stats['totalKunjunganBulanIni'],
-            'totalKunjunganTahunIni' => $stats['totalKunjunganTahunIni'],
-            'pelangganBaruBulanIni'  => $stats['pelangganBaruBulanIni'],
+            'chartData'                   => $chartData,
+            'chartLabels'                 => $chartLabels,
+            'chartTitle'                  => $chartTitle,
+            'filterType'                  => $filterType,
+            'year'                        => $year,
+            'month'                       => $month,
+            'totalPelanggan'              => $stats['totalPelanggan'],
+            'totalKunjunganBulanIni'      => $stats['totalKunjunganBulanIni'],
+            'totalKunjunganBulanKemarin'  => $stats['totalKunjunganBulanKemarin'],
+            'totalKunjunganTahunIni'      => $stats['totalKunjunganTahunIni'],
+            'pelangganBaruBulanIni'       => $stats['pelangganBaruBulanIni'],
         ]);
     }
 }

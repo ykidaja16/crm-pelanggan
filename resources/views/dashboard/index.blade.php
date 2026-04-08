@@ -9,7 +9,7 @@
 
     <!-- Statistik Cards -->
     <div class="row mb-4">
-        <div class="col-md-3">
+        <div class="col">
             <div class="card bg-primary text-white">
                 <div class="card-body">
                     <div class="d-flex justify-content-between align-items-center">
@@ -22,7 +22,7 @@
                 </div>
             </div>
         </div>
-        <div class="col-md-3">
+        <div class="col">
             <div class="card bg-success text-white">
                 <div class="card-body">
                     <div class="d-flex justify-content-between align-items-center">
@@ -35,7 +35,20 @@
                 </div>
             </div>
         </div>
-        <div class="col-md-3">
+        <div class="col">
+            <div class="card bg-secondary text-white">
+                <div class="card-body">
+                    <div class="d-flex justify-content-between align-items-center">
+                        <div>
+                            <h6 class="mb-0">Kunjungan Bulan Kemarin</h6>
+                            <h3 class="mb-0">{{ number_format($totalKunjunganBulanKemarin) }}</h3>
+                        </div>
+                        <i class="fas fa-calendar-minus fa-2x opacity-50"></i>
+                    </div>
+                </div>
+            </div>
+        </div>
+        <div class="col">
             <div class="card bg-info text-white">
                 <div class="card-body">
                     <div class="d-flex justify-content-between align-items-center">
@@ -48,7 +61,7 @@
                 </div>
             </div>
         </div>
-        <div class="col-md-3">
+        <div class="col">
             <div class="card bg-warning text-white">
                 <div class="card-body">
                     <div class="d-flex justify-content-between align-items-center">
@@ -128,13 +141,13 @@
     
     if (filterType === 'class') {
         backgroundColors = [
-            'rgba(33, 37, 41, 0.8)',   // Platinum - dark
+            'rgba(255, 0, 0, 0.8)',   // Platinum - dark
             'rgba(255, 193, 7, 0.8)',   // Gold - yellow
             'rgba(108, 117, 125, 0.8)', // Silver - gray
             'rgba(248, 249, 250, 0.8)'  // Basic - light
         ];
         borderColors = [
-            'rgba(33, 37, 41, 1)',
+            'rgba(255, 0, 0, 1)',
             'rgba(255, 193, 7, 1)',
             'rgba(108, 117, 125, 1)',
             'rgba(108, 117, 125, 1)'
