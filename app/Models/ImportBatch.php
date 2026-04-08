@@ -63,4 +63,28 @@ class ImportBatch extends Model
     {
         return $this->status === 'rolled_back';
     }
+
+    /**
+     * Apakah batch ini bisa di-rollback?
+     * Validasi: rollback harus dilakukan secara berurutan dari yang terbaru.
+     * Tidak boleh rollback batch di tengah/tengah jika ada batch lebih baru yang belum di-rollback.
+     */
+    public function canBeRolledBack(): bool
+    {
+        // Jika sudah di-rollback, tidak bisa di-rollback lagi
+        if ($this->isRolledBack()) {
+            return false;
+        }
+
+        // Cek apakah ada batch lain di cabang yang sama dengan imported_at lebih baru
+        // dan statusnya bukan 'rolled_back' (masih aktif)
+        $newerActiveBatch = self::where('cabang_id', $this->cabang_id)
+            ->where('imported_at', '>', $this->imported_at)
+            ->where('status', '!=', 'rolled_back')
+            ->exists();
+
+        // Jika ada batch lebih baru yang masih aktif, batch ini TIDAK bisa di-rollback
+        // (harus rollback yang terbaru dulu)
+        return !$newerActiveBatch;
+    }
 }

@@ -100,7 +100,7 @@
         @endif
 
         {{-- Card: Tambah Pelanggan Manual --}}
-        <div class="col-12">
+        {{-- <div class="col-12">
             <div class="card shadow-sm border-0">
                 <div class="card-header bg-white py-3 border-bottom">
                     <h6 class="mb-0 fw-semibold text-primary">
@@ -116,7 +116,7 @@
                     </a>
                 </div>
             </div>
-        </div>
+        </div> --}}
 
     </div>
 

@@ -166,7 +166,7 @@
                                 {{ $batch->rolled_back_at?->format('d/m/Y H:i') ?? '-' }}
                             </td>
                             <td class="text-center">
-                                @if(!$batch->isRolledBack())
+                                @if($batch->canBeRolledBack())
                                     <button type="button"
                                             class="btn btn-danger btn-sm"
                                             title="Rollback import ini"
@@ -177,8 +177,12 @@
                                             )">
                                         <i class="fas fa-undo-alt me-1"></i>Rollback
                                     </button>
-                                @else
+                                @elseif($batch->isRolledBack())
                                     <span class="text-muted small">—</span>
+                                @else
+                                    <span class="badge bg-secondary" title="Rollback harus dilakukan secara berurutan dari file terbaru">
+                                        <i class="fas fa-lock me-1"></i>Terblokir
+                                    </span>
                                 @endif
                             </td>
                         </tr>

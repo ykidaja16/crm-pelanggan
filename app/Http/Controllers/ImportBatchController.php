@@ -78,6 +78,22 @@ class ImportBatchController extends Controller
             return back()->with('error', 'Import ini sudah pernah di-rollback sebelumnya dan tidak dapat di-rollback lagi.');
         }
 
+        // Validasi urutan rollback: hanya boleh rollback batch terbaru yang belum di-rollback
+        // Jika ada batch lain di cabang yang sama dengan imported_at lebih baru dan status != 'rolled_back',
+        // maka batch ini tidak boleh di-rollback dulu
+        $newerActiveBatch = ImportBatch::where('cabang_id', $batch->cabang_id)
+            ->where('imported_at', '>', $batch->imported_at)
+            ->where('status', '!=', 'rolled_back')
+            ->first();
+
+        if ($newerActiveBatch) {
+            return back()->with('error',
+                "Rollback harus dilakukan secara berurutan dari yang terbaru. " .
+                "Silakan rollback file '{$newerActiveBatch->filename}' ({$newerActiveBatch->imported_at->format('d/m/Y H:i')}) terlebih dahulu " .
+                "sebelum melakukan rollback pada file ini."
+            );
+        }
+
         $snapshots    = ImportBatchPelangganSnapshot::where('import_batch_id', $batchId)->get();
         $hasSnapshots = $snapshots->isNotEmpty();
 
