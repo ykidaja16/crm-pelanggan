@@ -8,9 +8,9 @@
     </div>
 
     <!-- Statistik Cards -->
-    <div class="row mb-4">
-        <div class="col">
-            <div class="card bg-primary text-white">
+    <div class="row mb-4 g-3">
+        <div class="col-12 col-sm-6 col-md-4 col-lg">
+            <div class="card bg-primary text-white h-100">
                 <div class="card-body">
                     <div class="d-flex justify-content-between align-items-center">
                         <div>
@@ -22,8 +22,8 @@
                 </div>
             </div>
         </div>
-        <div class="col">
-            <div class="card bg-success text-white">
+        <div class="col-12 col-sm-6 col-md-4 col-lg">
+            <div class="card bg-success text-white h-100">
                 <div class="card-body">
                     <div class="d-flex justify-content-between align-items-center">
                         <div>
@@ -35,8 +35,8 @@
                 </div>
             </div>
         </div>
-        <div class="col">
-            <div class="card bg-secondary text-white">
+        <div class="col-12 col-sm-6 col-md-4 col-lg">
+            <div class="card bg-secondary text-white h-100">
                 <div class="card-body">
                     <div class="d-flex justify-content-between align-items-center">
                         <div>
@@ -48,8 +48,8 @@
                 </div>
             </div>
         </div>
-        <div class="col">
-            <div class="card bg-info text-white">
+        <div class="col-12 col-sm-6 col-md-4 col-lg">
+            <div class="card bg-info text-white h-100">
                 <div class="card-body">
                     <div class="d-flex justify-content-between align-items-center">
                         <div>
@@ -61,8 +61,8 @@
                 </div>
             </div>
         </div>
-        <div class="col">
-            <div class="card bg-warning text-white">
+        <div class="col-12 col-sm-6 col-md-4 col-lg">
+            <div class="card bg-warning text-white h-100">
                 <div class="card-body">
                     <div class="d-flex justify-content-between align-items-center">
                         <div>
@@ -70,6 +70,62 @@
                             <h3 class="mb-0">{{ number_format($pelangganBaruBulanIni) }}</h3>
                         </div>
                         <i class="fas fa-user-plus fa-2x opacity-50"></i>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Statistik Per Klasifikasi -->
+    <div class="row mb-4 g-3">
+        <div class="col-12 col-sm-6 col-md-3">
+            <div class="card bg-danger text-white h-100">
+                <div class="card-body">
+                    <div class="d-flex justify-content-between align-items-center">
+                        <div>
+                            <h6 class="mb-0">Total Pelanggan Prioritas</h6>
+                            <h3 class="mb-0">{{ number_format($totalPelangganPrioritas) }}</h3>
+                        </div>
+                        <i class="fas fa-crown fa-2x opacity-50"></i>
+                    </div>
+                </div>
+            </div>
+        </div>
+        <div class="col-12 col-sm-6 col-md-3">
+            <div class="card bg-success text-white h-100">
+                <div class="card-body">
+                    <div class="d-flex justify-content-between align-items-center">
+                        <div>
+                            <h6 class="mb-0">Total Pelanggan Loyal</h6>
+                            <h3 class="mb-0">{{ number_format($totalPelangganLoyal) }}</h3>
+                        </div>
+                        <i class="fas fa-heart fa-2x opacity-50"></i>
+                    </div>
+                </div>
+            </div>
+        </div>
+        <div class="col-12 col-sm-6 col-md-3">
+            <div class="card bg-warning text-white h-100">
+                <div class="card-body">
+                    <div class="d-flex justify-content-between align-items-center">
+                        <div>
+                            <h6 class="mb-0">Total Pelanggan Potensial</h6>
+                            <h3 class="mb-0">{{ number_format($totalPelangganPotensial) }}</h3>
+                        </div>
+                        <i class="fas fa-star fa-2x opacity-50"></i>
+                    </div>
+                </div>
+            </div>
+        </div>
+        <div class="col-12 col-sm-6 col-md-3">
+            <div class="card bg-secondary text-white h-100">
+                <div class="card-body">
+                    <div class="d-flex justify-content-between align-items-center">
+                        <div>
+                            <h6 class="mb-0">Total Pelanggan Umum</h6>
+                            <h3 class="mb-0">{{ number_format($totalPelangganUmum) }}</h3>
+                        </div>
+                        <i class="fas fa-user fa-2x opacity-50"></i>
                     </div>
                 </div>
             </div>
@@ -121,7 +177,7 @@
             <h5 class="mb-0"><i class="fas fa-chart-bar text-primary me-2"></i> {{ $chartTitle }}</h5>
         </div>
         <div class="card-body">
-            <canvas id="growthChart" height="100"></canvas>
+            <canvas id="growthChart" height="200"></canvas>
         </div>
     </div>
 @endsection
@@ -141,15 +197,15 @@
     
     if (filterType === 'class') {
         backgroundColors = [
-            'rgba(255, 0, 0, 0.8)',   // Platinum - dark
-            'rgba(255, 193, 7, 0.8)',   // Gold - yellow
-            'rgba(108, 117, 125, 0.8)', // Silver - gray
-            'rgba(248, 249, 250, 0.8)'  // Basic - light
+            'rgba(255, 0, 0, 0.8)',      // Prioritas - merah
+            'rgba(40, 167, 69, 0.8)',    // Loyal - hijau
+            'rgba(255, 193, 7, 0.8)',    // Potensial - kuning
+            'rgba(108, 117, 125, 0.8)'   // Umum - abu-abu
         ];
         borderColors = [
             'rgba(255, 0, 0, 1)',
+            'rgba(40, 167, 69, 1)',
             'rgba(255, 193, 7, 1)',
-            'rgba(108, 117, 125, 1)',
             'rgba(108, 117, 125, 1)'
         ];
     } else {

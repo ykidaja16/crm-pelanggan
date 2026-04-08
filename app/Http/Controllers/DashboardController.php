@@ -63,7 +63,7 @@ class DashboardController extends Controller
                 ->groupBy('class')
                 ->pluck('total', 'class');
 
-            $classes = ['Prioritas', 'Loyal', 'Potensial'];
+            $classes = ['Prioritas', 'Loyal', 'Potensial', 'Umum'];
             foreach ($classes as $class) {
                 $chartLabels[] = $class;
                 $chartData[]   = (int) ($classCounts[$class] ?? 0);
@@ -109,6 +109,12 @@ class DashboardController extends Controller
                           ->where('tanggal_kunjungan', '<', $firstDay);
                     })
                     ->count(),
+
+                // Statistik per klasifikasi
+                'totalPelangganPrioritas' => Pelanggan::where('class', 'Prioritas')->count(),
+                'totalPelangganLoyal' => Pelanggan::where('class', 'Loyal')->count(),
+                'totalPelangganPotensial' => Pelanggan::where('class', 'Potensial')->count(),
+                'totalPelangganUmum' => Pelanggan::where('class', 'Umum')->count(),
             ];
         });
 
@@ -124,6 +130,10 @@ class DashboardController extends Controller
             'totalKunjunganBulanKemarin'  => $stats['totalKunjunganBulanKemarin'],
             'totalKunjunganTahunIni'      => $stats['totalKunjunganTahunIni'],
             'pelangganBaruBulanIni'       => $stats['pelangganBaruBulanIni'],
+            'totalPelangganPrioritas'     => $stats['totalPelangganPrioritas'],
+            'totalPelangganLoyal'         => $stats['totalPelangganLoyal'],
+            'totalPelangganPotensial'     => $stats['totalPelangganPotensial'],
+            'totalPelangganUmum'          => $stats['totalPelangganUmum'],
         ]);
     }
 }
