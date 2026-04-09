@@ -111,7 +111,7 @@
                                 <th class="text-center">Kelas</th>
                                 <th>No. Telp</th>
                                 <th class="text-center">Kunjungan Terakhir</th>
-                                <th class="text-center">Kelompok</th>
+                                {{-- <th class="text-center">Kelompok</th> --}}
                                 <th class="text-center">Aksi</th>
                             </tr>
                         </thead>
@@ -158,9 +158,9 @@
                                         ? \Carbon\Carbon::parse($p->kunjungans_max_tanggal_kunjungan)->format('d-m-Y')
                                         : '-' }}
                                 </td>
-                                <td class="text-center small">
+                                {{-- <td class="text-center small">
                                     {{ $p->latestKunjungan?->kelompokPelanggan?->nama ?? '-' }}
-                                </td>
+                                </td> --}}
                                 <td class="text-center">
                                     <button type="button"
                                             class="btn btn-outline-primary btn-sm py-0 px-2"
@@ -261,14 +261,14 @@
                             <div class="small">{{ $p->alamat ?? '-' }}</div>
                         </div>
                     </div>
-                    @if($p->latestKunjungan?->kelompokPelanggan)
+                    {{-- @if($p->latestKunjungan?->kelompokPelanggan)
                     <div class="col-6">
                         <div class="p-2 bg-light rounded border">
                             <div class="text-muted small mb-1"><i class="fas fa-users me-1"></i>Kelompok</div>
                             <div class="small fw-medium">{{ $p->latestKunjungan->kelompokPelanggan->nama }}</div>
                         </div>
                     </div>
-                    @endif
+                    @endif --}}
                 </div>
             </div>
             <div class="modal-footer">
