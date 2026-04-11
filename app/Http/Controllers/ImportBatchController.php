@@ -12,6 +12,7 @@ use App\Models\ImportBatchPelangganSnapshot;
 use App\Models\Pelanggan;
 use App\Models\Kunjungan;
 use App\Models\ActivityLog;
+use App\Models\PelangganClassHistory;
 
 /**
  * Controller untuk mengelola riwayat import dan rollback data.
@@ -180,12 +181,31 @@ class ImportBatchController extends Controller
                                 Log::info("Rollback MODE A: hard-deleted new pelanggan ID {$snap->pelanggan_id}");
                             }
                         } else {
-                            Pelanggan::where('id', $snap->pelanggan_id)->update([
-                                'total_kedatangan' => $snap->total_kedatangan_before,
-                                'total_biaya'      => $snap->total_biaya_before,
-                                'class'            => $snap->class_before,
-                            ]);
-                            Log::info("Rollback MODE A: restored pelanggan ID {$snap->pelanggan_id}");
+                            $pelangganId = $snap->pelanggan_id;
+                            $pelanggan = Pelanggan::find($pelangganId);
+                            if ($pelanggan) {
+                                $oldClass = $pelanggan->class;
+                                Pelanggan::where('id', $pelangganId)->update([
+                                    'total_kedatangan' => $snap->total_kedatangan_before,
+                                    'total_biaya'      => $snap->total_biaya_before,
+                                    'class'            => $snap->class_before,
+                                ]);
+                                
+                                // Catat riwayat perubahan kelas jika ada perubahan
+                                if ($oldClass !== $snap->class_before) {
+                                    PelangganClassHistory::create([
+                                        'pelanggan_id'    => $pelangganId,
+                                        'previous_class'  => $oldClass,
+                                        'new_class'       => $snap->class_before,
+                                        'changed_at'      => now(),
+                                        'changed_by'      => Auth::id(),
+                                        'reason'          => "Hasil rollback data import batch ({$batch->filename}) - {$batch->total_rows} baris"
+                                    ]);
+                                    Log::info("Rollback MODE A: class history recorded for pelanggan {$pelangganId}");
+                                }
+                                
+                                Log::info("Rollback MODE A: restored pelanggan ID {$pelangganId}");
+                            }
                         }
                     }
                     // ─────────────────────────────────────────────────────────────────
@@ -218,13 +238,27 @@ class ImportBatchController extends Controller
                             $newTotalKedatangan = (int) ($remainingStats->total_kd ?? 0);
                             $newTotalBiaya      = (float) ($remainingStats->total_biaya_sum ?? 0);
                             $hasHighValue       = Kunjungan::where('pelanggan_id', $pelangganId)->where('biaya', '>=', 4000000)->exists();
-                            $newClass           = Pelanggan::calculateClass($newTotalKedatangan, $newTotalBiaya, $hasHighValue, (bool) $pelanggan->is_pelanggan_khusus);
+                            $newClass = Pelanggan::calculateClass($newTotalKedatangan, $newTotalBiaya, $hasHighValue, (bool) $pelanggan->is_pelanggan_khusus);
 
+                            $oldClass = $pelanggan->class;
                             $pelanggan->update([
                                 'total_kedatangan' => $newTotalKedatangan,
                                 'total_biaya'      => $newTotalBiaya,
                                 'class'            => $newClass,
                             ]);
+                            
+                            // Catat riwayat perubahan kelas jika ada perubahan
+                            if ($oldClass !== $newClass) {
+                                PelangganClassHistory::create([
+                                    'pelanggan_id'    => $pelangganId,
+                                    'previous_class'  => $oldClass,
+                                    'new_class'       => $newClass,
+                                    'changed_at'      => now(),
+                                    'changed_by'      => Auth::id(),
+                                    'reason'          => "Hasil rollback data import batch ({$batch->filename}) - {$batch->total_rows} baris (recalculate)"
+                                ]);
+                                Log::info("Rollback MODE B: class history recorded for pelanggan {$pelangganId}");
+                            }
                             Log::info("Rollback MODE B: recalculated pelanggan ID {$pelangganId}");
                         }
                     }
@@ -252,12 +286,31 @@ class ImportBatchController extends Controller
                                 Log::info("Rollback MODE C: hard-deleted new pelanggan ID {$snap->pelanggan_id}");
                             }
                         } else {
-                            Pelanggan::where('id', $snap->pelanggan_id)->update([
-                                'total_kedatangan' => $snap->total_kedatangan_before,
-                                'total_biaya'      => $snap->total_biaya_before,
-                                'class'            => $snap->class_before,
-                            ]);
-                            Log::info("Rollback MODE C: restored pelanggan ID {$snap->pelanggan_id} from snapshot");
+                            $pelangganId = $snap->pelanggan_id;
+                            $pelanggan = Pelanggan::find($pelangganId);
+                            if ($pelanggan) {
+                                $oldClass = $pelanggan->class;
+                                Pelanggan::where('id', $pelangganId)->update([
+                                    'total_kedatangan' => $snap->total_kedatangan_before,
+                                    'total_biaya'      => $snap->total_biaya_before,
+                                    'class'            => $snap->class_before,
+                                ]);
+                                
+                                // Catat riwayat perubahan kelas jika ada perubahan
+                                if ($oldClass !== $snap->class_before) {
+                                    PelangganClassHistory::create([
+                                        'pelanggan_id'    => $pelangganId,
+                                        'previous_class'  => $oldClass,
+                                        'new_class'       => $snap->class_before,
+                                        'changed_at'      => now(),
+                                        'changed_by'      => Auth::id(),
+                                        'reason'          => "Hasil rollback data import batch ({$batch->filename}) - {$batch->total_rows} baris"
+                                    ]);
+                                    Log::info("Rollback MODE C: class history recorded for pelanggan {$pelangganId}");
+                                }
+                                
+                                Log::info("Rollback MODE C: restored pelanggan ID {$pelangganId} from snapshot");
+                            }
                         }
                     }
                     // ─────────────────────────────────────────────────────────────────
