@@ -228,10 +228,276 @@
         }
         .badge-primary { background: #0056b3; }
         .badge-info { background: #00a8cc; }
+        
+        /* ============================================
+           RESPONSIVE STYLES - TAMBAHAN UNTUK MOBILE
+           ============================================ */
+        
+        /* Overlay untuk mobile sidebar */
+        .sidebar-overlay {
+            display: none;
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background: rgba(0,0,0,0.5);
+            z-index: 998;
+        }
+        
+        .sidebar-overlay.active {
+            display: block;
+        }
+        
+        /* Mobile Responsive - Tablet & Mobile */
+        @media (max-width: 991.98px) {
+            /* Sidebar behavior */
+            #sidebar {
+                position: fixed;
+                left: -250px;
+                z-index: 999;
+                height: 100vh;
+                overflow-y: auto;
+            }
+            
+            #sidebar.active {
+                left: 0;
+            }
+            
+            /* Content adjustment */
+            #content {
+                padding: 15px;
+                width: 100%;
+            }
+            
+            /* Navbar adjustments */
+            .navbar .container-fluid {
+                padding: 0.5rem;
+            }
+            
+            /* Compact cards */
+            .card {
+                margin-bottom: 15px;
+            }
+            
+            .card-header {
+                padding: 12px 15px;
+            }
+            
+            .card-body {
+                padding: 15px;
+            }
+            
+            /* Table responsive wrapper */
+            .table-responsive-wrapper {
+                overflow-x: auto;
+                -webkit-overflow-scrolling: touch;
+            }
+            
+            /* Form adjustments */
+            .form-label {
+                font-size: 0.9rem;
+                margin-bottom: 0.3rem;
+            }
+            
+            .form-control, .form-select {
+                font-size: 0.9rem;
+                padding: 0.4rem 0.6rem;
+            }
+            
+            /* Button adjustments */
+            .btn {
+                padding: 0.4rem 0.8rem;
+                font-size: 0.875rem;
+            }
+            
+            /* Compact spacing */
+            .mb-4 {
+                margin-bottom: 1rem !important;
+            }
+            
+            .mb-3 {
+                margin-bottom: 0.75rem !important;
+            }
+            
+            /* Alert compact */
+            .alert {
+                padding: 0.75rem 1rem;
+                font-size: 0.9rem;
+            }
+        }
+        
+        /* Small Mobile - < 576px */
+        @media (max-width: 575.98px) {
+            #content {
+                padding: 10px;
+            }
+            
+            /* Hide text in profile dropdown, show only icon */
+            .dropdown .text-start.d-none.d-md-block {
+                display: none !important;
+            }
+            
+            /* Make dropdown button more compact */
+            #profileDropdown {
+                padding: 0.4rem !important;
+            }
+            
+            /* Sidebar header smaller */
+            #sidebar .sidebar-header {
+                padding: 12px;
+            }
+            
+            #sidebar .sidebar-header img {
+                height: 35px !important;
+                margin-bottom: 3px !important;
+            }
+            
+            #sidebar .sidebar-header h4 {
+                font-size: 0.85rem;
+            }
+            
+            /* Menu items more compact */
+            #sidebar ul li a {
+                padding: 12px 20px;
+                font-size: 1rem;
+            }
+            
+            #sidebar .submenu-pelanggan li a,
+            #sidebar .submenu-approval li a,
+            #sidebar .submenu-special-day li a {
+                padding: 8px 15px 8px 35px;
+                font-size: 0.85rem;
+            }
+            
+            /* Card more compact */
+            .card-header {
+                padding: 10px 12px;
+                font-size: 0.95rem;
+            }
+            
+            .card-body {
+                padding: 12px;
+            }
+            
+            /* Table font smaller */
+            .table {
+                font-size: 0.85rem;
+            }
+            
+            .table td, .table th {
+                padding: 0.5rem;
+            }
+            
+            /* Badge smaller */
+            .badge {
+                font-size: 0.75rem;
+                padding: 0.3em 0.5em;
+            }
+            
+            /* Pagination compact */
+            .pagination {
+                font-size: 0.85rem;
+            }
+            
+            .page-link {
+                padding: 0.3rem 0.6rem;
+            }
+        }
+        
+        /* Extra Small Mobile - < 360px */
+        @media (max-width: 359.98px) {
+            #content {
+                padding: 8px;
+            }
+            
+            .card-header {
+                padding: 8px 10px;
+                font-size: 0.9rem;
+            }
+            
+            .btn {
+                padding: 0.35rem 0.6rem;
+                font-size: 0.8rem;
+            }
+            
+            /* Stack buttons vertically on very small screens */
+            .btn-group-responsive {
+                display: flex;
+                flex-direction: column;
+                gap: 0.5rem;
+            }
+            
+            .btn-group-responsive .btn {
+                width: 100%;
+            }
+        }
+        
+        /* Landscape orientation optimization */
+        @media (max-height: 500px) and (orientation: landscape) {
+            #sidebar {
+                overflow-y: auto;
+            }
+            
+            #sidebar .sidebar-header {
+                padding: 10px;
+            }
+            
+            #sidebar .sidebar-header img {
+                height: 40px !important;
+                margin-bottom: 5px !important;
+            }
+        }
+        
+        /* Print styles - hide sidebar when printing */
+        @media print {
+            #sidebar {
+                display: none !important;
+            }
+            
+            #content {
+                width: 100% !important;
+                margin: 0 !important;
+                padding: 0 !important;
+            }
+            
+            .navbar {
+                display: none !important;
+            }
+            
+            .btn, .dropdown {
+                display: none !important;
+            }
+        }
+        
+        /* Utility classes for responsive tables */
+        .table-responsive-mobile {
+            overflow-x: auto;
+            -webkit-overflow-scrolling: touch;
+            display: block;
+            width: 100%;
+        }
+        
+        /* Ensure images are responsive */
+        img {
+            max-width: 100%;
+            height: auto;
+        }
+        
+        /* Smooth transitions for sidebar */
+        #sidebar {
+            transition: all 0.3s ease-in-out;
+        }
+        
+        /* Prevent horizontal scroll on body */
+        body {
+            overflow-x: hidden;
+        }
     </style>
 </head>
 <body>
 
+<div class="sidebar-overlay" id="sidebarOverlay"></div>
 <div class="wrapper">
     <!-- Sidebar -->
     <nav id="sidebar">
@@ -407,10 +673,10 @@
                 <button type="button" id="sidebarCollapse" class="btn btn-light text-primary">
                     <i class="fas fa-bars"></i>
                 </button>
-                <a class="navbar-brand ms-3 d-flex align-items-center" href="{{ route('dashboard') }}">
+                {{-- <a class="navbar-brand ms-3 d-flex align-items-center" href="{{ route('dashboard') }}">
                     <img src="{{ asset('images/logosima.png') }}" alt="SIMA Lab" height="35" class="me-2">
                     <!-- <span class="fw-bold text-primary">SIMA Lab</span> -->
-                </a>
+                </a> --}}
                 <div class="ms-auto d-flex align-items-center gap-2">
                     {{-- Dropdown Profil User --}}
                     <div class="dropdown">
@@ -500,10 +766,52 @@
 
 <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
 <script>
-    // Optional: Toggle sidebar functionality if needed
-    // document.getElementById('sidebarCollapse').addEventListener('click', function() {
-    //     document.getElementById('sidebar').classList.toggle('active');
-    // });
+    // Toggle sidebar functionality for mobile
+    document.addEventListener('DOMContentLoaded', function() {
+        const sidebarCollapse = document.getElementById('sidebarCollapse');
+        const sidebar = document.getElementById('sidebar');
+        const sidebarOverlay = document.getElementById('sidebarOverlay');
+        
+        if (sidebarCollapse && sidebar) {
+            sidebarCollapse.addEventListener('click', function() {
+                sidebar.classList.toggle('active');
+                if (sidebarOverlay) {
+                    sidebarOverlay.classList.toggle('active');
+                }
+            });
+        }
+        
+        // Close sidebar when clicking overlay
+        if (sidebarOverlay && sidebar) {
+            sidebarOverlay.addEventListener('click', function() {
+                sidebar.classList.remove('active');
+                sidebarOverlay.classList.remove('active');
+            });
+        }
+        
+        // Close sidebar when clicking on a menu item (mobile only)
+        const sidebarLinks = sidebar.querySelectorAll('a:not([data-bs-toggle="collapse"])');
+        sidebarLinks.forEach(function(link) {
+            link.addEventListener('click', function() {
+                if (window.innerWidth <= 991.98) {
+                    sidebar.classList.remove('active');
+                    if (sidebarOverlay) {
+                        sidebarOverlay.classList.remove('active');
+                    }
+                }
+            });
+        });
+        
+        // Handle window resize
+        window.addEventListener('resize', function() {
+            if (window.innerWidth > 991.98) {
+                sidebar.classList.remove('active');
+                if (sidebarOverlay) {
+                    sidebarOverlay.classList.remove('active');
+                }
+            }
+        });
+    });
 </script>
         <script>
         // Global Approval Button Handler - untuk semua popup approval
