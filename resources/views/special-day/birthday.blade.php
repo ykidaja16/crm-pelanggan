@@ -152,7 +152,21 @@
                                         {{ $p->class ?? '-' }}
                                     </span>
                                 </td>
-                                <td class="small">{{ $p->no_telp ?? '-' }}</td>
+                                <td class="small">
+                                    @if($p->no_telp)
+                                        @php
+                                            $waNumber = $p->no_telp;
+                                            if (str_starts_with($waNumber, '0')) {
+                                                $waNumber = '62' . substr($waNumber, 1);
+                                            }
+                                        @endphp
+                                        <a href="https://api.whatsapp.com/send/?phone={{ $waNumber }}&text&type=phone_number&app_absent=0" target="_blank" class="text-decoration-none" title="Chat WhatsApp">
+                                            <i class="fab fa-whatsapp text-success me-1"></i>{{ $p->no_telp }}
+                                        </a>
+                                    @else
+                                        -
+                                    @endif
+                                </td>
                                 <td class="text-center small">
                                     {{ $p->kunjungans_max_tanggal_kunjungan
                                         ? \Carbon\Carbon::parse($p->kunjungans_max_tanggal_kunjungan)->format('d-m-Y')
@@ -224,7 +238,21 @@
                     <div class="col-6">
                         <div class="p-2 bg-light rounded border">
                             <div class="text-muted small mb-1"><i class="fas fa-phone me-1"></i>No. Telp</div>
-                            <div class="small">{{ $p->no_telp ?? '-' }}</div>
+                            <div class="small">
+                                @if($p->no_telp)
+                                    @php
+                                        $waNumber = $p->no_telp;
+                                        if (str_starts_with($waNumber, '0')) {
+                                            $waNumber = '62' . substr($waNumber, 1);
+                                        }
+                                    @endphp
+                                    <a href="https://api.whatsapp.com/send/?phone={{ $waNumber }}&text&type=phone_number&app_absent=0" target="_blank" class="text-decoration-none" title="Chat WhatsApp">
+                                        <i class="fab fa-whatsapp text-success me-1"></i>{{ $p->no_telp }}
+                                    </a>
+                                @else
+                                    -
+                                @endif
+                            </div>
                         </div>
                     </div>
                     <div class="col-6">

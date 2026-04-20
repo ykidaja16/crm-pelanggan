@@ -35,8 +35,14 @@
                         <label class="text-muted small fw-medium text-uppercase">No Telepon</label>
                         <div class="fs-6">
                             @if($pelanggan->no_telp)
-                                <a href="tel:{{ $pelanggan->no_telp }}" class="text-decoration-none">
-                                    <i class="fas fa-phone me-1 text-success"></i>{{ $pelanggan->no_telp }}
+                                @php
+                                    $waNumber = $pelanggan->no_telp;
+                                    if (str_starts_with($waNumber, '0')) {
+                                        $waNumber = '62' . substr($waNumber, 1);
+                                    }
+                                @endphp
+                                <a href="https://api.whatsapp.com/send/?phone={{ $waNumber }}&text&type=phone_number&app_absent=0" target="_blank" class="text-decoration-none" title="Chat WhatsApp">
+                                    <i class="fab fa-whatsapp text-success me-1"></i>{{ $pelanggan->no_telp }}
                                 </a>
                             @else
                                 <span class="text-muted">-</span>

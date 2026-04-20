@@ -329,7 +329,21 @@
                                     <td class="py-2 text-center">
                                         <span class="badge bg-info bg-opacity-10 text-info border border-info small text-nowrap">{{ $p->cabang?->nama ?? '-' }}</span>
                                     </td>
-                                    <td class="py-2 text-nowrap small">{{ $p->no_telp ?? '-' }}</td>
+                                    <td class="py-2 text-nowrap small">
+                                        @if($p->no_telp)
+                                            @php
+                                                $waNumber = $p->no_telp;
+                                                if (str_starts_with($waNumber, '0')) {
+                                                    $waNumber = '62' . substr($waNumber, 1);
+                                                }
+                                            @endphp
+                                            <a href="https://api.whatsapp.com/send/?phone={{ $waNumber }}&text&type=phone_number&app_absent=0" target="_blank" class="text-decoration-none" title="Chat WhatsApp">
+                                                <i class="fab fa-whatsapp text-success me-1"></i>{{ $p->no_telp }}
+                                            </a>
+                                        @else
+                                            -
+                                        @endif
+                                    </td>
                                     <td class="py-2 text-center text-nowrap small">{{ $p->dob ? $p->dob->format('d-m-Y') : '-' }}</td>
                                     <td class="py-2 small">{{ Str::limit($p->alamat, 25) ?? '-' }}</td>
                                     <td class="py-2 text-center">
