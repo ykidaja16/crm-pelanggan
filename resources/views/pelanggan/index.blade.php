@@ -27,8 +27,8 @@
                 <div class="card-body">
                     <form method="GET" action="{{ route('pelanggan.index') }}" class="row g-3 align-items-end">
                         <div class="col-md-4">
-                            <label class="form-label fw-medium small">Cari (PID/Nama)</label>
-                            <input type="text" name="search" class="form-control" value="{{ $search ?? '' }}" placeholder="Masukkan PID atau Nama...">
+                            <label class="form-label fw-medium small">Cari (PID/Nama/NIK)</label>
+                            <input type="text" name="search" class="form-control" value="{{ $search ?? '' }}" placeholder="Masukkan PID, Nama, atau NIK...">
                         </div>
                         <div class="col-md-2">
                             <button type="submit" class="btn btn-primary w-100">
@@ -270,6 +270,7 @@
                                             Nama Pasien <i class="fas fa-sort{{ ($sort ?? '') == 'nama' ? (($direction ?? '') == 'asc' ? '-up' : '-down') : '' }} text-muted ms-1"></i>
                                         </a>
                                     </th>
+                                    <th class="py-2 text-center" style="width: 120px;">NIK</th>
                                     <th class="py-2 text-center" style="width: 100px;">
                                         <a href="{{ route('pelanggan.index', array_merge(request()->all(), ['sort' => 'cabang_id', 'direction' => ($sort ?? '') == 'cabang_id' && ($direction ?? '') == 'asc' ? 'desc' : 'asc'])) }}" class="text-decoration-none text-dark fw-semibold">
                                             Cabang <i class="fas fa-sort{{ ($sort ?? '') == 'cabang_id' ? (($direction ?? '') == 'asc' ? '-up' : '-down') : '' }} text-muted ms-1"></i>
@@ -326,6 +327,13 @@
                                     <td class="px-2 py-2 text-center">{{ $pelanggan->firstItem() + $index }}</td>
                                     <td class="py-2"><code class="bg-light px-1 py-1 rounded small text-nowrap">{{ $p->pid }}</code></td>
                                     <td class="py-2 fw-medium">{{ $p->nama }}</td>
+                                    <td class="py-2 text-center small">
+                                        @if($p->nik)
+                                            <span class="text-muted">{{ $p->nik }}</span>
+                                        @else
+                                            <span class="text-secondary fst-italic">-</span>
+                                        @endif
+                                    </td>
                                     <td class="py-2 text-center">
                                         <span class="badge bg-info bg-opacity-10 text-info border border-info small text-nowrap">{{ $p->cabang?->nama ?? '-' }}</span>
                                     </td>

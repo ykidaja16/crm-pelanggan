@@ -105,19 +105,19 @@ class PelangganImportExportController extends Controller
 
             Log::info('Excel file read successfully', ['sheet_count' => count($rows), 'first_sheet_rows' => count($rows[0])]);
 
-            // ── Validasi format file: tolak jika format Pelanggan Khusus (12 kolom) ──
-            // Format pelanggan khusus memiliki 12 kolom, kolom ke-12 adalah "Kategori Khusus"
-            // Format pelanggan biasa hanya 11 kolom
+            // ── Validasi format file: tolak jika format Pelanggan Khusus (13 kolom) ──
+            // Format pelanggan khusus memiliki 13 kolom, kolom ke-13 (index 12) adalah "Kategori Khusus"
+            // Format pelanggan biasa memiliki 12 kolom (index 0-11, dengan NIK di index 11)
             $isKhususFormat = false;
             $firstSheet     = $rows[0] ?? [];
 
             // Cek header row (baris pertama)
             $headerRow = $firstSheet[0] ?? [];
-            if (count($headerRow) >= 12) {
-                $col12Header = strtolower(trim((string) ($headerRow[11] ?? '')));
-                if (!empty($col12Header)) {
+            if (count($headerRow) >= 13) {
+                $col13Header = strtolower(trim((string) ($headerRow[12] ?? '')));
+                if (!empty($col13Header) && str_contains($col13Header, 'kategori')) {
                     $isKhususFormat = true;
-                    Log::info('Detected khusus format from header', ['col12' => $col12Header]);
+                    Log::info('Detected khusus format from header', ['col13' => $col13Header]);
                 }
             }
 
@@ -125,7 +125,7 @@ class PelangganImportExportController extends Controller
             if (!$isKhususFormat) {
                 foreach ($firstSheet as $rowIdx => $row) {
                     if ($rowIdx === 0) continue; // skip header
-                    if (count($row) >= 12 && trim((string) ($row[11] ?? '')) !== '') {
+                    if (count($row) >= 13 && trim((string) ($row[12] ?? '')) !== '') {
                         $isKhususFormat = true;
                         Log::info('Detected khusus format from data row', ['row' => $rowIdx + 1]);
                         break;
@@ -343,7 +343,7 @@ class PelangganImportExportController extends Controller
      */
     public function downloadTemplate()
     {
-        // Header kolom sesuai format import
+        // Header kolom sesuai format import (12 kolom dengan NIK di kolom terakhir)
         $headers = [
             'No',
             'Nama Pasien',
@@ -355,16 +355,17 @@ class PelangganImportExportController extends Controller
             'PID',
             'Alamat',
             'Kota',
-            'Kelompok Pelanggan (mandiri/klinisi)'
+            'Kelompok Pelanggan (mandiri/klinisi)',
+            'NIK'
         ];
 
-        // Data dummy sebagai contoh
+        // Data dummy sebagai contoh (12 kolom dengan NIK)
         $data = [
-            [1, 'Budi Santoso',  3, '2024-01-15', 2500000, '081234567890', '1990-05-20', 'JK00001', 'Jl. Sudirman No. 123',    'Jakarta',    'mandiri'],
-            [2, 'Siti Aminah',   5, '2024-02-10', 4500000, '082345678901', '1985-08-12', 'BD00002', 'Jl. Ahmad Yani No. 45',   'Bandung',    'klinisi'],
-            [3, 'Ahmad Wijaya',  2, '2024-03-05', 1200000, '083456789012', '1992-11-03', 'SB00003', 'Jl. Gatot Subroto No. 78','Surabaya',   'mandiri'],
-            [4, 'Dewi Kusuma',   4, '2024-01-28', 3800000, '084567890123', '1988-04-25', 'YK00004', 'Jl. Malioboro No. 12',    'Yogyakarta', 'klinisi'],
-            [5, 'Eko Prasetyo',  1, '2024-02-20',  850000, '085678901234', '1995-09-18', 'ML00005', 'Jl. Ijen No. 56',         'Malang',     'mandiri'],
+            [1, 'Budi Santoso',  3, '2024-01-15', 2500000, '081234567890', '1990-05-20', 'JK00001', 'Jl. Sudirman No. 123',    'Jakarta',    'mandiri', '1234567890123456'],
+            [2, 'Siti Aminah',   5, '2024-02-10', 4500000, '082345678901', '1985-08-12', 'BD00002', 'Jl. Ahmad Yani No. 45',   'Bandung',    'klinisi', 'TIDAK ADA IDENTITAS'],
+            [3, 'Ahmad Wijaya',  2, '2024-03-05', 1200000, '083456789012', '1992-11-03', 'SB00003', 'Jl. Gatot Subroto No. 78','Surabaya',   'mandiri', ''],
+            [4, 'Dewi Kusuma',   4, '2024-01-28', 3800000, '084567890123', '1988-04-25', 'YK00004', 'Jl. Malioboro No. 12',    'Yogyakarta', 'klinisi', '6543210987654321'],
+            [5, 'Eko Prasetyo',  1, '2024-02-20',  850000, '085678901234', '1995-09-18', 'ML00005', 'Jl. Ijen No. 56',         'Malang',     'mandiri', ''],
         ];
 
         $spreadsheet = new \PhpOffice\PhpSpreadsheet\Spreadsheet();
@@ -408,7 +409,7 @@ class PelangganImportExportController extends Controller
                 ]
             ]
         ];
-        $sheet->getStyle('A1:K1')->applyFromArray($headerStyle);
+        $sheet->getStyle('A1:L1')->applyFromArray($headerStyle);
 
         $writer   = new \PhpOffice\PhpSpreadsheet\Writer\Xlsx($spreadsheet);
         $filename = 'template_import_pelanggan.xlsx';
@@ -516,6 +517,13 @@ class PelangganImportExportController extends Controller
             $kota             = trim($row[9] ?? '');
             $kelompokRaw       = isset($row[10]) ? strtolower(trim((string) $row[10])) : '';
             $kelompokPelanggan = str_contains($kelompokRaw, 'klinisi') ? 'klinisi' : 'mandiri';
+            
+            // Baca NIK dari kolom ke-12 (index 11)
+            $nik = isset($row[11]) ? trim((string) $row[11]) : null;
+            // Jika NIK kosong atau "TIDAK ADA IDENTITAS", set null
+            if ($nik === '' || strtolower($nik) === 'tidak ada identitas') {
+                $nik = null;
+            }
 
             if (empty($pid) || empty($nama)) {
                 continue;
@@ -533,7 +541,8 @@ class PelangganImportExportController extends Controller
                 $pid,
                 $alamat,
                 $kota,
-                $kelompokPelanggan
+                $kelompokPelanggan,
+                $nik
             ]));
 
             if (isset($seenRows[$dedupKey])) {
@@ -573,6 +582,7 @@ class PelangganImportExportController extends Controller
                 $tanggal,
                 $no,
                 $kelompokPelanggan,
+                $nik,
                 $batchId,
                 &$processedCount
             ) {
@@ -603,6 +613,7 @@ class PelangganImportExportController extends Controller
 
                 $pelanggan->cabang_id = $cabang->id;
                 $pelanggan->nama      = $nama;
+                $pelanggan->nik       = $nik;
                 $pelanggan->no_telp   = $noTelp;
                 $pelanggan->dob       = $dobDate;
                 $pelanggan->alamat    = $alamat;

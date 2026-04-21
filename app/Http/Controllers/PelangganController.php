@@ -102,6 +102,7 @@ class PelangganController extends Controller
                     'pid'                => 'required|string',
                     'cabang_id'          => 'required|exists:cabangs,id',
                     'nama'               => 'required',
+                    'nik'                => 'nullable|string',
                     'no_telp'            => 'nullable|string',
                     'dob'                => 'nullable|date',
                     'alamat'             => 'nullable|string',
@@ -160,6 +161,7 @@ class PelangganController extends Controller
                         'pid'       => $input['pid'],
                         'cabang_id' => $input['cabang_id'],
                         'nama'      => $input['nama'],
+                        'nik'       => $input['nik'] ?? null,
                         'no_telp'   => $input['no_telp'] ?? null,
                         'dob'       => $input['dob'] ?? null,
                         'alamat'    => $input['alamat'] ?? null,
@@ -233,12 +235,13 @@ class PelangganController extends Controller
         }
 
         if ($khusus) {
-            // Cari pelanggan khusus berdasarkan PID atau nama
+            // Cari pelanggan khusus berdasarkan PID, nama, atau NIK
             $pelanggan = Pelanggan::with('cabang')
                 ->where('is_pelanggan_khusus', true)
                 ->where(function ($q) use ($query) {
                     $q->where('pid', $query)
-                      ->orWhere('nama', 'like', '%' . $query . '%');
+                      ->orWhere('nama', 'like', '%' . $query . '%')
+                      ->orWhere('nik', 'like', '%' . $query . '%');
                 })
                 ->first();
 
@@ -257,8 +260,14 @@ class PelangganController extends Controller
             ]);
         }
 
-        // Mode default: cari by PID exact match
-        $pelanggan = Pelanggan::with('cabang')->where('pid', $query)->first();
+        // Mode default: cari by PID, nama, atau NIK
+        $pelanggan = Pelanggan::with('cabang')
+            ->where(function ($q) use ($query) {
+                $q->where('pid', $query)
+                  ->orWhere('nama', 'like', '%' . $query . '%')
+                  ->orWhere('nik', 'like', '%' . $query . '%');
+            })
+            ->first();
 
         if (!$pelanggan) {
             return response()->json(['found' => false]);
@@ -419,7 +428,8 @@ class PelangganController extends Controller
         if ($search) {
             $query->where(function ($q) use ($search) {
                 $q->where('pid', 'like', '%' . $search . '%')
-                  ->orWhere('nama', 'like', '%' . $search . '%');
+                  ->orWhere('nama', 'like', '%' . $search . '%')
+                  ->orWhere('nik', 'like', '%' . $search . '%');
             });
         }
 
@@ -814,6 +824,7 @@ class PelangganController extends Controller
             'pid'       => 'required|unique:pelanggans,pid,' . $id,
             'cabang_id' => 'required|exists:cabangs,id',
             'nama'      => 'required',
+            'nik'       => 'nullable|string',
             'no_telp'   => 'nullable|string',
             'dob'       => 'nullable|date',
             'alamat'    => 'nullable|string',
@@ -834,7 +845,7 @@ class PelangganController extends Controller
                 ->with('error', "PID \"{$pid}\" tidak sesuai dengan cabang \"{$cabang->nama}\". Prefix PID harus \"{$cabangKode}\".");
         }
 
-        $pelanggan->update($request->only(['pid', 'cabang_id', 'nama', 'no_telp', 'dob', 'alamat', 'kota']));
+        $pelanggan->update($request->only(['pid', 'cabang_id', 'nama', 'nik', 'no_telp', 'dob', 'alamat', 'kota']));
 
         ActivityLog::record(
             'update', 'Pelanggan',

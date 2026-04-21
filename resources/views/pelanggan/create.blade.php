@@ -118,6 +118,15 @@
                             </div>
 
                             <div class="col-md-6">
+                                <label class="form-label fw-medium">NIK</label>
+                                <input type="text" name="inputs[0][nik]" id="nik_new"
+                                    class="form-control form-control-lg mode-new" 
+                                    value="{{ old('inputs.0.nik', $oldInputs[0]['nik'] ?? '') }}"
+                                    placeholder="Contoh: 1234567890123456 atau TIDAK ADA IDENTITAS">
+                                <div class="form-text">Kosongkan atau isi 'TIDAK ADA IDENTITAS' jika tidak memiliki NIK</div>
+                            </div>
+
+                            <div class="col-md-6">
                                 <label class="form-label fw-medium">No. Telepon</label>
                                 <input type="text" name="inputs[0][no_telp]" id="no_telp_new"
                                     class="form-control form-control-lg mode-new" 

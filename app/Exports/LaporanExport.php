@@ -48,6 +48,7 @@ class LaporanExport implements FromCollection, WithHeadings, WithStyles, WithCol
                 'No'               => $index + 1,
                 'PID'              => $item->pid,
                 'Nama Pasien'      => $item->nama,
+                'NIK'              => $item->nik ?? '-',
                 'Cabang'           => $item->cabang?->nama ?? '-',
                 'No Telpon'        => $item->no_telp ?? '-',
                 'DOB'              => $item->dob ? $item->dob->format('d-m-Y') : '-',
@@ -67,6 +68,7 @@ class LaporanExport implements FromCollection, WithHeadings, WithStyles, WithCol
             'No',
             'PID',
             'Nama Pasien',
+            'NIK',
             'Cabang',
             'No Telpon',
             'DOB',
@@ -82,7 +84,7 @@ class LaporanExport implements FromCollection, WithHeadings, WithStyles, WithCol
     public function styles(Worksheet $sheet)
     {
         // Header style
-        $sheet->getStyle('A1:L1')->applyFromArray([
+        $sheet->getStyle('A1:M1')->applyFromArray([
             'font' => [
                 'bold'  => true,
                 'color' => ['rgb' => 'FFFFFF'],
@@ -99,7 +101,7 @@ class LaporanExport implements FromCollection, WithHeadings, WithStyles, WithCol
 
         // Border for all cells
         $lastRow = $sheet->getHighestRow();
-        $sheet->getStyle('A1:L' . $lastRow)->applyFromArray([
+        $sheet->getStyle('A1:M' . $lastRow)->applyFromArray([
             'borders' => [
                 'allBorders' => [
                     'borderStyle' => 'thin',
@@ -108,19 +110,20 @@ class LaporanExport implements FromCollection, WithHeadings, WithStyles, WithCol
             ],
         ]);
 
-        // Center alignment for No, PID, DOB, Kunjungan, Kelas
+        // Center alignment for No, PID, NIK, DOB, Kunjungan, Kelas
         $sheet->getStyle('A2:A' . $lastRow)->getAlignment()->setHorizontal('center');
         $sheet->getStyle('B2:B' . $lastRow)->getAlignment()->setHorizontal('center');
-        $sheet->getStyle('F2:F' . $lastRow)->getAlignment()->setHorizontal('center');
-        $sheet->getStyle('I2:I' . $lastRow)->getAlignment()->setHorizontal('center');
+        $sheet->getStyle('D2:D' . $lastRow)->getAlignment()->setHorizontal('center');
+        $sheet->getStyle('G2:G' . $lastRow)->getAlignment()->setHorizontal('center');
         $sheet->getStyle('J2:J' . $lastRow)->getAlignment()->setHorizontal('center');
-        $sheet->getStyle('L2:L' . $lastRow)->getAlignment()->setHorizontal('center');
+        $sheet->getStyle('K2:K' . $lastRow)->getAlignment()->setHorizontal('center');
+        $sheet->getStyle('M2:M' . $lastRow)->getAlignment()->setHorizontal('center');
 
         // Right alignment for Total Biaya
-        $sheet->getStyle('K2:K' . $lastRow)->getAlignment()->setHorizontal('right');
+        $sheet->getStyle('L2:L' . $lastRow)->getAlignment()->setHorizontal('right');
 
         // Format Total Biaya as currency
-        $sheet->getStyle('K2:K' . $lastRow)->getNumberFormat()->setFormatCode('#,##0');
+        $sheet->getStyle('L2:L' . $lastRow)->getNumberFormat()->setFormatCode('#,##0');
 
         // Auto height for all rows
         for ($row = 1; $row <= $lastRow; $row++) {
@@ -136,15 +139,16 @@ class LaporanExport implements FromCollection, WithHeadings, WithStyles, WithCol
             'A' => 5,   // No
             'B' => 15,  // PID
             'C' => 25,  // Nama Pasien
-            'D' => 15,  // Cabang
-            'E' => 15,  // No Telpon
-            'F' => 12,  // DOB
-            'G' => 30,  // Alamat
-            'H' => 15,  // Kota
-            'I' => 15,  // Total Kunjungan
-            'J' => 18,  // Kunjungan Terakhir
-            'K' => 15,  // Total Biaya
-            'L' => 12,  // Kelas
+            'D' => 20,  // NIK
+            'E' => 15,  // Cabang
+            'F' => 15,  // No Telpon
+            'G' => 12,  // DOB
+            'H' => 30,  // Alamat
+            'I' => 15,  // Kota
+            'J' => 15,  // Total Kunjungan
+            'K' => 18,  // Kunjungan Terakhir
+            'L' => 15,  // Total Biaya
+            'M' => 12,  // Kelas
         ];
     }
 

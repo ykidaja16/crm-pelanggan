@@ -19,6 +19,7 @@ class Pelanggan extends Model
         'pid',
         'cabang_id',
         'nama',
+        'nik',
         'no_telp',
         'dob',
         'alamat',

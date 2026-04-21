@@ -84,6 +84,11 @@
                             <input type="text" name="nama" class="form-control" required placeholder="Nama lengkap">
                         </div>
                         <div class="col-md-6">
+                            <label class="form-label">NIK</label>
+                            <input type="text" name="nik" class="form-control" placeholder="Contoh: 1234567890123456 atau TIDAK ADA IDENTITAS">
+                            <div class="form-text text-muted small">Kosongkan atau isi 'TIDAK ADA IDENTITAS' jika tidak memiliki NIK</div>
+                        </div>
+                        <div class="col-md-6">
                             <label class="form-label">No Telp</label>
                             <input type="text" name="no_telp" class="form-control" placeholder="08xxxxxxxxxx">
                         </div>
@@ -306,10 +311,10 @@
                         <label class="form-label">File Excel/CSV <span class="text-danger">*</span></label>
                         <input type="file" name="file" class="form-control" accept=".xlsx,.xls,.csv" required>
                         <div class="mt-2 p-2 bg-light rounded border small text-muted">
-                            <strong><i class="fas fa-info-circle me-1 text-info"></i>Format Kolom (12 kolom):</strong><br>
+                            <strong><i class="fas fa-info-circle me-1 text-info"></i>Format Kolom (13 kolom):</strong><br>
                             No | Nama Pasien | Total Kedatangan | Tanggal Kedatangan | Total Biaya |
                             No Telpon | DOB | PID | Alamat | Kota | Kelompok Pelanggan |
-                            <strong class="text-success">Kategori Khusus</strong>
+                            <strong class="text-success">Kategori Khusus</strong> | NIK
                         </div>
                     </div>
                     <div class="col-12">

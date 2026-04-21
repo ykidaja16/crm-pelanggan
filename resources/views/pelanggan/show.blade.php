@@ -28,6 +28,16 @@
                         </div>
                     </div>
                     <div class="mb-3">
+                        <label class="text-muted small fw-medium text-uppercase">NIK</label>
+                        <div class="fs-6">
+                            @if($pelanggan->nik)
+                                <span class="text-dark">{{ $pelanggan->nik }}</span>
+                            @else
+                                <span class="text-muted fst-italic">-</span>
+                            @endif
+                        </div>
+                    </div>
+                    <div class="mb-3">
                         <label class="text-muted small fw-medium text-uppercase">Nama Lengkap</label>
                         <div class="fs-5 fw-semibold">{{ $pelanggan->nama }}</div>
                     </div>
