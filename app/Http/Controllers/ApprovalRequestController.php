@@ -367,18 +367,19 @@ class ApprovalRequestController extends Controller
                 $row = $rows[$i] ?? [];
                 $rowNum = $i + 1;
 
-                // Format: No | Nama | Total Kedatangan | Tanggal | Biaya | No Telp | DOB | PID | Alamat | Kota | Kelompok | Kategori Khusus
+                // Format: No | Nama | NIK | Total Kedatangan | Tanggal | Biaya | No Telp | DOB | PID | Alamat | Kota | Kelompok | Kategori Khusus
                 $nama = trim((string) ($row[1] ?? ''));
-                $tanggal = trim((string) ($row[3] ?? ''));
-                $biaya = (float) preg_replace('/[^\d]/', '', (string) ($row[4] ?? '0'));
-                $noTelp = trim((string) ($row[5] ?? ''));
-                $dob = trim((string) ($row[6] ?? ''));
-                $pid = strtoupper(trim((string) ($row[7] ?? '')));
-                $alamat = trim((string) ($row[8] ?? ''));
-                $kota = trim((string) ($row[9] ?? ''));
-                $kelompokRaw       = strtolower(trim((string) ($row[10] ?? '')));
+                $nik = trim((string) ($row[2] ?? ''));
+                $tanggal = trim((string) ($row[4] ?? ''));
+                $biaya = (float) preg_replace('/[^\d]/', '', (string) ($row[5] ?? '0'));
+                $noTelp = trim((string) ($row[6] ?? ''));
+                $dob = trim((string) ($row[7] ?? ''));
+                $pid = strtoupper(trim((string) ($row[8] ?? '')));
+                $alamat = trim((string) ($row[9] ?? ''));
+                $kota = trim((string) ($row[10] ?? ''));
+                $kelompokRaw       = strtolower(trim((string) ($row[11] ?? '')));
                 $kelompokPelanggan = str_contains($kelompokRaw, 'klinisi') ? 'klinisi' : 'mandiri';
-                $kategoriKhusus = trim((string) ($row[11] ?? ''));
+                $kategoriKhusus = trim((string) ($row[12] ?? ''));
 
                 if ($pid === '' || $nama === '' || $kategoriKhusus === '') {
                     continue;
@@ -454,6 +455,7 @@ class ApprovalRequestController extends Controller
                         'pid'                => $pid,
                         'cabang_id'          => $cabang->id,
                         'nama'               => $nama,
+                        'nik'                => $nik !== '' ? $nik : null,
                         'no_telp'            => $noTelp !== '' ? $noTelp : null,
                         'dob'                => $dob !== '' ? $dob : null,
                         'alamat'             => $alamat !== '' ? $alamat : null,
@@ -500,6 +502,7 @@ class ApprovalRequestController extends Controller
         $headers = [
             'No',
             'Nama Pasien',
+            'NIK',
             'Total Kedatangan',
             'Tanggal Kedatangan Terakhir',
             'Total (Biaya)',
@@ -513,9 +516,9 @@ class ApprovalRequestController extends Controller
         ];
 
         $data = [
-            [1, 'Budi Santoso', 1, '2024-01-15', 2500000, '081234567890', '1990-05-20', 'LX00001', 'Jl. Sudirman No. 123', 'Jakarta', 'mandiri', 'Kepala Dinas'],
-            [2, 'Siti Aminah', 1, '2024-02-10', 4500000, '082345678901', '1985-08-12', 'LZ00002', 'Jl. Ahmad Yani No. 45', 'Bandung', 'klinisi', 'PIC Perusahaan'],
-            [3, 'Ahmad Wijaya', 1, '2024-03-05', 1200000, '083456789012', '1992-11-03', 'LX00003', 'Jl. Gatot Subroto No. 78', 'Surabaya', 'mandiri', 'Lainnya'],
+            [1, 'Budi Santoso', '3175091234567890', 1, '2024-01-15', 2500000, '081234567890', '1990-05-20', 'LX00001', 'Jl. Sudirman No. 123', 'Jakarta', 'mandiri', 'Kepala Dinas'],
+            [2, 'Siti Aminah', '3175090987654321', 1, '2024-02-10', 4500000, '082345678901', '1985-08-12', 'LZ00002', 'Jl. Ahmad Yani No. 45', 'Bandung', 'klinisi', 'PIC Perusahaan'],
+            [3, 'Ahmad Wijaya', '3175091122334455', 1, '2024-03-05', 1200000, '083456789012', '1992-11-03', 'LX00003', 'Jl. Gatot Subroto No. 78', 'Surabaya', 'mandiri', 'Lainnya'],
         ];
 
         $spreadsheet = new Spreadsheet();
@@ -547,7 +550,7 @@ class ApprovalRequestController extends Controller
                 ],
             ],
         ];
-        $sheet->getStyle('A1:L1')->applyFromArray($headerStyle);
+        $sheet->getStyle('A1:M1')->applyFromArray($headerStyle);
 
         $writer = new Xlsx($spreadsheet);
         $filename = 'template_import_pelanggan_khusus.xlsx';
@@ -800,6 +803,7 @@ class ApprovalRequestController extends Controller
                     'pid' => $payload['pid'],
                     'cabang_id' => $cabang->id,
                     'nama' => $payload['nama'],
+                    'nik' => $payload['nik'] ?? null,
                     'no_telp' => $payload['no_telp'] ?? null,
                     'dob' => $payload['dob'] ?? null,
                     'alamat' => $payload['alamat'] ?? null,
