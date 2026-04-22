@@ -95,9 +95,9 @@
                             <label class="form-label fw-medium small">Jumlah Kedatangan</label>
                             <select name="kedatangan_range" class="form-select">
                                 <option value="">Semua Kedatangan</option>
-                                <option value="0" {{ ($kedatangan_range ?? '') === '0' ? 'selected' : '' }}>&le; 2 Kali</option>
-                                <option value="1" {{ ($kedatangan_range ?? '') === '1' ? 'selected' : '' }}>3 - 4 Kali</option>
-                                <option value="2" {{ ($kedatangan_range ?? '') === '2' ? 'selected' : '' }}>&gt; 4 Kali</option>
+                                <option value="1" {{ ($kedatangan_range ?? '') === '1' ? 'selected' : '' }}>1 Kali</option>
+                                
+                                <option value="2" {{ ($kedatangan_range ?? '') === '2' ? 'selected' : '' }}>&gt; 1 Kali</option>
                             </select>
                         </div>
 

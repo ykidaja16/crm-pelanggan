@@ -292,10 +292,20 @@ class LaporanController extends Controller
 
         // ── Filter Kedatangan Range ───────────────────────────────────────────
         if ($request->filled('kedatangan_range')) {
-            switch ($request->get('kedatangan_range')) {
-                case '0': $query->where('pelanggans.total_kedatangan', '<=', 2); break;
-                case '1': $query->whereBetween('pelanggans.total_kedatangan', [3, 4]); break;
-                case '2': $query->where('pelanggans.total_kedatangan', '>', 4); break;
+            // When period filter is active, use kedatangan_periode for filtering
+            // Otherwise use total_kedatangan (all-time)
+            if ($biayaSub) {
+                // Filter by period-based kedatangan (kedatangan_periode)
+                switch ($request->get('kedatangan_range')) {
+                    case '1': $query->having('kedatangan_periode', '=', 1); break;
+                    case '2': $query->having('kedatangan_periode', '>', 1); break;
+                }
+            } else {
+                // Filter by all-time kedatangan (total_kedatangan)
+                switch ($request->get('kedatangan_range')) {
+                    case '1': $query->where('pelanggans.total_kedatangan', '=', 1); break;
+                    case '2': $query->where('pelanggans.total_kedatangan', '>', 1); break;
+                }
             }
         }
 
@@ -427,9 +437,8 @@ class LaporanController extends Controller
         // Kedatangan
         if ($request->filled('kedatangan_range')) {
             $kedatanganLabels = [
-                '0' => '≤ 2 Kali',
-                '1' => '3 - 4 Kali',
-                '2' => '> 4 Kali',
+                '1' => '1 Kali',
+                '2' => '> 1 Kali',
             ];
             $labels['Kunjungan'] = $kedatanganLabels[$request->kedatangan_range] ?? '';
         }

@@ -111,9 +111,9 @@
                     <label class="form-label fw-medium small">Jumlah Kunjungan</label>
                     <select name="kedatangan_range" class="form-select">
                         <option value="">Semua Kunjungan</option>
-                        <option value="0">&le; 2 Kali</option>
-                        <option value="1">3 - 4 Kali</option>
-                        <option value="2">&gt; 4 Kali</option>
+                        <option value="1">1 Kali</option>
+                        
+                        <option value="2">&gt; 1 Kali</option>
                     </select>
                 </div>
 

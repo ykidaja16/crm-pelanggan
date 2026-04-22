@@ -475,10 +475,20 @@ class PelangganController extends Controller
         }
 
         if ($kedatanganRange !== null && $kedatanganRange !== '') {
-            switch ($kedatanganRange) {
-                case '0': $query->where('total_kedatangan', '<=', 2); break;
-                case '1': $query->whereBetween('total_kedatangan', [3, 4]); break;
-                case '2': $query->where('total_kedatangan', '>', 4); break;
+            // When period filter is active, use kedatangan_periode for filtering
+            // Otherwise use total_kedatangan (all-time)
+            if ($biayaSubquery !== null) {
+                // Filter by period-based kedatangan (kedatangan_periode)
+                switch ($kedatanganRange) {
+                    case '1': $query->having('kedatangan_periode', '=', 1); break;
+                    case '2': $query->having('kedatangan_periode', '>', 1); break;
+                }
+            } else {
+                // Filter by all-time kedatangan (total_kedatangan)
+                switch ($kedatanganRange) {
+                    case '1': $query->where('total_kedatangan', '=', 1); break;
+                    case '2': $query->where('total_kedatangan', '>', 1); break;
+                }
             }
         }
 
