@@ -74,8 +74,8 @@
                     <div class="mt-2">
                         <small class="text-muted">
                             <i class="fas fa-info-circle me-1"></i>
-                            <strong>Format Excel (11 kolom):</strong>
-                            No | Nama Pasien | Total Kedatangan | Tanggal Kedatangan Terakhir | Total (Biaya) | No Telpon | DOB | PID | Alamat | Kota | Kelompok Pelanggan (mandiri/klinisi)
+                            <strong>Format Excel (12 kolom):</strong>
+                            No | Nama Pasien | Total Kedatangan | Tanggal Kedatangan Terakhir | Total (Biaya) | No Telpon | DOB | PID | Alamat | Kota | Kelompok Pelanggan (mandiri/klinisi)| NIK
                         </small>
                     </div>
 
