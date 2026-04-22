@@ -101,6 +101,14 @@
                             <span class="badge bg-primary bg-opacity-10 text-primary border border-primary">{{ $pelanggan->cabang?->nama ?? '-' }}</span>
                         </div>
                     </div>
+                    @if($pelanggan->is_pelanggan_khusus && $pelanggan->kategori_khusus)
+                    <div class="mb-3">
+                        <label class="text-muted small fw-medium text-uppercase">Kategori Pelanggan Khusus</label>
+                        <div class="fs-6">                    
+                             <span class="badge bg-primary bg-opacity-10 text-primary border border-purple">{{ $pelanggan->kategori_khusus }}</span>   
+                        </div>
+                    </div>
+                    @endif
                 </div>
             </div>
         </div>
