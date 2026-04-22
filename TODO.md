@@ -1,24 +1,42 @@
-# TODO - Penambahan Kolom NIK
+# TODO - Validasi Duplikat PID dengan Nama Berbeda dalam Satu File
 
-## Progress Implementasi
+## Task
+Tambahkan validasi saat import Excel: jika dalam 1 file ada PID yang sama tapi Nama Pasien berbeda, maka gagal import dan tampilkan informasi baris mana yang bermasalah.
 
-- [x] 1. Buat migration baru untuk kolom NIK
-- [x] 2. Update Model Pelanggan (tambahkan 'nik' ke $fillable)
-- [x] 3. Update Controller Pelanggan (store, searchByPid, update)
-- [x] 4. Update Import Kunjungan (processAllRows, processRow)
-- [x] 5. Update View create.blade.php (tambah input NIK di sebelah Nama)
-- [x] 6. Update View index.blade.php (update placeholder pencarian, tambah kolom NIK di tabel)
-- [x] 6b. Update View show.blade.php (tambah NIK di bawah PID di Data Pelanggan)
-- [x] 7. Update View khusus.blade.php (tambah input NIK, update format import)
-- [x] 8. Update Export PelangganExport (tambah kolom NIK)
-- [x] 9. Update LaporanController (update pencarian include NIK)
-- [x] 10. Update PelangganBulkExport (tambah kolom NIK)
-- [x] 11. Update PelangganImportExportController (validasi 13 kolom, template download, **FIX: simpan NIK saat import**)
-- [ ] 12. Jalankan migration
+## Plan
+- [x] Analisis file PelangganImportExportController.php
+- [x] Analisis file KunjunganImport.php
+- [x] Buat plan implementasi
+- [x] Dapatkan approval dari user
+- [ ] Implementasi: Tambahkan array `$pidNamaMap` untuk tracking
+- [ ] Implementasi: Tracking PID dan Nama dalam loop validasi
+- [ ] Implementasi: Cek duplikat dengan nama berbeda setelah loop
+- [ ] Implementasi: Format error message dengan informasi baris
+- [ ] Test dan verifikasi
 
-## Catatan
-- NIK bersifat nullable
-- Bisa diisi "TIDAK ADA IDENTITAS" atau dikosongi
-- Tidak mengubah rumus kelas pelanggan, total kedatangan, atau view halaman
-- Format import pelanggan biasa: 12 kolom (NIK di kolom terakhir/index 11)
-- Format import pelanggan khusus: 13 kolom (Kategori Khusus di index 12, NIK di index 11)
+## Implementation Details
+
+### File yang diedit:
+- `app/Http/Controllers/PelangganImportExportController.php`
+
+### Perubahan:
+1. Tambahkan `$pidNamaMap = []` sebelum loop validasi (sekitar baris 140)
+2. Dalam loop validasi, setelah dapat `$pid` dan `$nama`, simpan ke array:
+   ```php
+   if (!empty($pid) && !empty($nama)) {
+       if (!isset($pidNamaMap[$pid])) {
+           $pidNamaMap[$pid] = ['nama' => $nama, 'baris' => $rowNumber];
+       } elseif (strtolower($pidNamaMap[$pid]['nama']) !== strtolower($nama)) {
+           // Nama berbeda, catat error
+       }
+   }
+   ```
+3. Setelah loop selesai (sebelum cek `!empty($errors)`), cek duplikat:
+   ```php
+   foreach ($pidNamaMap as $pid => $data) {
+       // Cek jika ada duplikat dengan nama berbeda
+   }
+   ```
+
+### Contoh Error Message:
+"Baris 10 dan 175: PID LX001 memiliki nama berbeda ('Diky' vs 'Diky Mega')"

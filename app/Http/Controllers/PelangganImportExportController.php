@@ -145,6 +145,9 @@ class PelangganImportExportController extends Controller
 
             $cabangs = Cabang::all()->keyBy('kode');
 
+            // Array untuk tracking PID dan Nama dalam satu file (validasi duplikat)
+            $pidNamaMap = [];
+
             foreach ($rows[0] as $row) {
                 $rowNumber++;
 
@@ -160,6 +163,27 @@ class PelangganImportExportController extends Controller
                 $no   = trim($row[0] ?? '');
                 $nama = trim($row[1] ?? '');
                 $pid  = trim($row[7] ?? '');
+
+                // Tracking PID dan Nama untuk validasi duplikat dalam satu file
+                if (!empty($pid) && !empty($nama)) {
+                    if (!isset($pidNamaMap[$pid])) {
+                        // PID pertama kali ditemukan, simpan nama dan nomor baris
+                        $pidNamaMap[$pid] = [
+                            'nama' => $nama,
+                            'baris' => $rowNumber
+                        ];
+                    } elseif (strtolower($pidNamaMap[$pid]['nama']) !== strtolower($nama)) {
+                        // PID sudah ada dengan nama berbeda, catat konflik
+                        // Simpan informasi baris konflik (tapi jangan tambahkan error dulu, nanti dicek setelah loop)
+                        if (!isset($pidNamaMap[$pid]['konflik'])) {
+                            $pidNamaMap[$pid]['konflik'] = [];
+                        }
+                        $pidNamaMap[$pid]['konflik'][] = [
+                            'nama' => $nama,
+                            'baris' => $rowNumber
+                        ];
+                    }
+                }
 
                 if (empty($pid) || empty($nama)) {
                     Log::debug("Row {$rowNumber} skipped: empty PID or nama");
@@ -198,6 +222,19 @@ class PelangganImportExportController extends Controller
                     }
                 } else {
                     $validRows++;
+                }
+            }
+
+            // Validasi duplikat PID dengan nama berbeda dalam satu file
+            foreach ($pidNamaMap as $pid => $data) {
+                if (isset($data['konflik']) && !empty($data['konflik'])) {
+                    // Ada konflik nama untuk PID yang sama
+                    $barisPertama = $data['baris'];
+                    $namaPertama = $data['nama'];
+                    
+                    foreach ($data['konflik'] as $konflik) {
+                        $errors[] = "Baris {$barisPertama} dan {$konflik['baris']}: PID {$pid} memiliki nama berbeda ('{$namaPertama}' dan '{$konflik['nama']}')";
+                    }
                 }
             }
 
