@@ -4,7 +4,7 @@
 
 @section('content')
     <div class="d-flex justify-content-between align-items-center mb-4">
-        <h3 class="text-primary mb-0">Dashboard</h3>
+        <h3 class="text-primary mb-0">Dashboard Utama</h3>
     </div>
 
     <!-- Statistik Cards -->

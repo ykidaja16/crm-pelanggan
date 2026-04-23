@@ -512,7 +512,7 @@
         <ul class="list-unstyled components">
             <li class="{{ request()->routeIs('dashboard') ? 'active' : '' }}">
                 <a href="{{ route('dashboard') }}">
-                    <i class="fas fa-chart-line"></i> Dashboard
+                    <i class="fas fa-chart-line"></i> Dashboard Utama
                 </a>
             </li>
             @if(Auth::user()->role?->name !== 'IT')
