@@ -761,6 +761,11 @@
 
 
         @yield('content')
+        
+        <!-- Footer Sederhana -->
+        <footer class="text-center py-3 bg-white border-top mt-4">
+            <p class="mb-0 text-muted small">&copy; {{ date('Y') }} SIMA Lab CRM System. All rights reserved.</p>
+        </footer>
     </div>
 </div>
 
@@ -834,4 +839,3 @@
 </body>
 
 </html>
-
