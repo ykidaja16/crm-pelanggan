@@ -57,6 +57,15 @@ class ImportBatch extends Model
     }
 
     /**
+     * Kunjungan yang diimport dalam batch ini
+     */
+    public function kunjungans()
+    {
+        return $this->hasMany(Kunjungan::class);
+    }
+
+
+    /**
      * Apakah batch ini sudah di-rollback?
      */
     public function isRolledBack(): bool

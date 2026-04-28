@@ -17,6 +17,7 @@ class Kunjungan extends Model
         'tanggal_kunjungan',
         'biaya',
         'kelompok_pelanggan_id',
+        'import_batch_id',
     ];
 
     protected $casts = [
@@ -38,5 +39,10 @@ class Kunjungan extends Model
     public function kelompokPelanggan()
     {
         return $this->belongsTo(KelompokPelanggan::class, 'kelompok_pelanggan_id');
+    }
+
+    public function importBatch()
+    {
+        return $this->belongsTo(ImportBatch::class);
     }
 }
