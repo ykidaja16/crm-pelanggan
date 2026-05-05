@@ -1,6 +1,9 @@
-# TODO Progress - Fix import_batch_id Kunjungan
+# TODO - Fitur Update NIK via Excel
 
-✅ 1. Edit app/Models/Kunjungan.php (tambah fillable + relationship)
-✅ 2. Edit app/Models/ImportBatch.php (tambah hasMany relationship)  
-- [ ] 3. Test import & verify DB (cek import_batch_id tersimpan di kunjungan table)
-- [ ] 4. Complete
+- [x] Tambah route + import controller baru untuk menu Update NIK
+- [x] Buat controller baru khusus Update NIK (halaman, import, download template)
+- [x] Buat view baru Update NIK (upload excel + tombol download template)
+- [x] Tambah submenu "Update NIK" di bawah "Pelanggan Khusus" tanpa ubah desain UI
+- [x] Validasi atomic import (1 PID gagal -> seluruh file rollback)
+- [ ] Uji sintaks PHP file baru/terubah
+- [x] Analisis model Pelanggan untuk field NIK dan fillable

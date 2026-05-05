@@ -15,6 +15,7 @@ use App\Http\Controllers\CabangController;
 use App\Http\Controllers\SpecialDayController;
 use App\Http\Controllers\ProfileController;
 use App\Http\Controllers\ImportBatchController;
+use App\Http\Controllers\PelangganNikUpdateController;
 use App\Http\Middleware\EnsureUserIsAdmin;
 use App\Http\Middleware\EnsureUserIsSuperAdmin;
 use App\Http\Middleware\EnsureUserIsIT;
@@ -176,6 +177,12 @@ Route::middleware([Authenticate::class])->group(function () {
         // Pelanggan Khusus
         Route::get('/pelanggan-khusus', [PelangganController::class, 'khusus'])->name('pelanggan.khusus.index');
         Route::get('/download-template-khusus', [ApprovalRequestController::class, 'downloadTemplateKhusus'])->name('pelanggan.download-template-khusus');
+
+        // Update NIK
+        Route::get('/pelanggan/update-nik', [PelangganNikUpdateController::class, 'index'])->name('pelanggan.update-nik.index');
+        Route::post('/pelanggan/update-nik/import', [PelangganNikUpdateController::class, 'import'])->name('pelanggan.update-nik.import');
+        Route::get('/pelanggan/update-nik/download-template', [PelangganNikUpdateController::class, 'downloadTemplate'])->name('pelanggan.update-nik.download-template');
+
 
         // Pengajuan approval
         Route::post('/approval/pelanggan-khusus', [ApprovalRequestController::class, 'storeSpecialCustomerRequest'])->name('approval.special.store');
