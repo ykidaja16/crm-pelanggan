@@ -6,28 +6,19 @@ use App\Models\Pelanggan;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
 use Maatwebsite\Excel\Facades\Excel;
+use PhpOffice\PhpSpreadsheet\Cell\Coordinate;
 
 class PelangganNikUpdateController extends Controller
 {
-    /**
-     * Halaman Update NIK via import Excel.
-     */
     public function index()
     {
         return view('pelanggan.update-nik');
     }
 
-    /**
-     * Import file Excel berisi 2 kolom: PID dan NIK.
-     * Atomic: jika ada 1 PID tidak ditemukan / data invalid, semua update dibatalkan.
-     */
     public function import(Request $request)
     {
         $request->validate([
             'file' => 'required|file|mimes:xlsx,xls,csv,txt',
-        ], [
-            'file.required' => 'File wajib diupload.',
-            'file.mimes' => 'Format file harus xlsx, xls, csv, atau txt.',
         ]);
 
         $file = $request->file('file');
@@ -41,8 +32,8 @@ class PelangganNikUpdateController extends Controller
                 $rows = Excel::toArray(null, $file);
             }
 
-            if (empty($rows) || empty($rows[0]) || count($rows[0]) < 2) {
-                return back()->with('error', 'File kosong atau format tidak valid.');
+            if (empty($rows) || empty($rows[0])) {
+                return back()->with('error', 'File kosong.');
             }
 
             $sheetRows = $rows[0];
@@ -50,74 +41,102 @@ class PelangganNikUpdateController extends Controller
             $updates = [];
             $rowNumber = 0;
 
+            // ambil semua PID
+            $pids = [];
+            foreach ($sheetRows as $row) {
+                $pid = trim((string)($row[0] ?? ''));
+                if ($pid !== '') $pids[] = $pid;
+            }
+
+            $pids = array_unique($pids);
+
+            $pelangganMap = Pelanggan::whereIn('pid', $pids)
+                ->get()
+                ->keyBy('pid');
+
             foreach ($sheetRows as $row) {
                 $rowNumber++;
 
-                $col1 = isset($row[0]) ? trim((string) $row[0]) : '';
-                $col2 = isset($row[1]) ? trim((string) $row[1]) : '';
+                $pid = trim((string)($row[0] ?? ''));
+                $nik = trim((string)($row[1] ?? ''));
 
-                // Skip header (PID, NIK)
-                if ($rowNumber === 1 && strtolower($col1) === 'pid' && strtolower($col2) === 'nik') {
-                    continue;
-                }
+                if ($rowNumber === 1 && strtolower($pid) === 'pid') continue;
 
-                // Skip row kosong total
-                if ($col1 === '' && $col2 === '') {
-                    continue;
-                }
+                if ($pid === '' && $nik === '') continue;
 
-                if ($col1 === '') {
+                if ($pid === '') {
                     $errors[] = "Baris {$rowNumber}: PID kosong.";
                     continue;
                 }
 
-                if ($col2 === '') {
-                    $errors[] = "Baris {$rowNumber}: NIK kosong untuk PID '{$col1}'.";
+                if ($nik === '') {
+                    $errors[] = "Baris {$rowNumber}: NIK kosong untuk {$pid}.";
                     continue;
                 }
 
-                $pelanggan = Pelanggan::where('pid', $col1)->first();
+                $pelanggan = $pelangganMap[$pid] ?? null;
+
                 if (!$pelanggan) {
-                    $errors[] = "Baris {$rowNumber}: PID '{$col1}' tidak ditemukan di database.";
+                    $errors[] = "Baris {$rowNumber}: PID {$pid} tidak ditemukan.";
                     continue;
                 }
 
-                $updates[] = [
-                    'row' => $rowNumber,
-                    'pid' => $col1,
-                    'nik' => $col2,
-                    'pelanggan_id' => $pelanggan->id,
+                $updates[$pelanggan->id] = [
+                    'id' => $pelanggan->id,
+                    'nik' => $nik,
                 ];
             }
 
             if (!empty($errors)) {
-                return back()
-                    ->with('error', 'Import gagal. Terdapat data yang tidak valid.')
-                    ->with('import_errors', $errors);
+                return back()->with('error', 'Import gagal')->with('import_errors', $errors);
             }
 
             if (empty($updates)) {
-                return back()->with('error', 'Tidak ada data valid untuk diproses.');
+                return back()->with('error', 'Tidak ada data valid.');
             }
 
-            DB::transaction(function () use ($updates) {
-                foreach ($updates as $item) {
-                    Pelanggan::where('id', $item['pelanggan_id'])->update([
-                        'nik' => $item['nik'],
-                        'updated_at' => now(),
-                    ]);
+            $table = (new Pelanggan)->getTable();
+
+            DB::transaction(function () use ($updates, $table) {
+
+                $chunks = array_chunk($updates, 1000);
+
+                foreach ($chunks as $chunk) {
+
+                    $cases = '';
+                    $ids = [];
+                    $bindings = [];
+
+                    foreach ($chunk as $item) {
+                        $cases .= "WHEN ? THEN ? ";
+                        $bindings[] = $item['id'];
+                        $bindings[] = $item['nik'];
+                        $ids[] = $item['id'];
+                    }
+
+                    $placeholders = implode(',', array_fill(0, count($ids), '?'));
+
+                    $sql = "
+                        UPDATE {$table}
+                        SET nik = CASE id
+                            {$cases}
+                        END,
+                        updated_at = NOW()
+                        WHERE id IN ({$placeholders})
+                    ";
+
+                    DB::update($sql, array_merge($bindings, $ids));
                 }
             });
 
-            return back()->with('success', 'Update NIK berhasil. Total ' . count($updates) . ' data diperbarui.');
+            return back()->with('success', 'Berhasil update ' . count($updates) . ' data');
+
         } catch (\Throwable $e) {
-            return back()->with('error', 'Terjadi kesalahan saat import: ' . $e->getMessage());
+            return back()->with('error', $e->getMessage());
         }
     }
 
-    /**
-     * Download template Excel untuk Update NIK (2 kolom: PID, NIK).
-     */
+    // ✅ DOWNLOAD TEMPLATE (SUDAH FIX DEPRECATED)
     public function downloadTemplate()
     {
         $headers = ['PID', 'NIK'];
@@ -130,93 +149,46 @@ class PelangganNikUpdateController extends Controller
         $spreadsheet = new \PhpOffice\PhpSpreadsheet\Spreadsheet();
         $sheet = $spreadsheet->getActiveSheet();
 
+        // HEADER
         foreach ($headers as $col => $header) {
-            $sheet->setCellValue(
-                \PhpOffice\PhpSpreadsheet\Cell\Coordinate::stringFromColumnIndex($col + 1) . '1',
-                $header
-            );
+            $cell = Coordinate::stringFromColumnIndex($col + 1) . '1';
+            $sheet->setCellValue($cell, $header);
         }
 
+        // DATA
         foreach ($data as $row => $rowData) {
             foreach ($rowData as $col => $value) {
-                $sheet->setCellValue(
-                    \PhpOffice\PhpSpreadsheet\Cell\Coordinate::stringFromColumnIndex($col + 1) . ($row + 2),
-                    $value
-                );
+                $cell = Coordinate::stringFromColumnIndex($col + 1) . ($row + 2);
+                $sheet->setCellValue($cell, $value);
             }
         }
 
+        // AUTO WIDTH
         foreach (range(1, count($headers)) as $col) {
-            $sheet->getColumnDimension(
-                \PhpOffice\PhpSpreadsheet\Cell\Coordinate::stringFromColumnIndex($col)
-            )->setAutoSize(true);
+            $column = Coordinate::stringFromColumnIndex($col);
+            $sheet->getColumnDimension($column)->setAutoSize(true);
         }
-
-        $headerStyle = [
-            'font' => ['bold' => true],
-            'fill' => [
-                'fillType' => \PhpOffice\PhpSpreadsheet\Style\Fill::FILL_SOLID,
-                'startColor' => ['rgb' => 'E2EFDA'],
-            ],
-            'borders' => [
-                'allBorders' => [
-                    'borderStyle' => \PhpOffice\PhpSpreadsheet\Style\Border::BORDER_THIN,
-                ],
-            ],
-        ];
-
-        $sheet->getStyle('A1:B1')->applyFromArray($headerStyle);
 
         $writer = new \PhpOffice\PhpSpreadsheet\Writer\Xlsx($spreadsheet);
-        $filename = 'template_update_nik_pelanggan.xlsx';
-        $tempFile = tempnam(sys_get_temp_dir(), 'template_update_nik_');
+
+        $filename = 'template_update_nik.xlsx';
+        $tempFile = tempnam(sys_get_temp_dir(), 'template_');
+
         $writer->save($tempFile);
 
-        return response()->download($tempFile, $filename, [
-            'Content-Type' => 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
-        ])->deleteFileAfterSend(true);
+        return response()->download($tempFile, $filename)->deleteFileAfterSend(true);
     }
 
-    /**
-     * Reader CSV sederhana dengan auto-detect delimiter.
-     */
     private function readCsvFile($file): array
     {
-        $path = $file->getPathname();
-        $content = file_get_contents($path);
-
-        $bom = pack('CCC', 0xEF, 0xBB, 0xBF);
-        if (substr($content, 0, 3) === $bom) {
-            $content = substr($content, 3);
-        }
-
-        if (!mb_check_encoding($content, 'UTF-8')) {
-            $content = mb_convert_encoding($content, 'UTF-8', 'ISO-8859-1');
-        }
-
-        $delimiters = [',', ';', "\t"];
-        $bestDelimiter = ',';
-        $maxCols = 0;
-
+        $content = file_get_contents($file->getPathname());
         $lines = explode("\n", $content);
-        $firstLine = $lines[0] ?? '';
-
-        foreach ($delimiters as $delimiter) {
-            $cols = count(str_getcsv($firstLine, $delimiter));
-            if ($cols > $maxCols) {
-                $maxCols = $cols;
-                $bestDelimiter = $delimiter;
-            }
-        }
 
         $rows = [];
         foreach ($lines as $line) {
             $line = trim($line);
-            if ($line === '') {
-                continue;
-            }
-
-            $rows[] = str_getcsv($line, $bestDelimiter);
+            if ($line === '') continue;
+            $rows[] = str_getcsv($line);
         }
 
         return [$rows];
