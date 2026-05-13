@@ -305,7 +305,7 @@ async function submitSelectedMismatchSync() {
             return;
         }
 
-        showImportAlert('success', data.message || 'Data Pelanggans Berhasil Disesuaikan, Silahkan Import Ulang', []);
+        showImportAlert('success', data.message || 'Data Pelanggans Berhasil Disesuaikan, Silahkan Import Ulang.', []);
     } catch (e) {
         alert('Koneksi terputus atau server tidak merespons. Silakan coba lagi.');
     }
