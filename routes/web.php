@@ -124,6 +124,8 @@ Route::middleware([Authenticate::class])->group(function () {
         ->middleware(ThrottleRequests::using('import'));
     Route::get('/import/progress', [PelangganImportExportController::class, 'importProgress'])
         ->name('pelanggan.import.progress');
+    Route::post('/import/sync-mismatch-names', [PelangganImportExportController::class, 'syncMismatchNames'])
+        ->name('pelanggan.import.sync-mismatch-names');
     Route::get('/export', [PelangganImportExportController::class, 'export'])
         ->name('pelanggan.export');
     Route::get('/download-template', [PelangganImportExportController::class, 'downloadTemplate'])

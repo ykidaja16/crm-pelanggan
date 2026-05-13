@@ -819,15 +819,14 @@ class PelangganController extends Controller
     }
 
     /**
-     * Update data pelanggan (hanya Super Admin yang bisa langsung update).
-     * Admin harus menggunakan approval route.
+     * Update data pelanggan (Admin & Super Admin bisa langsung update).
      */
     public function update(Request $request, $id)
     {
         $role = Auth::user()->role?->name;
 
-        if ($role !== 'Super Admin') {
-            return redirect()->back()->with('error', 'Hanya Super Admin yang dapat langsung mengubah data pelanggan.');
+        if (!in_array($role, ['Admin', 'Super Admin'], true)) {
+            return redirect()->back()->with('error', 'Anda tidak memiliki izin untuk mengubah data pelanggan.');
         }
 
         $request->validate([

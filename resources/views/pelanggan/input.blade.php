@@ -214,7 +214,7 @@ function startImport() {
         if (data.success) {
             showImportAlert('success', data.message || 'Import berhasil!', data.errors || []);
         } else {
-            showImportAlert('error', data.message || 'Import gagal.', data.errors || []);
+            showImportAlert('error', data.message || 'Import gagal.', data.errors || [], data.mismatch_rows || []);
         }
         setTimeout(() => { progressContainer.classList.add('d-none'); }, 3000);
     })
@@ -227,7 +227,7 @@ function startImport() {
     });
 }
 
-function showImportAlert(type, message, errors) {
+function showImportAlert(type, message, errors, mismatchRows) {
     document.querySelectorAll('.import-alert').forEach(el => el.remove());
     const cls  = type === 'success' ? 'alert-success' : 'alert-danger';
     const icon = type === 'success' ? 'fa-check-circle' : 'fa-exclamation-circle';
@@ -235,14 +235,80 @@ function showImportAlert(type, message, errors) {
     if (errors && errors.length > 0) {
         errHtml = '<ul class="mb-0 mt-2">' + errors.map(e => '<li>' + e + '</li>').join('') + '</ul>';
     }
+
+    let mismatchHtml = '';
+    if (type === 'error' && mismatchRows && mismatchRows.length > 0) {
+        mismatchHtml += '<hr class="my-3">';
+        mismatchHtml += '<div class="small fw-semibold mb-2">Pilih baris mismatch yang ingin disesuaikan:</div>';
+        mismatchHtml += '<div class="border rounded p-2 bg-white" style="max-height:260px; overflow:auto;">';
+        mismatchRows.forEach(function(item, idx) {
+            const label = 'Baris ' + item.row_number + ': PID ' + item.pid +
+                ' | DB: \'' + item.db_nama + '\' → Excel: \'' + item.excel_nama + '\'';
+            mismatchHtml += '<div class="form-check mb-1">';
+            mismatchHtml += '<input class="form-check-input mismatch-row-check" type="checkbox" id="mismatch_check_' + idx + '" ' +
+                'data-pid="' + encodeURIComponent(item.pid) + '" ' +
+                'data-excel-nama="' + encodeURIComponent(item.excel_nama) + '" ' +
+                'data-row-number="' + item.row_number + '" ' +
+                'data-error-key="' + encodeURIComponent(item.error_key || '') + '">';
+            mismatchHtml += '<label class="form-check-label small" for="mismatch_check_' + idx + '">' + label + '</label>';
+            mismatchHtml += '</div>';
+        });
+        mismatchHtml += '</div>';
+        mismatchHtml += '<div class="mt-2">';
+        mismatchHtml += '<button type="button" class="btn btn-outline-success btn-sm" onclick="submitSelectedMismatchSync()">';
+        mismatchHtml += '<i class="fas fa-sync-alt me-1"></i>Sesuaikan Data</button>';
+        mismatchHtml += '</div>';
+    }
     const div = document.createElement('div');
     div.className = 'alert ' + cls + ' alert-dismissible fade show shadow-sm import-alert';
     div.setAttribute('role', 'alert');
-    div.innerHTML = '<i class="fas ' + icon + ' me-2"></i>' + message + errHtml +
+    div.innerHTML = '<i class="fas ' + icon + ' me-2"></i>' + message + errHtml + mismatchHtml +
         '<button type="button" class="btn-close" data-bs-dismiss="alert" aria-label="Close" onclick="window.location.reload()"></button>';
     const row = document.querySelector('.row.g-4');
     if (row) row.insertBefore(div, row.firstChild);
     window.scrollTo({ top: 0, behavior: 'smooth' });
+}
+
+async function submitSelectedMismatchSync() {
+    const checks = Array.from(document.querySelectorAll('.mismatch-row-check:checked'));
+    if (checks.length === 0) {
+        alert('Pilih minimal satu baris mismatch untuk disesuaikan.');
+        return;
+    }
+
+    const selected = checks.map(function(el) {
+        return {
+            pid: decodeURIComponent(el.dataset.pid || ''),
+            excel_nama: decodeURIComponent(el.dataset.excelNama || ''),
+            row_number: parseInt(el.dataset.rowNumber || '0', 10),
+            error_key: decodeURIComponent(el.dataset.errorKey || ''),
+        };
+    });
+
+    try {
+        const resp = await fetch('{{ route("pelanggan.import.sync-mismatch-names") }}', {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json',
+                'X-Requested-With': 'XMLHttpRequest',
+                'Accept': 'application/json',
+                'X-CSRF-TOKEN': '{{ csrf_token() }}'
+            },
+            body: JSON.stringify({ selected_mismatches: selected })
+        });
+
+        let data = {};
+        try { data = await resp.json(); } catch (e) {}
+
+        if (!resp.ok || !data.success) {
+            alert((data && data.message) ? data.message : 'Gagal menyesuaikan data.');
+            return;
+        }
+
+        showImportAlert('success', data.message || 'Data Pelanggans Berhasil Disesuaikan, Silahkan Import Ulang', []);
+    } catch (e) {
+        alert('Koneksi terputus atau server tidak merespons. Silakan coba lagi.');
+    }
 }
 </script>
 @endsection

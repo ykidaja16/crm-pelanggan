@@ -94,6 +94,7 @@ class PelangganImportExportController extends Controller
             $rowNumber = 0;
             $totalRows = 0;
             $validRows = 0;
+            $mismatchRows = [];
 
             if (empty($rows) || empty($rows[0])) {
                 Log::warning('Empty or invalid file');
@@ -217,6 +218,13 @@ class PelangganImportExportController extends Controller
 
                     if (strtolower($nama) !== strtolower($dbNama)) {
                         $errors[] = "Baris {$rowNumber}: PID {$pid} sudah terdaftar dengan nama '{$dbNama}'. Data Excel nama '{$nama}' tidak sesuai.";
+                        $mismatchRows[] = [
+                            'error_key'   => md5($rowNumber . '|' . $pid . '|' . $dbNama . '|' . $nama),
+                            'row_number'  => $rowNumber,
+                            'pid'         => $pid,
+                            'db_nama'     => $dbNama,
+                            'excel_nama'  => $nama,
+                        ];
                     } else {
                         $validRows++;
                     }
@@ -244,9 +252,10 @@ class PelangganImportExportController extends Controller
                 Log::warning('Import failed due to validation errors', ['error_count' => count($errors)]);
                 if ($isAjax) {
                     return response()->json([
-                        'success' => false,
-                        'message' => 'Import gagal! Beberapa data tidak sesuai dengan database.',
-                        'errors'  => $errors
+                        'success'       => false,
+                        'message'       => 'Import gagal! Beberapa data tidak sesuai dengan database.',
+                        'errors'        => $errors,
+                        'mismatch_rows' => $mismatchRows,
                     ], 422);
                 }
                 return back()->with('error', 'Import gagal! Beberapa data tidak sesuai dengan database.')
@@ -498,6 +507,65 @@ class PelangganImportExportController extends Controller
             'total'   => (int) $total,
             'status'  => $progress >= 100 ? 'done' : 'processing',
         ]);
+    }
+
+    /**
+     * Sesuaikan nama pelanggan di database berdasarkan pilihan mismatch per baris.
+     * Dipanggil dari UI setelah import gagal karena mismatch nama.
+     */
+    public function syncMismatchNames(Request $request)
+    {
+        $isAjax = $request->ajax() || $request->wantsJson();
+
+        $validated = $request->validate([
+            'selected_mismatches'              => 'required|array|min:1',
+            'selected_mismatches.*.pid'        => 'required|string',
+            'selected_mismatches.*.excel_nama' => 'required|string',
+            'selected_mismatches.*.row_number' => 'nullable|integer',
+            'selected_mismatches.*.error_key'  => 'nullable|string',
+        ], [
+            'selected_mismatches.required' => 'Tidak ada data mismatch yang dipilih.',
+            'selected_mismatches.array'    => 'Format data mismatch tidak valid.',
+            'selected_mismatches.min'      => 'Pilih minimal satu data mismatch untuk disesuaikan.',
+        ]);
+
+        $selected = collect($validated['selected_mismatches'] ?? []);
+        $updatedCount = 0;
+
+        DB::transaction(function () use ($selected, &$updatedCount) {
+            // Update per PID unik (jika satu PID muncul di banyak baris, update sekali saja ke nama terakhir dipilih)
+            $byPid = $selected->groupBy('pid');
+
+            foreach ($byPid as $pid => $items) {
+                $targetName = trim((string) ($items->last()['excel_nama'] ?? ''));
+                if ($targetName === '') {
+                    continue;
+                }
+
+                $pelanggan = Pelanggan::where('pid', $pid)->first();
+                if (!$pelanggan || $pelanggan->is_pelanggan_khusus) {
+                    continue;
+                }
+
+                if (trim((string)$pelanggan->nama) !== $targetName) {
+                    $pelanggan->nama = $targetName;
+                    $pelanggan->save();
+                    $updatedCount++;
+                }
+            }
+        });
+
+        $message = 'Data Pelanggans Berhasil Disesuaikan';
+
+        if ($isAjax) {
+            return response()->json([
+                'success'       => true,
+                'message'       => $message,
+                'updated_count' => $updatedCount,
+            ]);
+        }
+
+        return back()->with('success', $message);
     }
 
     // =========================================================================
