@@ -555,7 +555,7 @@ class PelangganImportExportController extends Controller
             }
         });
 
-        $message = 'Data Pelanggans Berhasil Disesuaikan';
+        $message = 'Data Pelanggans Berhasil Disesuaikan, Silahkan Import Ulang.';
 
         if ($isAjax) {
             return response()->json([
