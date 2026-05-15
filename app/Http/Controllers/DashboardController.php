@@ -5,6 +5,7 @@ namespace App\Http\Controllers;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Cache;
 use Illuminate\Support\Facades\DB;
+use App\Models\Kelas;
 use App\Models\Pelanggan;
 use App\Models\Kunjungan;
 use Carbon\Carbon;
@@ -63,7 +64,7 @@ class DashboardController extends Controller
                 ->groupBy('class')
                 ->pluck('total', 'class');
 
-            $classes = ['Prioritas', 'Loyal', 'Potensial', 'Umum'];
+            $classes = Kelas::orderedNames()->toArray();
             foreach ($classes as $class) {
                 $chartLabels[] = $class;
                 $chartData[]   = (int) ($classCounts[$class] ?? 0);

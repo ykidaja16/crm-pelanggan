@@ -88,10 +88,9 @@
                     <label class="form-label fw-medium small">Kelas</label>
                     <select name="kelas" class="form-select">
                         <option value="">Semua Kelas</option>
-                        <option value="Prioritas">Prioritas</option>
-                        <option value="Loyal">Loyal</option>
-                        <option value="Potensial">Potensial</option>
-                        <option value="Umum">Umum</option>
+                        @foreach($kelasList as $k)
+                            <option value="{{ $k }}">{{ $k }}</option>
+                        @endforeach
                     </select>
                 </div>
 

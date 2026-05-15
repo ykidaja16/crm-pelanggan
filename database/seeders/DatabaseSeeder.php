@@ -15,6 +15,8 @@ class DatabaseSeeder extends Seeder
      */
     public function run(): void
     {
+        $this->call(KelasSeeder::class);
+
         $superAdminRole = \App\Models\Role::create(['name' => 'Super Admin']);
         $adminRole = \App\Models\Role::create(['name' => 'Admin']);
         $userRole = \App\Models\Role::create(['name' => 'User']);

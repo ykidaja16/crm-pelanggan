@@ -74,10 +74,9 @@
                             <label class="form-label fw-medium small">Kelas</label>
                             <select name="kelas" class="form-select">
                                 <option value="">Semua Kelas</option>
-                                <option value="Prioritas" {{ ($kelas ?? '') == 'Prioritas' ? 'selected' : '' }}>Prioritas</option>
-                                <option value="Loyal"     {{ ($kelas ?? '') == 'Loyal'     ? 'selected' : '' }}>Loyal</option>
-                                <option value="Potensial" {{ ($kelas ?? '') == 'Potensial' ? 'selected' : '' }}>Potensial</option>
-                                <option value="Umum"      {{ ($kelas ?? '') == 'Umum'      ? 'selected' : '' }}>Umum</option>
+                                @foreach($kelasList as $k)
+                                    <option value="{{ $k }}" {{ ($kelas ?? '') == $k ? 'selected' : '' }}>{{ $k }}</option>
+                                @endforeach
                             </select>
                         </div>
 
@@ -490,10 +489,9 @@
                         <p>Anda akan mengajukan perubahan kelas untuk <strong id="naikKelasCount">0</strong> pelanggan terpilih.</p>
                         <label class="form-label fw-semibold">Ubah ke Kelas <span class="text-danger">*</span></label>
                         <select name="target_class" class="form-select mb-3" required>
-                            <option value="Umum">Umum</option>
-                            <option value="Potensial">Potensial</option>
-                            <option value="Loyal">Loyal</option>
-                            <option value="Prioritas" selected>Prioritas</option>
+                            @foreach($kelasList as $k)
+                                <option value="{{ $k }}" {{ $loop->first ? 'selected' : '' }}>{{ $k }}</option>
+                            @endforeach
                         </select>
                         <label class="form-label fw-semibold">Catatan / Alasan Pengajuan <span class="text-danger">*</span></label>
                         <textarea name="request_note" class="form-control" rows="3"

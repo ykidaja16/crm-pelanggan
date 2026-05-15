@@ -6,6 +6,7 @@ use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\DB;
 use Carbon\Carbon;
+use App\Models\Kelas;
 use App\Models\Pelanggan;
 use App\Models\Cabang;
 use App\Models\User;
@@ -25,7 +26,9 @@ class LaporanController extends Controller
             ? Cabang::orderBy('nama')->get()
             : Cabang::whereIn('id', $accessibleCabangIds)->orderBy('nama')->get();
 
-        return view('laporan.index', compact('cabangs'));
+        $kelasList = Kelas::orderedNames();
+
+        return view('laporan.index', compact('cabangs', 'kelasList'));
     }
 
     /**

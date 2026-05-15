@@ -9,6 +9,7 @@ use Illuminate\Support\Facades\Auth;
 use Carbon\Carbon;
 use Maatwebsite\Excel\Facades\Excel;
 
+use App\Models\Kelas;
 use App\Models\Pelanggan;
 use App\Models\Cabang;
 use App\Models\ActivityLog;
@@ -343,6 +344,7 @@ class PelangganController extends Controller
                 'kelompok_pelanggan' => null,
                 'tipe_pelanggan'     => null,
                 'cabangs'            => $cabangs,
+                'kelasList'          => Kelas::orderedNames(),
                 'sort'               => $sort,
                 'direction'          => $direction,
                 'searchMode'         => false,
@@ -700,7 +702,7 @@ class PelangganController extends Controller
             'tanggal_selesai'   => $tanggal_selesai,
             'tipe_pelanggan'     => $tipePelanggan,
             'cabangs'            => $cabangs,
-
+            'kelasList'          => Kelas::orderedNames(),
             'sort'               => $sort,
             'direction'          => $direction,
             'searchMode'         => (bool) $search,
@@ -732,7 +734,7 @@ class PelangganController extends Controller
 
         // Validasi target_class
         $targetClass = $request->input('target_class', 'Prioritas');
-        if (!in_array($targetClass, ['Umum', 'Potensial', 'Loyal', 'Prioritas'])) {
+        if (!Kelas::orderedNames()->contains($targetClass)) {
             return redirect()->back()->with('error', 'Kelas tujuan tidak valid.');
         }
 
