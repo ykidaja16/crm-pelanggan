@@ -578,10 +578,20 @@ class PelangganController extends Controller
         }
 
         if ($omsetRange !== null && $omsetRange !== '') {
-            switch ($omsetRange) {
-                case '0': $query->where('total_biaya', '<', 1000000); break;
-                case '1': $query->whereBetween('total_biaya', [1000000, 4000000]); break;
-                case '2': $query->where('total_biaya', '>=', 4000000); break;
+            if ($biayaSubquery !== null) {
+                // Filter periode aktif: gunakan biaya dalam periode saja
+                switch ($omsetRange) {
+                    case '0': $query->having('biaya_periode', '<', 1000000); break;
+                    case '1': $query->having('biaya_periode', '>=', 1000000)->having('biaya_periode', '<', 4000000); break;
+                    case '2': $query->having('biaya_periode', '>=', 4000000); break;
+                }
+            } else {
+                // Tanpa filter periode: gunakan total kumulatif
+                switch ($omsetRange) {
+                    case '0': $query->where('total_biaya', '<', 1000000); break;
+                    case '1': $query->whereBetween('total_biaya', [1000000, 4000000]); break;
+                    case '2': $query->where('total_biaya', '>=', 4000000); break;
+                }
             }
         }
 

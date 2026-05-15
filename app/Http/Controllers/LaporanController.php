@@ -400,10 +400,20 @@ class LaporanController extends Controller
 
         // ── Filter Omset Range ────────────────────────────────────────────────
         if ($request->filled('omset_range')) {
-            switch ($request->get('omset_range')) {
-                case '0': $query->where('pelanggans.total_biaya', '<', 1000000); break;
-                case '1': $query->whereBetween('pelanggans.total_biaya', [1000000, 4000000]); break;
-                case '2': $query->where('pelanggans.total_biaya', '>=', 4000000); break;
+            if ($biayaSub) {
+                // Filter periode aktif: gunakan biaya dalam periode saja
+                switch ($request->get('omset_range')) {
+                    case '0': $query->having('biaya_periode', '<', 1000000); break;
+                    case '1': $query->having('biaya_periode', '>=', 1000000)->having('biaya_periode', '<', 4000000); break;
+                    case '2': $query->having('biaya_periode', '>=', 4000000); break;
+                }
+            } else {
+                // Tanpa filter periode: gunakan total kumulatif
+                switch ($request->get('omset_range')) {
+                    case '0': $query->where('pelanggans.total_biaya', '<', 1000000); break;
+                    case '1': $query->whereBetween('pelanggans.total_biaya', [1000000, 4000000]); break;
+                    case '2': $query->where('pelanggans.total_biaya', '>=', 4000000); break;
+                }
             }
         }
 
