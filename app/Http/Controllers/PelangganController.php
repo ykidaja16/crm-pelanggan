@@ -463,7 +463,118 @@ class PelangganController extends Controller
         }
 
         if ($kelas) {
-            $query->where('class', $kelas);
+            if (!empty($endOfPeriod)) {
+                // Filter kelas berdasarkan kelas pada akhir periode (historis), bukan class saat ini
+                $safeEndOfPeriod = addslashes($endOfPeriod);
+
+                $subPrioritas = "EXISTS (
+                    SELECT 1
+                    FROM pelanggan_class_histories pchp
+                    WHERE pchp.pelanggan_id = pelanggans.id
+                      AND pchp.changed_at <= '{$safeEndOfPeriod}'
+                      AND pchp.new_class = 'Prioritas'
+                )";
+
+                $subLatestClass = "(
+                    SELECT pchl.new_class
+                    FROM pelanggan_class_histories pchl
+                    WHERE pchl.pelanggan_id = pelanggans.id
+                      AND pchl.changed_at <= '{$safeEndOfPeriod}'
+                    ORDER BY pchl.changed_at DESC, pchl.id DESC
+                    LIMIT 1
+                )";
+
+                if ($kelas === 'Prioritas') {
+                    $query->where(function ($q) use ($subPrioritas, $safeEndOfPeriod) {
+                        $q->whereRaw($subPrioritas)
+                          ->orWhere(function ($q2) use ($safeEndOfPeriod) {
+                              $q2->whereRaw("NOT EXISTS (
+                                      SELECT 1 FROM pelanggan_class_histories pchn
+                                      WHERE pchn.pelanggan_id = pelanggans.id
+                                        AND pchn.changed_at <= '{$safeEndOfPeriod}'
+                                  )")
+                                 ->whereRaw("EXISTS (
+                                      SELECT 1 FROM kunjungans kv
+                                      WHERE kv.pelanggan_id = pelanggans.id
+                                        AND kv.biaya >= 4000000
+                                        AND kv.tanggal_kunjungan <= '{$safeEndOfPeriod}'
+                                  )");
+                          });
+                    });
+                } else {
+                    $query->where(function ($q) use ($subPrioritas, $subLatestClass, $kelas, $safeEndOfPeriod) {
+                        $q->where(function ($q1) use ($subLatestClass, $kelas, $safeEndOfPeriod) {
+                              $q1->whereRaw("EXISTS (
+                                      SELECT 1 FROM pelanggan_class_histories pche
+                                      WHERE pche.pelanggan_id = pelanggans.id
+                                        AND pche.changed_at <= '{$safeEndOfPeriod}'
+                                  )")
+                                 ->whereRaw("{$subLatestClass} = ?", [$kelas]);
+                          })
+                          ->orWhere(function ($q2) use ($subPrioritas, $kelas, $safeEndOfPeriod) {
+                              $q2->whereRaw("NOT EXISTS (
+                                      SELECT 1 FROM pelanggan_class_histories pchn
+                                      WHERE pchn.pelanggan_id = pelanggans.id
+                                        AND pchn.changed_at <= '{$safeEndOfPeriod}'
+                                  )")
+                                 ->whereRaw("{$subPrioritas} = 0");
+
+                              if ($kelas === 'Loyal') {
+                                  $q2->whereRaw("EXISTS (
+                                          SELECT 1 FROM kunjungans kv
+                                          WHERE kv.pelanggan_id = pelanggans.id
+                                            AND kv.tanggal_kunjungan <= '{$safeEndOfPeriod}'
+                                          GROUP BY kv.pelanggan_id
+                                          HAVING COALESCE(SUM(kv.total_kedatangan),0) > 3
+                                             AND COALESCE(SUM(kv.biaya),0) >= 1000000
+                                      )")
+                                     ->whereRaw("NOT EXISTS (
+                                          SELECT 1 FROM kunjungans kvh
+                                          WHERE kvh.pelanggan_id = pelanggans.id
+                                            AND kvh.biaya >= 4000000
+                                            AND kvh.tanggal_kunjungan <= '{$safeEndOfPeriod}'
+                                      )");
+                              } elseif ($kelas === 'Potensial') {
+                                  $q2->whereRaw("EXISTS (
+                                          SELECT 1 FROM kunjungans kv
+                                          WHERE kv.pelanggan_id = pelanggans.id
+                                            AND kv.tanggal_kunjungan <= '{$safeEndOfPeriod}'
+                                          GROUP BY kv.pelanggan_id
+                                          HAVING COALESCE(SUM(kv.total_kedatangan),0) > 1
+                                             AND COALESCE(SUM(kv.biaya),0) >= 1000000
+                                      )")
+                                     ->whereRaw("NOT EXISTS (
+                                          SELECT 1 FROM kunjungans kvh
+                                          WHERE kvh.pelanggan_id = pelanggans.id
+                                            AND kvh.biaya >= 4000000
+                                            AND kvh.tanggal_kunjungan <= '{$safeEndOfPeriod}'
+                                      )");
+                              } elseif ($kelas === 'Umum') {
+                                  $q2->whereRaw("EXISTS (
+                                          SELECT 1 FROM kunjungans kv
+                                          WHERE kv.pelanggan_id = pelanggans.id
+                                            AND kv.tanggal_kunjungan <= '{$safeEndOfPeriod}'
+                                          GROUP BY kv.pelanggan_id
+                                          HAVING NOT (
+                                              (COALESCE(SUM(kv.total_kedatangan),0) > 1 AND COALESCE(SUM(kv.biaya),0) >= 1000000)
+                                              OR
+                                              (COALESCE(SUM(kv.total_kedatangan),0) > 3 AND COALESCE(SUM(kv.biaya),0) >= 1000000)
+                                          )
+                                      )")
+                                     ->whereRaw("NOT EXISTS (
+                                          SELECT 1 FROM kunjungans kvh
+                                          WHERE kvh.pelanggan_id = pelanggans.id
+                                            AND kvh.biaya >= 4000000
+                                            AND kvh.tanggal_kunjungan <= '{$safeEndOfPeriod}'
+                                      )");
+                              }
+                          });
+                    });
+                }
+            } else {
+                // Tanpa filter periode: tetap gunakan class saat ini
+                $query->where('class', $kelas);
+            }
         }
 
         if ($omsetRange !== null && $omsetRange !== '') {
