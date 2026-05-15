@@ -162,11 +162,6 @@ class PelangganExport implements FromCollection, WithHeadings
             $query->where('cabang_id', $this->cabangId);
         }
 
-        // Apply kelas filter
-        if ($this->kelas) {
-            $query->where('class', $this->kelas);
-        }
-
         // Apply tipe pelanggan filter
         if ($this->tipePelanggan === 'khusus') {
             $query->where('is_pelanggan_khusus', true);
@@ -256,6 +251,11 @@ class PelangganExport implements FromCollection, WithHeadings
                 }
             }
         });
+
+        // Apply kelas filter berdasarkan kelas historis pada periode (bukan kelas saat ini di DB)
+        if ($this->kelas) {
+            $pelanggan = $pelanggan->filter(fn($p) => $p->class_at_range === $this->kelas);
+        }
 
         // Apply omset range filter (gunakan nilai range, bukan ALL-TIME)
         if ($this->omsetRange !== null && $this->omsetRange !== '') {
