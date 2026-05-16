@@ -141,20 +141,21 @@ class DashboardController extends Controller
                 ->get()
                 ->keyBy('cabang_id');
 
-            // Pelanggan baru bulan ini per cabang (kunjungan pertama ada di bulan ini)
+            // Pelanggan baru bulan kemarin per cabang (kunjungan pertama ada di bulan kemarin)
+            $firstDayLastMonth = $lastMonth->copy()->startOfMonth()->toDateString();
             $pelangganBaruPerCabang = DB::table('pelanggans')
                 ->selectRaw('pelanggans.cabang_id, COUNT(*) as total')
                 ->when($hasFilter, fn($q) => $q->whereIn('pelanggans.cabang_id', $filterCabangIds))
-                ->whereExists(function ($q) use ($thisMonth, $thisYear) {
+                ->whereExists(function ($q) use ($lastMonthNumber, $lastMonthYear) {
                     $q->from('kunjungans')
                       ->whereColumn('kunjungans.pelanggan_id', 'pelanggans.id')
-                      ->whereMonth('tanggal_kunjungan', $thisMonth)
-                      ->whereYear('tanggal_kunjungan', $thisYear);
+                      ->whereMonth('tanggal_kunjungan', $lastMonthNumber)
+                      ->whereYear('tanggal_kunjungan', $lastMonthYear);
                 })
-                ->whereNotExists(function ($q) use ($firstDay) {
+                ->whereNotExists(function ($q) use ($firstDayLastMonth) {
                     $q->from('kunjungans')
                       ->whereColumn('kunjungans.pelanggan_id', 'pelanggans.id')
-                      ->where('tanggal_kunjungan', '<', $firstDay);
+                      ->where('tanggal_kunjungan', '<', $firstDayLastMonth);
                 })
                 ->groupBy('pelanggans.cabang_id')
                 ->pluck('total', 'cabang_id');
@@ -171,7 +172,7 @@ class DashboardController extends Controller
                     'totalKunjunganBulanIni'     => (int) ($kunjungan?->bulan_ini ?? 0),
                     'totalKunjunganBulanKemarin' => (int) ($kunjungan?->bulan_kemarin ?? 0),
                     'totalKunjunganTahunIni'     => (int) ($kunjungan?->tahun_ini ?? 0),
-                    'pelangganBaruBulanIni'      => (int) ($pelangganBaruPerCabang[$id] ?? 0),
+                    'pelangganBaruBulanKemarin'  => (int) ($pelangganBaruPerCabang[$id] ?? 0),
                     'totalPelangganPrioritas'    => (int) ($classData->firstWhere('class', 'Prioritas')?->total ?? 0),
                     'totalPelangganLoyal'        => (int) ($classData->firstWhere('class', 'Loyal')?->total ?? 0),
                     'totalPelangganPotensial'    => (int) ($classData->firstWhere('class', 'Potensial')?->total ?? 0),
@@ -201,7 +202,7 @@ class DashboardController extends Controller
             'totalKunjunganBulanIni'      => $singleStats['totalKunjunganBulanIni'] ?? 0,
             'totalKunjunganBulanKemarin'  => $singleStats['totalKunjunganBulanKemarin'] ?? 0,
             'totalKunjunganTahunIni'      => $singleStats['totalKunjunganTahunIni'] ?? 0,
-            'pelangganBaruBulanIni'       => $singleStats['pelangganBaruBulanIni'] ?? 0,
+            'pelangganBaruBulanKemarin'   => $singleStats['pelangganBaruBulanKemarin'] ?? 0,
             'totalPelangganPrioritas'     => $singleStats['totalPelangganPrioritas'] ?? 0,
             'totalPelangganLoyal'         => $singleStats['totalPelangganLoyal'] ?? 0,
             'totalPelangganPotensial'     => $singleStats['totalPelangganPotensial'] ?? 0,

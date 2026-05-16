@@ -83,8 +83,8 @@
                                     <div class="card-body">
                                         <div class="d-flex justify-content-between align-items-center">
                                             <div>
-                                                <h6 class="mb-0">Pelanggan Baru Bulan Ini</h6>
-                                                <h3 class="mb-0">{{ number_format($cab['pelangganBaruBulanIni']) }}</h3>
+                                                <h6 class="mb-0">Pelanggan Baru Bulan Kemarin</h6>
+                                                <h3 class="mb-0">{{ number_format($cab['pelangganBaruBulanKemarin']) }}</h3>
                                             </div>
                                             <i class="fas fa-user-plus fa-2x opacity-50"></i>
                                         </div>
@@ -204,8 +204,8 @@
                     <div class="card-body">
                         <div class="d-flex justify-content-between align-items-center">
                             <div>
-                                <h6 class="mb-0">Pelanggan Baru Bulan Ini</h6>
-                                <h3 class="mb-0">{{ number_format($pelangganBaruBulanIni) }}</h3>
+                                <h6 class="mb-0">Pelanggan Baru Bulan Kemarin</h6>
+                                <h3 class="mb-0">{{ number_format($pelangganBaruBulanKemarin) }}</h3>
                             </div>
                             <i class="fas fa-user-plus fa-2x opacity-50"></i>
                         </div>
