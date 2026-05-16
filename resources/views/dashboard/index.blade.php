@@ -325,13 +325,14 @@
 @section('scripts')
 <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
 <script>
-    // Sinkronkan hidden input active_cab saat tab berganti
+    // Klik tab → reload halaman dengan active_cab baru agar chart ikut terupdate
     document.querySelectorAll('#cabangTabs button[data-bs-toggle="tab"]').forEach(function(btn) {
-        btn.addEventListener('shown.bs.tab', function(e) {
-            var target = e.target.getAttribute('data-bs-target'); // "#tab-123"
-            var cabId  = target.replace('#tab-', '');
-            var input  = document.getElementById('activeTabInput');
-            if (input) input.value = cabId;
+        btn.addEventListener('click', function(e) {
+            e.preventDefault();
+            var cabId = e.currentTarget.getAttribute('data-bs-target').replace('#tab-', '');
+            var url   = new URL(window.location.href);
+            url.searchParams.set('active_cab', cabId);
+            window.location.href = url.toString();
         });
     });
 </script>
