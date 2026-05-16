@@ -1031,6 +1031,31 @@ class PelangganController extends Controller
             ->orderBy('created_at', 'asc')
             ->paginate(10, ['*'], 'class_page');
 
+        // Tren kunjungan bulanan untuk grafik di detail pelanggan
+        $visitTrendRaw = DB::table('kunjungans')
+            ->where('pelanggan_id', $pelanggan->id)
+            ->selectRaw("DATE_FORMAT(tanggal_kunjungan, '%Y-%m') as bulan")
+            ->selectRaw("SUM(total_kedatangan) as total")
+            ->groupBy(DB::raw("DATE_FORMAT(tanggal_kunjungan, '%Y-%m')"))
+            ->orderBy('bulan')
+            ->get()
+            ->keyBy('bulan');
+
+        // Isi label dari bulan pertama kunjungan sampai sekarang
+        $visitTrendLabels = [];
+        $visitTrendData   = [];
+        if ($visitTrendRaw->isNotEmpty()) {
+            $firstMonth = \Carbon\Carbon::parse($visitTrendRaw->keys()->first() . '-01');
+            $lastMonth  = \Carbon\Carbon::today()->startOfMonth();
+            $cur        = $firstMonth->copy();
+            while ($cur->lte($lastMonth)) {
+                $key              = $cur->format('Y-m');
+                $visitTrendLabels[] = $cur->format('M Y');
+                $visitTrendData[]   = (int) ($visitTrendRaw[$key]->total ?? 0);
+                $cur->addMonth();
+            }
+        }
+
         return view('pelanggan.show', compact(
             'pelanggan',
             'kunjungans',
@@ -1039,7 +1064,9 @@ class PelangganController extends Controller
             'allClassHistories',
             'visitClassesDetail',
             'pendingApprovals',
-            'approvalHistories'
+            'approvalHistories',
+            'visitTrendLabels',
+            'visitTrendData'
         ));
     }
 

@@ -114,6 +114,46 @@
         </div>
     </div>
 
+    <!-- Grafik Tren Kunjungan -->
+    @if(count($visitTrendLabels) > 0)
+    <div class="card shadow-sm border-0 mb-4">
+        <div class="card-header bg-white py-3 border-bottom d-flex justify-content-between align-items-center">
+            <h5 class="mb-0 fw-semibold text-primary">
+                <i class="fas fa-chart-area me-2"></i>Grafik Tren Kunjungan
+            </h5>
+            <span class="badge bg-primary bg-opacity-10 text-primary border border-primary px-3 py-2">
+                Total {{ $pelanggan->total_kedatangan }} kunjungan
+            </span>
+        </div>
+        <div class="card-body">
+            <div style="position:relative; height:160px;">
+                <canvas id="visitTrendChart"></canvas>
+            </div>
+            @php
+                $avgPerMonth = count($visitTrendData) > 0
+                    ? round(collect($visitTrendData)->filter()->avg(), 1)
+                    : 0;
+                $maxVisit    = count($visitTrendData) > 0 ? max($visitTrendData) : 0;
+                $activeMonths = collect($visitTrendData)->filter(fn($v) => $v > 0)->count();
+            @endphp
+            <div class="row g-3 mt-2 text-center">
+                <div class="col-4">
+                    <p class="text-muted small mb-1">Rata-rata/Bulan Aktif</p>
+                    <strong>{{ $avgPerMonth }}x</strong>
+                </div>
+                <div class="col-4">
+                    <p class="text-muted small mb-1">Bulan Aktif Berkunjung</p>
+                    <strong>{{ $activeMonths }} bulan</strong>
+                </div>
+                <div class="col-4">
+                    <p class="text-muted small mb-1">Kunjungan Terbanyak/Bulan</p>
+                    <strong>{{ $maxVisit }}x</strong>
+                </div>
+            </div>
+        </div>
+    </div>
+    @endif
+
     <!-- Class History Card -->
     <div class="card shadow-sm border-0 mb-4">
         <div class="card-header bg-white py-3 border-bottom d-flex justify-content-between align-items-center">
@@ -365,6 +405,57 @@
 
         </div>
     </div>
+
+    {{-- Grafik Tren Script (dipindah ke bagian bawah agar canvas sudah ada) --}}
+    @if(count($visitTrendLabels) > 0)
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+    <script>
+    (function() {
+        const labels = @json($visitTrendLabels);
+        const data   = @json($visitTrendData);
+        new Chart(document.getElementById('visitTrendChart').getContext('2d'), {
+            type: 'bar',
+            data: {
+                labels: labels,
+                datasets: [{
+                    label: 'Jumlah Kunjungan',
+                    data: data,
+                    backgroundColor: data.map(v => v > 0 ? 'rgba(0, 86, 179, 0.65)' : 'rgba(200,200,200,0.3)'),
+                    borderColor: data.map(v => v > 0 ? 'rgba(0, 86, 179, 1)' : 'rgba(200,200,200,0.5)'),
+                    borderWidth: 1,
+                    borderRadius: 4,
+                }]
+            },
+            options: {
+                responsive: true,
+                maintainAspectRatio: false,
+                plugins: {
+                    legend: { display: false },
+                    tooltip: {
+                        callbacks: {
+                            label: ctx => ` ${ctx.parsed.y}x kunjungan`
+                        }
+                    }
+                },
+                scales: {
+                    y: {
+                        beginAtZero: true,
+                        ticks: { stepSize: 1 },
+                        title: { display: true, text: 'Jumlah Kunjungan' }
+                    },
+                    x: {
+                        ticks: {
+                            maxTicksLimit: 24,
+                            maxRotation: 45,
+                            font: { size: 10 }
+                        }
+                    }
+                }
+            }
+        });
+    })();
+    </script>
+    @endif
 
     <!-- Approval History Card -->
     <div class="card shadow-sm border-0 mt-4">

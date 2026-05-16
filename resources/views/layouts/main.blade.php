@@ -567,6 +567,13 @@
                 </a>
             </li>
             @endif
+            @if(Auth::user()->role?->name !== 'IT')
+            <li class="{{ request()->routeIs('retention.*') ? 'active' : '' }}">
+                <a href="{{ route('retention.index') }}">
+                    <i class="fas fa-recycle"></i> Retention Customer
+                </a>
+            </li>
+            @endif
             @if(in_array(Auth::user()->role?->name, ['Admin', 'Super Admin']))
             @php
                 $specialDayActive = request()->routeIs('special-day.*');
