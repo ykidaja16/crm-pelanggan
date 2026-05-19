@@ -226,7 +226,10 @@ class DashboardController extends Controller
             abort(403);
         }
 
-        $query      = $this->buildDetailQuery($type, $cabangId, $accessibleCabangIds);
+        $sort      = $request->input('sort', 'nama');
+        $direction = $request->input('direction', 'asc') === 'desc' ? 'desc' : 'asc';
+
+        $query      = $this->buildDetailQuery($type, $cabangId, $accessibleCabangIds, $sort, $direction);
         $pelanggan  = $query->paginate(50)->withQueryString();
         $cabangNama = $cabangId ? (Cabang::find($cabangId)?->nama ?? 'Semua Cabang') : 'Semua Cabang';
 
@@ -236,6 +239,8 @@ class DashboardController extends Controller
             'type'       => $type,
             'cabangId'   => $cabangId,
             'cabangNama' => $cabangNama,
+            'sort'       => $sort,
+            'direction'  => $direction,
         ]);
     }
 
@@ -260,7 +265,7 @@ class DashboardController extends Controller
         return Excel::download(new DashboardDetailExport($query, $this->detailTitle($type), $cabangNama), $filename);
     }
 
-    private function buildDetailQuery(string $type, int $cabangId, array $accessibleCabangIds)
+    private function buildDetailQuery(string $type, int $cabangId, array $accessibleCabangIds, string $sort = 'nama', string $direction = 'asc')
     {
         $now               = Carbon::now();
         $lastMonth         = $now->copy()->subMonth();
@@ -307,7 +312,33 @@ class DashboardController extends Controller
             case 'umum':      $query->where('class', 'Umum');      break;
         }
 
-        return $query->orderBy('pelanggans.nama');
+        $allowedSorts = [
+            'pid'          => 'pelanggans.pid',
+            'nama'         => 'pelanggans.nama',
+            'nik'          => 'pelanggans.nik',
+            'no_telp'      => 'pelanggans.no_telp',
+            'dob'          => 'pelanggans.dob',
+            'alamat'       => 'pelanggans.alamat',
+            'kunjungan'    => 'pelanggans.total_kedatangan',
+            'tgl_terakhir' => 'tgl_kunjungan_terakhir',
+            'total_biaya'  => 'pelanggans.total_biaya',
+            'class'        => 'pelanggans.class',
+            'cabang'       => 'cabangs.nama',
+        ];
+
+        $direction = $direction === 'desc' ? 'desc' : 'asc';
+
+        if ($sort === 'cabang' && isset($allowedSorts['cabang'])) {
+            $query->leftJoin('cabangs', 'pelanggans.cabang_id', '=', 'cabangs.id')
+                  ->addSelect('cabangs.nama as cabang_nama_sort');
+            $query->orderBy('cabangs.nama', $direction);
+        } elseif (isset($allowedSorts[$sort])) {
+            $query->orderBy($allowedSorts[$sort], $direction);
+        } else {
+            $query->orderBy('pelanggans.nama', 'asc');
+        }
+
+        return $query;
     }
 
     private function detailTitle(string $type): string

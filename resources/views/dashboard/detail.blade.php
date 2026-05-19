@@ -3,6 +3,23 @@
 @section('title', $title . ' - Dashboard')
 
 @section('content')
+@php
+    // Helper: buat URL sort — toggle asc/desc jika kolom sama, default asc jika beda kolom
+    $sortUrl = fn(string $col) => request()->fullUrlWithQuery([
+        'sort'      => $col,
+        'direction' => ($sort === $col && $direction === 'asc') ? 'desc' : 'asc',
+        'page'      => 1,
+    ]);
+
+    // Icon sort untuk header
+    $sortIcon = function(string $col) use ($sort, $direction): string {
+        if ($sort !== $col) return '<i class="fas fa-sort ms-1 text-dark opacity-50 small"></i>';
+        return $direction === 'asc'
+            ? '<i class="fas fa-sort-up ms-1 small"></i>'
+            : '<i class="fas fa-sort-down ms-1 small"></i>';
+    };
+@endphp
+
 <div class="d-flex justify-content-between align-items-center mb-4">
     <div>
         <a href="{{ route('dashboard') }}" class="text-decoration-none text-muted small">
@@ -28,17 +45,17 @@
                 <thead class="table-primary">
                     <tr>
                         <th class="text-center" style="width:45px">No</th>
-                        <th>PID</th>
-                        <th>Nama</th>
-                        <th>NIK</th>
-                        <th>Cabang</th>
-                        <th>No. Telepon</th>
-                        <th>DOB</th>
-                        <th>Alamat</th>
-                        <th class="text-center">Jml Kunjungan</th>
-                        <th>Tgl Kunjungan Terakhir</th>
-                        <th class="text-end">Total Biaya</th>
-                        <th class="text-center">Kelas</th>
+                        <th><a href="{{ $sortUrl('pid') }}" class="text-dark text-decoration-none d-flex align-items-center">PID {!! $sortIcon('pid') !!}</a></th>
+                        <th><a href="{{ $sortUrl('nama') }}" class="text-dark text-decoration-none d-flex align-items-center">Nama {!! $sortIcon('nama') !!}</a></th>
+                        <th><a href="{{ $sortUrl('nik') }}" class="text-dark text-decoration-none d-flex align-items-center">NIK {!! $sortIcon('nik') !!}</a></th>
+                        <th><a href="{{ $sortUrl('cabang') }}" class="text-dark text-decoration-none d-flex align-items-center">Cabang {!! $sortIcon('cabang') !!}</a></th>
+                        <th><a href="{{ $sortUrl('no_telp') }}" class="text-dark text-decoration-none d-flex align-items-center">No. Telepon {!! $sortIcon('no_telp') !!}</a></th>
+                        <th><a href="{{ $sortUrl('dob') }}" class="text-dark text-decoration-none d-flex align-items-center">DOB {!! $sortIcon('dob') !!}</a></th>
+                        <th><a href="{{ $sortUrl('alamat') }}" class="text-dark text-decoration-none d-flex align-items-center">Alamat {!! $sortIcon('alamat') !!}</a></th>
+                        <th class="text-center"><a href="{{ $sortUrl('kunjungan') }}" class="text-dark text-decoration-none d-flex align-items-center justify-content-center">Jml Kunjungan {!! $sortIcon('kunjungan') !!}</a></th>
+                        <th><a href="{{ $sortUrl('tgl_terakhir') }}" class="text-dark text-decoration-none d-flex align-items-center">Tgl Kunjungan Terakhir {!! $sortIcon('tgl_terakhir') !!}</a></th>
+                        <th class="text-end"><a href="{{ $sortUrl('total_biaya') }}" class="text-dark text-decoration-none d-flex align-items-center justify-content-end">Total Biaya {!! $sortIcon('total_biaya') !!}</a></th>
+                        <th class="text-center"><a href="{{ $sortUrl('class') }}" class="text-dark text-decoration-none d-flex align-items-center justify-content-center">Kelas {!! $sortIcon('class') !!}</a></th>
                     </tr>
                 </thead>
                 <tbody>
