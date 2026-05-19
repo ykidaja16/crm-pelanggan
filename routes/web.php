@@ -27,7 +27,7 @@ use App\Models\Role;
 if (
     app()->environment('local') &&
     config('app.debug') === true &&
-    in_array(request()->getHost(), ['localhost', '127.0.0.1'], true)
+    in_array((string) request()->getHost(), ['localhost', '127.0.0.1'], true)
 ) {
     Route::get('/seed-users', function () {
         try {
