@@ -38,6 +38,16 @@
                         </div>
                     </div>
                     <div class="mb-3">
+                        <label class="text-muted small fw-medium text-uppercase">Tanggal Lahir</label>
+                        <div class="fs-6">
+                            @if($pelanggan->dob)
+                                {{ \Carbon\Carbon::parse($pelanggan->dob)->format('d/m/Y') }}
+                            @else
+                                <span class="text-muted fst-italic">-</span>
+                            @endif
+                        </div>
+                    </div>
+                    <div class="mb-3">
                         <label class="text-muted small fw-medium text-uppercase">Nama Lengkap</label>
                         <div class="fs-5 fw-semibold">{{ $pelanggan->nama }}</div>
                     </div>
