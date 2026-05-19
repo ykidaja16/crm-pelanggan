@@ -26,13 +26,14 @@ class UserController extends Controller
 
     public function store(Request $request)
     {
+        $roleIsIT = \App\Models\Role::find($request->role_id)?->name === 'IT';
         $validated = $request->validate([
             'name'     => 'required',
             'username' => 'required|unique:users',
             'email'    => 'required|email|unique:users',
             'password' => 'required|min:6',
             'role_id'  => 'required|exists:roles,id',
-            'cabangs'  => 'required|array',
+            'cabangs'  => $roleIsIT ? 'nullable|array' : 'required|array',
             'cabangs.*'=> 'exists:cabangs,id',
         ]);
 
@@ -58,13 +59,14 @@ class UserController extends Controller
 
     public function update(Request $request, User $user)
     {
+        $roleIsIT = \App\Models\Role::find($request->role_id)?->name === 'IT';
         $validated = $request->validate([
             'name'     => 'required',
             'username' => 'required|unique:users,username,' . $user->id,
             'email'    => 'required|email|unique:users,email,' . $user->id,
             'role_id'  => 'required|exists:roles,id',
             'password' => 'nullable|min:6',
-            'cabangs'  => 'required|array',
+            'cabangs'  => $roleIsIT ? 'nullable|array' : 'required|array',
             'cabangs.*'=> 'exists:cabangs,id',
         ]);
 
