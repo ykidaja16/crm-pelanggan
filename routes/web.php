@@ -110,6 +110,8 @@ Route::post('password/email', [ForgotPasswordController::class, 'sendResetLinkEm
 
 Route::middleware([Authenticate::class])->group(function () {
     Route::get('/dashboard', [DashboardController::class, 'index'])->name('dashboard');
+    Route::get('/dashboard/detail', [DashboardController::class, 'detail'])->name('dashboard.detail');
+    Route::get('/dashboard/detail/export', [DashboardController::class, 'export'])->name('dashboard.detail.export');
     Route::get('/pelanggan', [PelangganController::class, 'index'])->name('pelanggan.index');
     Route::get('/', function () {
         return redirect()->route('dashboard');

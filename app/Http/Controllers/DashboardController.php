@@ -8,7 +8,8 @@ use Illuminate\Support\Facades\DB;
 use App\Models\Cabang;
 use App\Models\Kelas;
 use App\Models\Pelanggan;
-use App\Models\Kunjungan;
+use App\Exports\DashboardDetailExport;
+use Maatwebsite\Excel\Facades\Excel;
 use Carbon\Carbon;
 
 class DashboardController extends Controller
@@ -207,6 +208,119 @@ class DashboardController extends Controller
             'totalPelangganLoyal'         => $singleStats['totalPelangganLoyal'] ?? 0,
             'totalPelangganPotensial'     => $singleStats['totalPelangganPotensial'] ?? 0,
             'totalPelangganUmum'          => $singleStats['totalPelangganUmum'] ?? 0,
+            'singleCabangId'              => !$isMultiCabang && !empty($perCabangStats) ? (int) array_key_first($perCabangStats) : 0,
         ]);
+    }
+
+    public function detail(Request $request)
+    {
+        ini_set('memory_limit', '2048M');
+        $type     = $request->input('type', 'total');
+        $cabangId = $request->integer('cabang_id', 0);
+
+        /** @var \App\Models\User $user */
+        $user                = $request->user();
+        $accessibleCabangIds = $user->getAccessibleCabangIds();
+
+        if ($cabangId && !empty($accessibleCabangIds) && !in_array($cabangId, $accessibleCabangIds)) {
+            abort(403);
+        }
+
+        $query      = $this->buildDetailQuery($type, $cabangId, $accessibleCabangIds);
+        $pelanggan  = $query->paginate(50)->withQueryString();
+        $cabangNama = $cabangId ? (Cabang::find($cabangId)?->nama ?? 'Semua Cabang') : 'Semua Cabang';
+
+        return view('dashboard.detail', [
+            'pelanggan'  => $pelanggan,
+            'title'      => $this->detailTitle($type),
+            'type'       => $type,
+            'cabangId'   => $cabangId,
+            'cabangNama' => $cabangNama,
+        ]);
+    }
+
+    public function export(Request $request)
+    {
+        ini_set('memory_limit', '2048M');
+        $type     = $request->input('type', 'total');
+        $cabangId = $request->integer('cabang_id', 0);
+
+        /** @var \App\Models\User $user */
+        $user                = $request->user();
+        $accessibleCabangIds = $user->getAccessibleCabangIds();
+
+        if ($cabangId && !empty($accessibleCabangIds) && !in_array($cabangId, $accessibleCabangIds)) {
+            abort(403);
+        }
+
+        $query      = $this->buildDetailQuery($type, $cabangId, $accessibleCabangIds);
+        $cabangNama = $cabangId ? (Cabang::find($cabangId)?->nama ?? 'Semua Cabang') : 'Semua Cabang';
+        $filename   = 'detail_' . $type . '_' . now()->format('Ymd_His') . '.xlsx';
+
+        return Excel::download(new DashboardDetailExport($query, $this->detailTitle($type), $cabangNama), $filename);
+    }
+
+    private function buildDetailQuery(string $type, int $cabangId, array $accessibleCabangIds)
+    {
+        $now               = Carbon::now();
+        $lastMonth         = $now->copy()->subMonth();
+        $lastMonthNum      = $lastMonth->month;
+        $lastMonthYear     = $lastMonth->year;
+        $firstDayLastMonth = $lastMonth->copy()->startOfMonth()->toDateString();
+        $thisYear          = $now->year;
+
+        $query = Pelanggan::with('cabang')
+            ->select([
+                'pelanggans.id', 'pelanggans.pid', 'pelanggans.nama',
+                'pelanggans.nik', 'pelanggans.cabang_id', 'pelanggans.no_telp',
+                'pelanggans.dob', 'pelanggans.alamat',
+                'pelanggans.total_kedatangan', 'pelanggans.total_biaya', 'pelanggans.class',
+            ])
+            ->selectRaw('(SELECT MAX(tanggal_kunjungan) FROM kunjungans WHERE kunjungans.pelanggan_id = pelanggans.id) as tgl_kunjungan_terakhir');
+
+        if ($cabangId) {
+            $query->where('pelanggans.cabang_id', $cabangId);
+        } elseif (!empty($accessibleCabangIds)) {
+            $query->whereIn('pelanggans.cabang_id', $accessibleCabangIds);
+        }
+
+        switch ($type) {
+            case 'kunjungan_bulan_kemarin':
+                $query->whereHas('kunjungans', fn($q) =>
+                    $q->whereMonth('tanggal_kunjungan', $lastMonthNum)
+                      ->whereYear('tanggal_kunjungan', $lastMonthYear));
+                break;
+            case 'kunjungan_tahun_ini':
+                $query->whereHas('kunjungans', fn($q) =>
+                    $q->whereYear('tanggal_kunjungan', $thisYear));
+                break;
+            case 'pelanggan_baru_bulan_kemarin':
+                $query->whereHas('kunjungans', fn($q) =>
+                    $q->whereMonth('tanggal_kunjungan', $lastMonthNum)
+                      ->whereYear('tanggal_kunjungan', $lastMonthYear))
+                    ->whereDoesntHave('kunjungans', fn($q) =>
+                        $q->where('tanggal_kunjungan', '<', $firstDayLastMonth));
+                break;
+            case 'prioritas': $query->where('class', 'Prioritas'); break;
+            case 'loyal':     $query->where('class', 'Loyal');     break;
+            case 'potensial': $query->where('class', 'Potensial'); break;
+            case 'umum':      $query->where('class', 'Umum');      break;
+        }
+
+        return $query->orderBy('pelanggans.nama');
+    }
+
+    private function detailTitle(string $type): string
+    {
+        return match ($type) {
+            'kunjungan_bulan_kemarin'      => 'Kunjungan Bulan Kemarin',
+            'kunjungan_tahun_ini'          => 'Kunjungan Tahun Ini',
+            'pelanggan_baru_bulan_kemarin' => 'Pelanggan Baru Bulan Kemarin',
+            'prioritas'                    => 'Pelanggan Prioritas',
+            'loyal'                        => 'Pelanggan Loyal',
+            'potensial'                    => 'Pelanggan Potensial',
+            'umum'                         => 'Pelanggan Umum',
+            default                        => 'Total Pelanggan',
+        };
     }
 }

@@ -38,115 +38,58 @@
                          id="tab-{{ $cabId }}" role="tabpanel">
 
                         {{-- Statistik Cards --}}
+                        @php $p = ['cabang_id' => $cabId]; @endphp
                         <div class="row mb-3 g-3">
+                            @foreach([
+                                ['bg'=>'bg-primary','icon'=>'fa-users','label'=>'Total Pelanggan','value'=>$cab['totalPelanggan'],'type'=>'total'],
+                                ['bg'=>'bg-secondary','icon'=>'fa-calendar-minus','label'=>'Kunjungan Bulan Kemarin','value'=>$cab['totalKunjunganBulanKemarin'],'type'=>'kunjungan_bulan_kemarin'],
+                                ['bg'=>'bg-info','icon'=>'fa-chart-line','label'=>'Kunjungan Tahun Ini','value'=>$cab['totalKunjunganTahunIni'],'type'=>'kunjungan_tahun_ini'],
+                                ['bg'=>'bg-warning','icon'=>'fa-user-plus','label'=>'Pelanggan Baru Bulan Kemarin','value'=>$cab['pelangganBaruBulanKemarin'],'type'=>'pelanggan_baru_bulan_kemarin'],
+                            ] as $card)
                             <div class="col-12 col-sm-6 col-md-3">
-                                <div class="card bg-primary text-white h-100">
-                                    <div class="card-body">
-                                        <div class="d-flex justify-content-between align-items-center">
+                                <div class="card {{ $card['bg'] }} text-white h-100">
+                                    <div class="card-body d-flex flex-column">
+                                        <div class="d-flex justify-content-between align-items-center flex-grow-1">
                                             <div>
-                                                <h6 class="mb-0">Total Pelanggan</h6>
-                                                <h3 class="mb-0">{{ number_format($cab['totalPelanggan']) }}</h3>
+                                                <h6 class="mb-0">{{ $card['label'] }}</h6>
+                                                <h3 class="mb-0">{{ number_format($card['value']) }}</h3>
                                             </div>
-                                            <i class="fas fa-users fa-2x opacity-50"></i>
+                                            <i class="fas {{ $card['icon'] }} fa-2x opacity-50"></i>
+                                        </div>
+                                        <div class="mt-2 pt-1 border-top border-white border-opacity-25">
+                                            <a href="{{ route('dashboard.detail', array_merge($p, ['type'=>$card['type']])) }}" class="text-white text-decoration-none small opacity-75"><i class="fas fa-eye me-1"></i>Lihat Detail</a>
                                         </div>
                                     </div>
                                 </div>
                             </div>
-                            <div class="col-12 col-sm-6 col-md-3">
-                                <div class="card bg-secondary text-white h-100">
-                                    <div class="card-body">
-                                        <div class="d-flex justify-content-between align-items-center">
-                                            <div>
-                                                <h6 class="mb-0">Kunjungan Bulan Kemarin</h6>
-                                                <h3 class="mb-0">{{ number_format($cab['totalKunjunganBulanKemarin']) }}</h3>
-                                            </div>
-                                            <i class="fas fa-calendar-minus fa-2x opacity-50"></i>
-                                        </div>
-                                    </div>
-                                </div>
-                            </div>
-                            <div class="col-12 col-sm-6 col-md-3">
-                                <div class="card bg-info text-white h-100">
-                                    <div class="card-body">
-                                        <div class="d-flex justify-content-between align-items-center">
-                                            <div>
-                                                <h6 class="mb-0">Kunjungan Tahun Ini</h6>
-                                                <h3 class="mb-0">{{ number_format($cab['totalKunjunganTahunIni']) }}</h3>
-                                            </div>
-                                            <i class="fas fa-chart-line fa-2x opacity-50"></i>
-                                        </div>
-                                    </div>
-                                </div>
-                            </div>
-                            <div class="col-12 col-sm-6 col-md-3">
-                                <div class="card bg-warning text-white h-100">
-                                    <div class="card-body">
-                                        <div class="d-flex justify-content-between align-items-center">
-                                            <div>
-                                                <h6 class="mb-0">Pelanggan Baru Bulan Kemarin</h6>
-                                                <h3 class="mb-0">{{ number_format($cab['pelangganBaruBulanKemarin']) }}</h3>
-                                            </div>
-                                            <i class="fas fa-user-plus fa-2x opacity-50"></i>
-                                        </div>
-                                    </div>
-                                </div>
-                            </div>
+                            @endforeach
                         </div>
 
                         {{-- Statistik Per Klasifikasi --}}
                         <div class="row g-3">
+                            @foreach([
+                                ['bg'=>'bg-danger','icon'=>'fa-crown','label'=>'Total Pelanggan Prioritas','value'=>$cab['totalPelangganPrioritas'],'type'=>'prioritas'],
+                                ['bg'=>'bg-success','icon'=>'fa-heart','label'=>'Total Pelanggan Loyal','value'=>$cab['totalPelangganLoyal'],'type'=>'loyal'],
+                                ['bg'=>'bg-warning','icon'=>'fa-star','label'=>'Total Pelanggan Potensial','value'=>$cab['totalPelangganPotensial'],'type'=>'potensial'],
+                                ['bg'=>'bg-secondary','icon'=>'fa-user','label'=>'Total Pelanggan Umum','value'=>$cab['totalPelangganUmum'],'type'=>'umum'],
+                            ] as $card)
                             <div class="col-12 col-sm-6 col-md-3">
-                                <div class="card bg-danger text-white h-100">
-                                    <div class="card-body">
-                                        <div class="d-flex justify-content-between align-items-center">
+                                <div class="card {{ $card['bg'] }} text-white h-100">
+                                    <div class="card-body d-flex flex-column">
+                                        <div class="d-flex justify-content-between align-items-center flex-grow-1">
                                             <div>
-                                                <h6 class="mb-0">Total Pelanggan Prioritas</h6>
-                                                <h3 class="mb-0">{{ number_format($cab['totalPelangganPrioritas']) }}</h3>
+                                                <h6 class="mb-0">{{ $card['label'] }}</h6>
+                                                <h3 class="mb-0">{{ number_format($card['value']) }}</h3>
                                             </div>
-                                            <i class="fas fa-crown fa-2x opacity-50"></i>
+                                            <i class="fas {{ $card['icon'] }} fa-2x opacity-50"></i>
+                                        </div>
+                                        <div class="mt-2 pt-1 border-top border-white border-opacity-25">
+                                            <a href="{{ route('dashboard.detail', array_merge($p, ['type'=>$card['type']])) }}" class="text-white text-decoration-none small opacity-75"><i class="fas fa-eye me-1"></i>Lihat Detail</a>
                                         </div>
                                     </div>
                                 </div>
                             </div>
-                            <div class="col-12 col-sm-6 col-md-3">
-                                <div class="card bg-success text-white h-100">
-                                    <div class="card-body">
-                                        <div class="d-flex justify-content-between align-items-center">
-                                            <div>
-                                                <h6 class="mb-0">Total Pelanggan Loyal</h6>
-                                                <h3 class="mb-0">{{ number_format($cab['totalPelangganLoyal']) }}</h3>
-                                            </div>
-                                            <i class="fas fa-heart fa-2x opacity-50"></i>
-                                        </div>
-                                    </div>
-                                </div>
-                            </div>
-                            <div class="col-12 col-sm-6 col-md-3">
-                                <div class="card bg-warning text-white h-100">
-                                    <div class="card-body">
-                                        <div class="d-flex justify-content-between align-items-center">
-                                            <div>
-                                                <h6 class="mb-0">Total Pelanggan Potensial</h6>
-                                                <h3 class="mb-0">{{ number_format($cab['totalPelangganPotensial']) }}</h3>
-                                            </div>
-                                            <i class="fas fa-star fa-2x opacity-50"></i>
-                                        </div>
-                                    </div>
-                                </div>
-                            </div>
-                            <div class="col-12 col-sm-6 col-md-3">
-                                <div class="card bg-secondary text-white h-100">
-                                    <div class="card-body">
-                                        <div class="d-flex justify-content-between align-items-center">
-                                            <div>
-                                                <h6 class="mb-0">Total Pelanggan Umum</h6>
-                                                <h3 class="mb-0">{{ number_format($cab['totalPelangganUmum']) }}</h3>
-                                            </div>
-                                            <i class="fas fa-user fa-2x opacity-50"></i>
-                                        </div>
-                                    </div>
-                                </div>
-                            </div>
+                            @endforeach
                         </div>
 
                     </div>{{-- end tab-pane --}}
@@ -157,117 +100,60 @@
 
     @else
         {{-- ===== SINGLE CABANG: layout asli ===== --}}
+        @php $sc = $singleCabangId; @endphp
 
         <!-- Statistik Cards -->
         <div class="row mb-4 g-3">
+            @foreach([
+                ['bg'=>'bg-primary','icon'=>'fa-users','label'=>'Total Pelanggan','value'=>$totalPelanggan,'type'=>'total'],
+                ['bg'=>'bg-secondary','icon'=>'fa-calendar-minus','label'=>'Kunjungan Bulan Kemarin','value'=>$totalKunjunganBulanKemarin,'type'=>'kunjungan_bulan_kemarin'],
+                ['bg'=>'bg-info','icon'=>'fa-chart-line','label'=>'Kunjungan Tahun Ini','value'=>$totalKunjunganTahunIni,'type'=>'kunjungan_tahun_ini'],
+                ['bg'=>'bg-warning','icon'=>'fa-user-plus','label'=>'Pelanggan Baru Bulan Kemarin','value'=>$pelangganBaruBulanKemarin,'type'=>'pelanggan_baru_bulan_kemarin'],
+            ] as $card)
             <div class="col-12 col-sm-6 col-md-3">
-                <div class="card bg-primary text-white h-100">
-                    <div class="card-body">
-                        <div class="d-flex justify-content-between align-items-center">
+                <div class="card {{ $card['bg'] }} text-white h-100">
+                    <div class="card-body d-flex flex-column">
+                        <div class="d-flex justify-content-between align-items-center flex-grow-1">
                             <div>
-                                <h6 class="mb-0">Total Pelanggan</h6>
-                                <h3 class="mb-0">{{ number_format($totalPelanggan) }}</h3>
+                                <h6 class="mb-0">{{ $card['label'] }}</h6>
+                                <h3 class="mb-0">{{ number_format($card['value']) }}</h3>
                             </div>
-                            <i class="fas fa-users fa-2x opacity-50"></i>
+                            <i class="fas {{ $card['icon'] }} fa-2x opacity-50"></i>
+                        </div>
+                        <div class="mt-2 pt-1 border-top border-white border-opacity-25">
+                            <a href="{{ route('dashboard.detail', ['type'=>$card['type'],'cabang_id'=>$sc]) }}" class="text-white text-decoration-none small opacity-75"><i class="fas fa-eye me-1"></i>Lihat Detail</a>
                         </div>
                     </div>
                 </div>
             </div>
-            <div class="col-12 col-sm-6 col-md-3">
-                <div class="card bg-secondary text-white h-100">
-                    <div class="card-body">
-                        <div class="d-flex justify-content-between align-items-center">
-                            <div>
-                                <h6 class="mb-0">Kunjungan Bulan Kemarin</h6>
-                                <h3 class="mb-0">{{ number_format($totalKunjunganBulanKemarin) }}</h3>
-                            </div>
-                            <i class="fas fa-calendar-minus fa-2x opacity-50"></i>
-                        </div>
-                    </div>
-                </div>
-            </div>
-            <div class="col-12 col-sm-6 col-md-3">
-                <div class="card bg-info text-white h-100">
-                    <div class="card-body">
-                        <div class="d-flex justify-content-between align-items-center">
-                            <div>
-                                <h6 class="mb-0">Kunjungan Tahun Ini</h6>
-                                <h3 class="mb-0">{{ number_format($totalKunjunganTahunIni) }}</h3>
-                            </div>
-                            <i class="fas fa-chart-line fa-2x opacity-50"></i>
-                        </div>
-                    </div>
-                </div>
-            </div>
-            <div class="col-12 col-sm-6 col-md-3">
-                <div class="card bg-warning text-white h-100">
-                    <div class="card-body">
-                        <div class="d-flex justify-content-between align-items-center">
-                            <div>
-                                <h6 class="mb-0">Pelanggan Baru Bulan Kemarin</h6>
-                                <h3 class="mb-0">{{ number_format($pelangganBaruBulanKemarin) }}</h3>
-                            </div>
-                            <i class="fas fa-user-plus fa-2x opacity-50"></i>
-                        </div>
-                    </div>
-                </div>
-            </div>
+            @endforeach
         </div>
 
         <!-- Statistik Per Klasifikasi -->
         <div class="row mb-4 g-3">
+            @foreach([
+                ['bg'=>'bg-danger','icon'=>'fa-crown','label'=>'Total Pelanggan Prioritas','value'=>$totalPelangganPrioritas,'type'=>'prioritas'],
+                ['bg'=>'bg-success','icon'=>'fa-heart','label'=>'Total Pelanggan Loyal','value'=>$totalPelangganLoyal,'type'=>'loyal'],
+                ['bg'=>'bg-warning','icon'=>'fa-star','label'=>'Total Pelanggan Potensial','value'=>$totalPelangganPotensial,'type'=>'potensial'],
+                ['bg'=>'bg-secondary','icon'=>'fa-user','label'=>'Total Pelanggan Umum','value'=>$totalPelangganUmum,'type'=>'umum'],
+            ] as $card)
             <div class="col-12 col-sm-6 col-md-3">
-                <div class="card bg-danger text-white h-100">
-                    <div class="card-body">
-                        <div class="d-flex justify-content-between align-items-center">
+                <div class="card {{ $card['bg'] }} text-white h-100">
+                    <div class="card-body d-flex flex-column">
+                        <div class="d-flex justify-content-between align-items-center flex-grow-1">
                             <div>
-                                <h6 class="mb-0">Total Pelanggan Prioritas</h6>
-                                <h3 class="mb-0">{{ number_format($totalPelangganPrioritas) }}</h3>
+                                <h6 class="mb-0">{{ $card['label'] }}</h6>
+                                <h3 class="mb-0">{{ number_format($card['value']) }}</h3>
                             </div>
-                            <i class="fas fa-crown fa-2x opacity-50"></i>
+                            <i class="fas {{ $card['icon'] }} fa-2x opacity-50"></i>
+                        </div>
+                        <div class="mt-2 pt-1 border-top border-white border-opacity-25">
+                            <a href="{{ route('dashboard.detail', ['type'=>$card['type'],'cabang_id'=>$sc]) }}" class="text-white text-decoration-none small opacity-75"><i class="fas fa-eye me-1"></i>Lihat Detail</a>
                         </div>
                     </div>
                 </div>
             </div>
-            <div class="col-12 col-sm-6 col-md-3">
-                <div class="card bg-success text-white h-100">
-                    <div class="card-body">
-                        <div class="d-flex justify-content-between align-items-center">
-                            <div>
-                                <h6 class="mb-0">Total Pelanggan Loyal</h6>
-                                <h3 class="mb-0">{{ number_format($totalPelangganLoyal) }}</h3>
-                            </div>
-                            <i class="fas fa-heart fa-2x opacity-50"></i>
-                        </div>
-                    </div>
-                </div>
-            </div>
-            <div class="col-12 col-sm-6 col-md-3">
-                <div class="card bg-warning text-white h-100">
-                    <div class="card-body">
-                        <div class="d-flex justify-content-between align-items-center">
-                            <div>
-                                <h6 class="mb-0">Total Pelanggan Potensial</h6>
-                                <h3 class="mb-0">{{ number_format($totalPelangganPotensial) }}</h3>
-                            </div>
-                            <i class="fas fa-star fa-2x opacity-50"></i>
-                        </div>
-                    </div>
-                </div>
-            </div>
-            <div class="col-12 col-sm-6 col-md-3">
-                <div class="card bg-secondary text-white h-100">
-                    <div class="card-body">
-                        <div class="d-flex justify-content-between align-items-center">
-                            <div>
-                                <h6 class="mb-0">Total Pelanggan Umum</h6>
-                                <h3 class="mb-0">{{ number_format($totalPelangganUmum) }}</h3>
-                            </div>
-                            <i class="fas fa-user fa-2x opacity-50"></i>
-                        </div>
-                    </div>
-                </div>
-            </div>
+            @endforeach
         </div>
 
     @endif

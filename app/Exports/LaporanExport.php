@@ -7,10 +7,13 @@ use Maatwebsite\Excel\Concerns\WithHeadings;
 use Maatwebsite\Excel\Concerns\WithStyles;
 use Maatwebsite\Excel\Concerns\WithColumnWidths;
 use Maatwebsite\Excel\Concerns\WithTitle;
-use Maatwebsite\Excel\Concerns\ShouldAutoSize;
+use Maatwebsite\Excel\Concerns\WithCustomStartCell;
 use PhpOffice\PhpSpreadsheet\Worksheet\Worksheet;
+use PhpOffice\PhpSpreadsheet\Style\Alignment;
+use PhpOffice\PhpSpreadsheet\Style\Fill;
+use PhpOffice\PhpSpreadsheet\Style\Border;
 
-class LaporanExport implements FromCollection, WithHeadings, WithStyles, WithColumnWidths, WithTitle, ShouldAutoSize
+class LaporanExport implements FromCollection, WithHeadings, WithStyles, WithColumnWidths, WithTitle, WithCustomStartCell
 {
     protected $pelanggan;
     protected $filters;
@@ -23,12 +26,13 @@ class LaporanExport implements FromCollection, WithHeadings, WithStyles, WithCol
         $this->usePeriodeBiaya = $usePeriodeBiaya;
     }
 
+    public function startCell(): string { return 'A3'; }
+
     public function collection()
     {
         $usePeriode = $this->usePeriodeBiaya;
 
         return $this->pelanggan->map(function ($item, $index) use ($usePeriode) {
-            // Pilih kolom biaya & kedatangan sesuai filter periode
             $biaya      = $usePeriode
                 ? ($item->biaya_periode      ?? $item->total_biaya      ?? 0)
                 : ($item->total_biaya        ?? 0);
@@ -36,10 +40,8 @@ class LaporanExport implements FromCollection, WithHeadings, WithStyles, WithCol
                 ? ($item->kedatangan_periode ?? $item->total_kedatangan ?? 0)
                 : ($item->total_kedatangan   ?? 0);
 
-            // Kelas: gunakan class_at_period jika tersedia (filter periode aktif)
             $kelas = $item->class_at_period ?? $item->class ?? 'Umum';
 
-            // Kunjungan terakhir: sudah period-specific dari subquery
             $kunjunganTerakhir = $item->tgl_kunjungan_terakhir
                 ? \Carbon\Carbon::parse($item->tgl_kunjungan_terakhir)->format('d-m-Y')
                 : '-';
@@ -64,96 +66,65 @@ class LaporanExport implements FromCollection, WithHeadings, WithStyles, WithCol
 
     public function headings(): array
     {
-        return [
-            'No',
-            'PID',
-            'Nama Pasien',
-            'NIK',
-            'Cabang',
-            'No Telpon',
-            'DOB',
-            'Alamat',
-            'Kota',
-            'Total Kunjungan',
-            'Kunjungan Terakhir',
-            'Total Biaya',
-            'Kelas',
-        ];
+        return ['No','PID','Nama Pasien','NIK','Cabang','No Telpon','DOB','Alamat','Kota','Total Kunjungan','Kunjungan Terakhir','Total Biaya','Kelas'];
     }
 
-    public function styles(Worksheet $sheet)
-    {
-        // Header style
-        $sheet->getStyle('A1:M1')->applyFromArray([
-            'font' => [
-                'bold'  => true,
-                'color' => ['rgb' => 'FFFFFF'],
-            ],
-            'fill' => [
-                'fillType'   => 'solid',
-                'startColor' => ['rgb' => '4472C4'],
-            ],
-            'alignment' => [
-                'horizontal' => 'center',
-                'vertical'   => 'center',
-            ],
-        ]);
-
-        // Border for all cells
-        $lastRow = $sheet->getHighestRow();
-        $sheet->getStyle('A1:M' . $lastRow)->applyFromArray([
-            'borders' => [
-                'allBorders' => [
-                    'borderStyle' => 'thin',
-                    'color'       => ['rgb' => '000000'],
-                ],
-            ],
-        ]);
-
-        // Center alignment for No, PID, NIK, DOB, Kunjungan, Kelas
-        $sheet->getStyle('A2:A' . $lastRow)->getAlignment()->setHorizontal('center');
-        $sheet->getStyle('B2:B' . $lastRow)->getAlignment()->setHorizontal('center');
-        $sheet->getStyle('D2:D' . $lastRow)->getAlignment()->setHorizontal('center');
-        $sheet->getStyle('G2:G' . $lastRow)->getAlignment()->setHorizontal('center');
-        $sheet->getStyle('J2:J' . $lastRow)->getAlignment()->setHorizontal('center');
-        $sheet->getStyle('K2:K' . $lastRow)->getAlignment()->setHorizontal('center');
-        $sheet->getStyle('M2:M' . $lastRow)->getAlignment()->setHorizontal('center');
-
-        // Right alignment for Total Biaya
-        $sheet->getStyle('L2:L' . $lastRow)->getAlignment()->setHorizontal('right');
-
-        // Format Total Biaya as currency
-        $sheet->getStyle('L2:L' . $lastRow)->getNumberFormat()->setFormatCode('#,##0');
-
-        // Auto height for all rows
-        for ($row = 1; $row <= $lastRow; $row++) {
-            $sheet->getRowDimension($row)->setRowHeight(-1);
-        }
-
-        return [];
-    }
+    public function title(): string { return 'Laporan Pelanggan'; }
 
     public function columnWidths(): array
     {
-        return [
-            'A' => 5,   // No
-            'B' => 15,  // PID
-            'C' => 25,  // Nama Pasien
-            'D' => 20,  // NIK
-            'E' => 15,  // Cabang
-            'F' => 15,  // No Telpon
-            'G' => 12,  // DOB
-            'H' => 30,  // Alamat
-            'I' => 15,  // Kota
-            'J' => 15,  // Total Kunjungan
-            'K' => 18,  // Kunjungan Terakhir
-            'L' => 15,  // Total Biaya
-            'M' => 12,  // Kelas
-        ];
+        return ['A'=>5,'B'=>15,'C'=>25,'D'=>20,'E'=>15,'F'=>15,'G'=>12,'H'=>30,'I'=>15,'J'=>15,'K'=>18,'L'=>15,'M'=>12];
     }
 
-    public function title(): string
+    public function styles(Worksheet $sheet): array
     {
-        return 'Laporan Pelanggan';
+        $last = $sheet->getHighestRow();
+
+        // Baris 1: Judul
+        $sheet->mergeCells('A1:M1');
+        $sheet->setCellValue('A1', 'LAPORAN PELANGGAN');
+        $sheet->getStyle('A1')->applyFromArray([
+            'font'      => ['bold' => true, 'size' => 13, 'color' => ['rgb' => 'FFFFFF']],
+            'fill'      => ['fillType' => Fill::FILL_SOLID, 'startColor' => ['rgb' => '1A56A4']],
+            'alignment' => ['horizontal' => Alignment::HORIZONTAL_CENTER, 'vertical' => Alignment::VERTICAL_CENTER],
+        ]);
+        $sheet->getRowDimension(1)->setRowHeight(28);
+
+        // Baris 2: Filter aktif + tanggal cetak
+        $filterText = is_array($this->filters) ? implode('   |   ', array_filter($this->filters)) : '';
+        $subtitle   = ($filterText ? $filterText . '   |   ' : '') . 'Dicetak: ' . now()->format('d-m-Y H:i');
+        $sheet->mergeCells('A2:M2');
+        $sheet->setCellValue('A2', $subtitle);
+        $sheet->getStyle('A2')->applyFromArray([
+            'font'      => ['italic' => true, 'size' => 9, 'color' => ['rgb' => '555555']],
+            'fill'      => ['fillType' => Fill::FILL_SOLID, 'startColor' => ['rgb' => 'DCE6F1']],
+            'alignment' => ['horizontal' => Alignment::HORIZONTAL_CENTER, 'vertical' => Alignment::VERTICAL_CENTER],
+        ]);
+        $sheet->getRowDimension(2)->setRowHeight(16);
+
+        // Baris 3: Header kolom
+        $sheet->getStyle('A3:M3')->applyFromArray([
+            'font'      => ['bold' => true, 'color' => ['rgb' => 'FFFFFF']],
+            'fill'      => ['fillType' => Fill::FILL_SOLID, 'startColor' => ['rgb' => '2E75B6']],
+            'alignment' => ['horizontal' => Alignment::HORIZONTAL_CENTER, 'vertical' => Alignment::VERTICAL_CENTER],
+        ]);
+        $sheet->getRowDimension(3)->setRowHeight(20);
+
+        // Alignment per-kolom (bukan per-baris)
+        if ($last >= 4) {
+            foreach (['A', 'B', 'D', 'G', 'J', 'K', 'M'] as $col) {
+                $sheet->getStyle("{$col}4:{$col}{$last}")->getAlignment()->setHorizontal(Alignment::HORIZONTAL_CENTER);
+            }
+            $sheet->getStyle("L4:L{$last}")->getAlignment()->setHorizontal(Alignment::HORIZONTAL_RIGHT);
+            $sheet->getStyle("L4:L{$last}")->getNumberFormat()->setFormatCode('#,##0');
+        }
+
+        // Outline border saja (bukan allBorders — hemat memory)
+        $sheet->getStyle("A3:M{$last}")->applyFromArray([
+            'borders' => ['outline' => ['borderStyle' => Border::BORDER_MEDIUM, 'color' => ['rgb' => '2E75B6']]],
+        ]);
+
+        $sheet->freezePane('A4');
+        return [];
     }
 }

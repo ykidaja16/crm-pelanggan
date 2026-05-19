@@ -6,8 +6,16 @@ use App\Models\Pelanggan;
 use Carbon\Carbon;
 use Maatwebsite\Excel\Concerns\FromCollection;
 use Maatwebsite\Excel\Concerns\WithHeadings;
+use Maatwebsite\Excel\Concerns\WithStyles;
+use Maatwebsite\Excel\Concerns\WithColumnWidths;
+use Maatwebsite\Excel\Concerns\WithTitle;
+use Maatwebsite\Excel\Concerns\WithCustomStartCell;
+use PhpOffice\PhpSpreadsheet\Worksheet\Worksheet;
+use PhpOffice\PhpSpreadsheet\Style\Alignment;
+use PhpOffice\PhpSpreadsheet\Style\Fill;
+use PhpOffice\PhpSpreadsheet\Style\Border;
 
-class PelangganExport implements FromCollection, WithHeadings
+class PelangganExport implements FromCollection, WithHeadings, WithStyles, WithColumnWidths, WithTitle, WithCustomStartCell
 {
     protected $bulan;
     protected $tahun;
@@ -352,6 +360,105 @@ class PelangganExport implements FromCollection, WithHeadings
                 'Tanggal Kunjungan Terakhir'
             ];
         }
+    }
+
+    public function startCell(): string { return 'A3'; }
+
+    public function title(): string { return 'Data Pelanggan'; }
+
+    public function columnWidths(): array
+    {
+        return ['A'=>8,'B'=>16,'C'=>28,'D'=>20,'E'=>18,'F'=>16,'G'=>13,'H'=>35,'I'=>15,'J'=>18,'K'=>16,'L'=>18,'M'=>23];
+    }
+
+    public function styles(Worksheet $sheet): array
+    {
+        $last = $sheet->getHighestRow();
+        $lastCol = 'M'; // 13 kolom A-M
+
+        // Baris 1: Judul
+        $sheet->mergeCells("A1:{$lastCol}1");
+        $sheet->setCellValue('A1', 'DATA PELANGGAN' . $this->buildTitleSuffix());
+        $sheet->getStyle('A1')->applyFromArray([
+            'font'      => ['bold' => true, 'size' => 13, 'color' => ['rgb' => 'FFFFFF']],
+            'fill'      => ['fillType' => Fill::FILL_SOLID, 'startColor' => ['rgb' => '1A56A4']],
+            'alignment' => ['horizontal' => Alignment::HORIZONTAL_CENTER, 'vertical' => Alignment::VERTICAL_CENTER],
+        ]);
+        $sheet->getRowDimension(1)->setRowHeight(28);
+
+        // Baris 2: Info filter + tanggal cetak
+        $sheet->mergeCells("A2:{$lastCol}2");
+        $sheet->setCellValue('A2', $this->buildSubtitle());
+        $sheet->getStyle('A2')->applyFromArray([
+            'font'      => ['italic' => true, 'size' => 9, 'color' => ['rgb' => '555555']],
+            'fill'      => ['fillType' => Fill::FILL_SOLID, 'startColor' => ['rgb' => 'DCE6F1']],
+            'alignment' => ['horizontal' => Alignment::HORIZONTAL_CENTER, 'vertical' => Alignment::VERTICAL_CENTER],
+        ]);
+        $sheet->getRowDimension(2)->setRowHeight(16);
+
+        // Baris 3: Header kolom
+        $sheet->getStyle("A3:{$lastCol}3")->applyFromArray([
+            'font'      => ['bold' => true, 'color' => ['rgb' => 'FFFFFF']],
+            'fill'      => ['fillType' => Fill::FILL_SOLID, 'startColor' => ['rgb' => '2E75B6']],
+            'alignment' => ['horizontal' => Alignment::HORIZONTAL_CENTER, 'vertical' => Alignment::VERTICAL_CENTER],
+        ]);
+        $sheet->getRowDimension(3)->setRowHeight(20);
+
+        // Alignment per-kolom (bukan per-baris — hemat memory)
+        if ($last >= 4) {
+            if ($this->search) {
+                // Search mode: A=ID,B=PID,D=NIK,G=DOB,J=TglKunjungan,M=Kelas → center
+                foreach (['A','B','D','G','J','M'] as $col) {
+                    $sheet->getStyle("{$col}4:{$col}{$last}")->getAlignment()->setHorizontal(Alignment::HORIZONTAL_CENTER);
+                }
+                foreach (['K','L'] as $col) {
+                    $sheet->getStyle("{$col}4:{$col}{$last}")->getAlignment()->setHorizontal(Alignment::HORIZONTAL_RIGHT);
+                    $sheet->getStyle("{$col}4:{$col}{$last}")->getNumberFormat()->setFormatCode('#,##0');
+                }
+            } else {
+                // Normal mode: A=ID,B=PID,D=NIK,G=DOB,J=TotalKedatangan,K=Kelas,M=TglTerakhir → center
+                foreach (['A','B','D','G','J','K','M'] as $col) {
+                    $sheet->getStyle("{$col}4:{$col}{$last}")->getAlignment()->setHorizontal(Alignment::HORIZONTAL_CENTER);
+                }
+                $sheet->getStyle("L4:L{$last}")->getAlignment()->setHorizontal(Alignment::HORIZONTAL_RIGHT);
+                $sheet->getStyle("L4:L{$last}")->getNumberFormat()->setFormatCode('#,##0');
+            }
+        }
+
+        // Outline border saja (bukan allBorders — hemat memory)
+        $sheet->getStyle("A3:{$lastCol}{$last}")->applyFromArray([
+            'borders' => ['outline' => ['borderStyle' => Border::BORDER_MEDIUM, 'color' => ['rgb' => '2E75B6']]],
+        ]);
+
+        $sheet->freezePane('A4');
+        return [];
+    }
+
+    private function buildTitleSuffix(): string
+    {
+        if ($this->search) return ' - DETAIL KUNJUNGAN: ' . strtoupper($this->search);
+        if ($this->type === 'perbulan' && $this->bulan && $this->tahun)
+            return ' - PER BULAN ' . strtoupper(Carbon::create()->month($this->bulan)->format('F')) . ' ' . $this->tahun;
+        if ($this->type === 'pertahun' && $this->tahun)
+            return ' - TAHUN ' . $this->tahun;
+        if ($this->type === 'range' && $this->tanggalMulai && $this->tanggalSelesai)
+            return ' - ' . Carbon::parse($this->tanggalMulai)->format('d-m-Y') . ' s.d. ' . Carbon::parse($this->tanggalSelesai)->format('d-m-Y');
+        return ' - SEMUA';
+    }
+
+    private function buildSubtitle(): string
+    {
+        $parts = [];
+        if ($this->kelas)        $parts[] = 'Kelas: ' . $this->kelas;
+        if ($this->omsetRange !== null && $this->omsetRange !== '') {
+            $parts[] = 'Omset: ' . (['0'=>'< 1 Juta','1'=>'1-4 Juta','2'=>'> 4 Juta'][$this->omsetRange] ?? '-');
+        }
+        if ($this->kedatanganRange !== null && $this->kedatanganRange !== '') {
+            $parts[] = 'Kunjungan: ' . (['1'=>'1 Kali','2'=>'> 1 Kali'][$this->kedatanganRange] ?? '-');
+        }
+        if ($this->tipePelanggan) $parts[] = 'Tipe: ' . ucfirst($this->tipePelanggan);
+        $parts[] = 'Dicetak: ' . now()->format('d-m-Y H:i');
+        return implode('   |   ', $parts);
     }
 
     /**
