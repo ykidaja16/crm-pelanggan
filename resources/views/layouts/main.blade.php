@@ -523,7 +523,8 @@
                                 || request()->routeIs('pelanggan.create')
                                 || request()->routeIs('pelanggan.edit')
                                 || request()->routeIs('pelanggan.khusus*')
-                                || request()->routeIs('pelanggan.update-nik.*');
+                                || request()->routeIs('pelanggan.update-nik.*')
+                                || request()->routeIs('pelanggan.search-by-phone.*');
             @endphp
             <li class="{{ $pelangganActive ? 'active' : '' }}">
                 <a href="#pelangganSubmenu"
@@ -554,6 +555,11 @@
                     <li class="{{ request()->routeIs('pelanggan.update-nik.*') ? 'active' : '' }}">
                         <a href="{{ route('pelanggan.update-nik.index') }}">
                             <i class="fas fa-id-card me-2"></i>Update NIK
+                        </a>
+                    </li>
+                    <li class="{{ request()->routeIs('pelanggan.search-by-phone.*') ? 'active' : '' }}">
+                        <a href="{{ route('pelanggan.search-by-phone.index') }}">
+                            <i class="fas fa-phone-square-alt me-2"></i>Search by Phone
                         </a>
                     </li>
                     @endif

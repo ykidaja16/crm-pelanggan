@@ -17,6 +17,7 @@ use App\Http\Controllers\ProfileController;
 use App\Http\Controllers\ImportBatchController;
 use App\Http\Controllers\PelangganNikUpdateController;
 use App\Http\Controllers\RetentionController;
+use App\Http\Controllers\SearchByPhoneController;
 use App\Http\Middleware\EnsureUserIsAdmin;
 use App\Http\Middleware\EnsureUserIsSuperAdmin;
 use App\Http\Middleware\EnsureUserIsIT;
@@ -154,6 +155,13 @@ Route::middleware([Authenticate::class])->group(function () {
 
     // ─── Detail Pelanggan (semua role bisa lihat) ─────────────────────────────
     Route::get('/pelanggan/{pelanggan}/show', [PelangganController::class, 'show'])->name('pelanggan.show');
+
+    // ─── Search by Phone (semua role non-IT, cari ke semua cabang) ───────────
+    Route::get('/pelanggan/search-by-phone', [SearchByPhoneController::class, 'index'])->name('pelanggan.search-by-phone.index');
+    Route::post('/pelanggan/search-by-phone', [SearchByPhoneController::class, 'search'])->name('pelanggan.search-by-phone.search');
+    Route::get('/pelanggan/search-by-phone/template', [SearchByPhoneController::class, 'downloadTemplate'])->name('pelanggan.search-by-phone.template');
+    Route::get('/pelanggan/search-by-phone/export-found', [SearchByPhoneController::class, 'exportFound'])->name('pelanggan.search-by-phone.export-found');
+    Route::get('/pelanggan/search-by-phone/export-not-found', [SearchByPhoneController::class, 'exportNotFound'])->name('pelanggan.search-by-phone.export-not-found');
 
     // ─── Admin & Super Admin routes ───────────────────────────────────────────
     Route::middleware([EnsureUserIsAdmin::class])->group(function () {
