@@ -249,7 +249,7 @@
                 <span class="badge bg-info bg-opacity-10 text-info border border-info px-3 py-2">
                     {{ $kunjungans->count() }} Kunjungan
                 </span>
-                @if(in_array($role, ['Admin', 'Super Admin']))
+                @if(in_array($role, ['Admin', 'Super Admin', 'Direktur']))
                 <a href="{{ route('pelanggan.export-kunjungan', $pelanggan->id) }}"
                    class="btn btn-success btn-sm">
                     <i class="fas fa-file-excel me-1"></i>Export Excel
@@ -268,7 +268,9 @@
                             <th class="py-3">Biaya</th>
                             <th class="py-3 text-center">Kelompok Pelanggan</th>
                             <th class="py-3 text-center">Status Perubahan Data</th>
+                            @if($role !== 'Direktur')
                             <th class="py-3 text-center">Aksi</th>
+                            @endif
                         </tr>
                     </thead>
 
@@ -320,6 +322,7 @@
                                         <span class="badge bg-success bg-opacity-10 text-success border border-success">Tidak Ada Pengajuan</span>
                                     @endif
                                 </td>
+                                @if($role !== 'Direktur')
                                 <td class="text-center">
                                 @if($role === 'User')
                                         {{-- Point 5: User tidak boleh edit/delete kunjungan --}}
@@ -389,11 +392,12 @@
                                         </div>
                                     @endif
                                 </td>
+                                @endif
                             </tr>
 
                         @empty
                             <tr>
-                                <td colspan="7" class="text-center py-5 text-muted">
+                                <td colspan="{{ $role === 'Direktur' ? 6 : 7 }}" class="text-center py-5 text-muted">
                                     <i class="fas fa-inbox fa-2x mb-3 text-secondary opacity-50"></i>
                                     <p class="mb-0">Tidak ada riwayat kunjungan.</p>
                                 </td>

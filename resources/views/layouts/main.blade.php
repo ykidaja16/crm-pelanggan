@@ -581,7 +581,7 @@
                 </a>
             </li>
             @endif --}}
-            @if(in_array(Auth::user()->role?->name, ['Admin', 'Super Admin']))
+            @if(in_array(Auth::user()->role?->name, ['Admin', 'Super Admin', 'Direktur']))
             @php
                 $specialDayActive = request()->routeIs('special-day.*');
             @endphp
