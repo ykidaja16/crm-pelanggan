@@ -324,7 +324,7 @@
                                     @endif
 
                                     <td class="px-2 py-2 text-center">{{ $pelanggan->firstItem() + $index }}</td>
-                                    <td class="py-2"><code class="bg-light px-1 py-1 rounded small text-nowrap">{{ $p->pid }}</code></td>
+                                    <td class="py-2"><a href="{{ route('pelanggan.show', $p->id) }}" class="text-decoration-none" title="Lihat Detail"><code class="bg-light px-1 py-1 rounded small text-nowrap">{{ $p->pid }}</code></a></td>
                                     <td class="py-2 fw-medium">{{ $p->nama }}</td>
                                     <td class="py-2 text-center small">
                                         @if($p->nik)

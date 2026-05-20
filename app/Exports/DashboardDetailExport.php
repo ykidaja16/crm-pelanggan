@@ -21,13 +21,15 @@ class DashboardDetailExport implements FromQuery, WithMapping, WithHeadings, Wit
     protected Builder $query;
     protected string $title;
     protected string $cabangNama;
+    protected string $type;
     private int $rowNum = 0;
 
-    public function __construct(Builder $query, string $title, string $cabangNama = '')
+    public function __construct(Builder $query, string $title, string $cabangNama = '', string $type = '')
     {
         $this->query      = $query;
         $this->title      = $title;
         $this->cabangNama = $cabangNama ?: 'Semua Cabang';
+        $this->type       = $type;
     }
 
     public function query(): Builder
@@ -42,6 +44,8 @@ class DashboardDetailExport implements FromQuery, WithMapping, WithHeadings, Wit
 
     public function map($p): array
     {
+        $isPeriod = in_array($this->type, ['kunjungan_bulan_kemarin', 'kunjungan_tahun_ini']);
+
         return [
             ++$this->rowNum,
             $p->pid,
@@ -51,16 +55,28 @@ class DashboardDetailExport implements FromQuery, WithMapping, WithHeadings, Wit
             $p->no_telp ?? '-',
             $p->dob ? Carbon::parse($p->dob)->format('d-m-Y') : '-',
             $p->alamat ?? '-',
-            (int) $p->total_kedatangan,
+            $isPeriod ? (int) ($p->kunjungan_periode ?? 0) : (int) $p->total_kedatangan,
             $p->tgl_kunjungan_terakhir ? Carbon::parse($p->tgl_kunjungan_terakhir)->format('d-m-Y') : '-',
-            (float) $p->total_biaya,
+            $isPeriod ? (float) ($p->biaya_periode ?? 0) : (float) $p->total_biaya,
             $p->class ?? '-',
         ];
     }
 
     public function headings(): array
     {
-        return ['No','PID','Nama','NIK','Cabang','No. Telepon','DOB','Alamat','Jml Kunjungan','Tgl Kunjungan Terakhir','Total Biaya','Kelas'];
+        $kunjunganLabel = match($this->type) {
+            'kunjungan_bulan_kemarin' => 'Jml Kunjungan Bulan Kemarin',
+            'kunjungan_tahun_ini'     => 'Jml Kunjungan Tahun Ini',
+            default                   => 'Jml Kunjungan',
+        };
+
+        $biayaLabel = match($this->type) {
+            'kunjungan_bulan_kemarin' => 'Total Biaya Bulan Kemarin',
+            'kunjungan_tahun_ini'     => 'Total Biaya Tahun Ini',
+            default                   => 'Total Biaya',
+        };
+
+        return ['No','PID','Nama','NIK','Cabang','No. Telepon','DOB','Alamat',$kunjunganLabel,'Tgl Kunjungan Terakhir',$biayaLabel,'Kelas'];
     }
 
     public function title(): string { return 'Detail'; }

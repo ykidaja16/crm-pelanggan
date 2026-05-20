@@ -52,9 +52,17 @@
                         <th><a href="{{ $sortUrl('no_telp') }}" class="text-dark text-decoration-none d-flex align-items-center">No. Telepon {!! $sortIcon('no_telp') !!}</a></th>
                         <th><a href="{{ $sortUrl('dob') }}" class="text-dark text-decoration-none d-flex align-items-center">DOB {!! $sortIcon('dob') !!}</a></th>
                         <th><a href="{{ $sortUrl('alamat') }}" class="text-dark text-decoration-none d-flex align-items-center">Alamat {!! $sortIcon('alamat') !!}</a></th>
-                        <th class="text-center"><a href="{{ $sortUrl('kunjungan') }}" class="text-dark text-decoration-none d-flex align-items-center justify-content-center">Jml Kunjungan {!! $sortIcon('kunjungan') !!}</a></th>
+                        <th class="text-center"><a href="{{ $sortUrl('kunjungan') }}" class="text-dark text-decoration-none d-flex align-items-center justify-content-center">
+                            @if($type === 'kunjungan_bulan_kemarin') Jml Kunjungan Bulan Kemarin
+                            @elseif($type === 'kunjungan_tahun_ini') Jml Kunjungan Tahun Ini
+                            @else Jml Kunjungan @endif
+                            {!! $sortIcon('kunjungan') !!}</a></th>
                         <th><a href="{{ $sortUrl('tgl_terakhir') }}" class="text-dark text-decoration-none d-flex align-items-center">Tgl Kunjungan Terakhir {!! $sortIcon('tgl_terakhir') !!}</a></th>
-                        <th class="text-end"><a href="{{ $sortUrl('total_biaya') }}" class="text-dark text-decoration-none d-flex align-items-center justify-content-end">Total Biaya {!! $sortIcon('total_biaya') !!}</a></th>
+                        <th class="text-end"><a href="{{ $sortUrl('total_biaya') }}" class="text-dark text-decoration-none d-flex align-items-center justify-content-end">
+                            @if($type === 'kunjungan_bulan_kemarin') Total Biaya Bulan Kemarin
+                            @elseif($type === 'kunjungan_tahun_ini') Total Biaya Tahun Ini
+                            @else Total Biaya @endif
+                            {!! $sortIcon('total_biaya') !!}</a></th>
                         <th class="text-center"><a href="{{ $sortUrl('class') }}" class="text-dark text-decoration-none d-flex align-items-center justify-content-center">Kelas {!! $sortIcon('class') !!}</a></th>
                     </tr>
                 </thead>
@@ -69,9 +77,9 @@
                         <td>{{ $p->no_telp ?? '-' }}</td>
                         <td>{{ $p->dob ? \Carbon\Carbon::parse($p->dob)->format('d-m-Y') : '-' }}</td>
                         <td>{{ $p->alamat ?? '-' }}</td>
-                        <td class="text-center">{{ number_format($p->total_kedatangan) }}</td>
+                        <td class="text-center">{{ number_format(in_array($type, ['kunjungan_bulan_kemarin','kunjungan_tahun_ini']) ? ($p->kunjungan_periode ?? 0) : $p->total_kedatangan) }}</td>
                         <td>{{ $p->tgl_kunjungan_terakhir ? \Carbon\Carbon::parse($p->tgl_kunjungan_terakhir)->format('d-m-Y') : '-' }}</td>
-                        <td class="text-end">{{ number_format($p->total_biaya, 0, ',', '.') }}</td>
+                        <td class="text-end">{{ number_format(in_array($type, ['kunjungan_bulan_kemarin','kunjungan_tahun_ini']) ? ($p->biaya_periode ?? 0) : $p->total_biaya, 0, ',', '.') }}</td>
                         <td class="text-center">
                             @php $badge = match($p->class) {'Prioritas'=>'bg-danger','Loyal'=>'bg-success','Potensial'=>'bg-warning',default=>'bg-secondary'}; @endphp
                             <span class="badge {{ $badge }}">{{ $p->class ?? 'Umum' }}</span>

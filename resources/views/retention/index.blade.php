@@ -189,9 +189,11 @@
         {{-- Cumulative totals --}}
         <div class="mt-3 small text-muted">
             <i class="fas fa-info-circle me-1"></i>
-            Total &gt;60 hari: <strong>{{ number_format($statusCounts->at_risk_total ?? 0) }}</strong> &nbsp;|&nbsp;
-            Total &gt;90 hari: <strong>{{ number_format($statusCounts->dormant_total ?? 0) }}</strong> &nbsp;|&nbsp;
-            Total &gt;180 hari: <strong>{{ number_format($statusCounts->lost_total ?? 0) }}</strong>
+            At Risk + Dormant + Lost (&gt;60 hari): <strong>{{ number_format($statusCounts->at_risk_total ?? 0) }}</strong>
+            &nbsp;|&nbsp;
+            Dormant + Lost (&gt;90 hari): <strong>{{ number_format($statusCounts->dormant_total ?? 0) }}</strong>
+            &nbsp;|&nbsp;
+            Lost saja (&gt;180 hari): <strong>{{ number_format($statusCounts->lost_total ?? 0) }}</strong>
         </div>
     </div>
 </div>

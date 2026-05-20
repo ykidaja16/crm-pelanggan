@@ -262,7 +262,7 @@ class DashboardController extends Controller
         $cabangNama = $cabangId ? (Cabang::find($cabangId)?->nama ?? 'Semua Cabang') : 'Semua Cabang';
         $filename   = 'detail_' . $type . '_' . now()->format('Ymd_His') . '.xlsx';
 
-        return Excel::download(new DashboardDetailExport($query, $this->detailTitle($type), $cabangNama), $filename);
+        return Excel::download(new DashboardDetailExport($query, $this->detailTitle($type), $cabangNama, $type), $filename);
     }
 
     private function buildDetailQuery(string $type, int $cabangId, array $accessibleCabangIds, string $sort = 'nama', string $direction = 'asc')
@@ -282,6 +282,24 @@ class DashboardController extends Controller
                 'pelanggans.total_kedatangan', 'pelanggans.total_biaya', 'pelanggans.class',
             ])
             ->selectRaw('(SELECT MAX(tanggal_kunjungan) FROM kunjungans WHERE kunjungans.pelanggan_id = pelanggans.id) as tgl_kunjungan_terakhir');
+
+        if ($type === 'kunjungan_bulan_kemarin') {
+            $query->selectRaw(
+                '(SELECT COUNT(*) FROM kunjungans WHERE kunjungans.pelanggan_id = pelanggans.id AND MONTH(tanggal_kunjungan) = ? AND YEAR(tanggal_kunjungan) = ?) as kunjungan_periode',
+                [$lastMonthNum, $lastMonthYear]
+            )->selectRaw(
+                '(SELECT COALESCE(SUM(biaya), 0) FROM kunjungans WHERE kunjungans.pelanggan_id = pelanggans.id AND MONTH(tanggal_kunjungan) = ? AND YEAR(tanggal_kunjungan) = ?) as biaya_periode',
+                [$lastMonthNum, $lastMonthYear]
+            );
+        } elseif ($type === 'kunjungan_tahun_ini') {
+            $query->selectRaw(
+                '(SELECT COUNT(*) FROM kunjungans WHERE kunjungans.pelanggan_id = pelanggans.id AND YEAR(tanggal_kunjungan) = ?) as kunjungan_periode',
+                [$thisYear]
+            )->selectRaw(
+                '(SELECT COALESCE(SUM(biaya), 0) FROM kunjungans WHERE kunjungans.pelanggan_id = pelanggans.id AND YEAR(tanggal_kunjungan) = ?) as biaya_periode',
+                [$thisYear]
+            );
+        }
 
         if ($cabangId) {
             $query->where('pelanggans.cabang_id', $cabangId);
@@ -312,6 +330,8 @@ class DashboardController extends Controller
             case 'umum':      $query->where('class', 'Umum');      break;
         }
 
+        $isPeriodType = in_array($type, ['kunjungan_bulan_kemarin', 'kunjungan_tahun_ini']);
+
         $allowedSorts = [
             'pid'          => 'pelanggans.pid',
             'nama'         => 'pelanggans.nama',
@@ -319,20 +339,24 @@ class DashboardController extends Controller
             'no_telp'      => 'pelanggans.no_telp',
             'dob'          => 'pelanggans.dob',
             'alamat'       => 'pelanggans.alamat',
-            'kunjungan'    => 'pelanggans.total_kedatangan',
+            'kunjungan'    => $isPeriodType ? null : 'pelanggans.total_kedatangan',
             'tgl_terakhir' => 'tgl_kunjungan_terakhir',
-            'total_biaya'  => 'pelanggans.total_biaya',
+            'total_biaya'  => $isPeriodType ? null : 'pelanggans.total_biaya',
             'class'        => 'pelanggans.class',
             'cabang'       => 'cabangs.nama',
         ];
 
         $direction = $direction === 'desc' ? 'desc' : 'asc';
 
-        if ($sort === 'cabang' && isset($allowedSorts['cabang'])) {
+        if ($sort === 'cabang') {
             $query->leftJoin('cabangs', 'pelanggans.cabang_id', '=', 'cabangs.id')
                   ->addSelect('cabangs.nama as cabang_nama_sort');
             $query->orderBy('cabangs.nama', $direction);
-        } elseif (isset($allowedSorts[$sort])) {
+        } elseif ($isPeriodType && $sort === 'kunjungan') {
+            $query->orderByRaw("kunjungan_periode {$direction}");
+        } elseif ($isPeriodType && $sort === 'total_biaya') {
+            $query->orderByRaw("biaya_periode {$direction}");
+        } elseif (isset($allowedSorts[$sort]) && $allowedSorts[$sort] !== null) {
             $query->orderBy($allowedSorts[$sort], $direction);
         } else {
             $query->orderBy('pelanggans.nama', 'asc');
