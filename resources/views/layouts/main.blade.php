@@ -489,10 +489,87 @@
         #sidebar {
             transition: all 0.3s ease-in-out;
         }
-        
+
         /* Prevent horizontal scroll on body */
         body {
             overflow-x: hidden;
+        }
+
+        /* Desktop sidebar minimized state */
+        @media (min-width: 992px) {
+            #sidebar.minimized {
+                min-width: 65px;
+                max-width: 65px;
+                overflow: hidden;
+            }
+            #sidebar.minimized .sidebar-header {
+                padding: 12px 5px;
+                text-align: center;
+            }
+            #sidebar.minimized .sidebar-header h4 {
+                display: none !important;
+            }
+            #sidebar.minimized .sidebar-header img {
+                height: 38px !important;
+                width: auto !important;
+                max-width: 50px !important;
+                object-fit: contain !important;
+                margin-bottom: 0 !important;
+            }
+            /* Sembunyikan teks dengan font-size: 0, icon tetap terlihat */
+            #sidebar.minimized ul li > a {
+                padding: 14px 0 !important;
+                justify-content: center !important;
+                font-size: 0 !important;
+                overflow: hidden;
+                width: 65px;
+            }
+            #sidebar.minimized ul li > a > i {
+                font-size: 1.05rem !important;
+                margin-right: 0 !important;
+                margin-left: 0 !important;
+                width: auto !important;
+                min-width: auto !important;
+            }
+            /* Sembunyikan chevron sama sekali */
+            #sidebar.minimized ul li > a > i.fa-chevron-down {
+                display: none !important;
+                font-size: 0 !important;
+            }
+            #sidebar.minimized .submenu-pelanggan,
+            #sidebar.minimized .submenu-approval,
+            #sidebar.minimized .submenu-special-day {
+                display: none !important;
+            }
+            /* Logout button */
+            #sidebar.minimized ul.border-top li form button {
+                padding: 14px 0 !important;
+                justify-content: center !important;
+                font-size: 0 !important;
+                width: 65px;
+                overflow: hidden;
+            }
+            #sidebar.minimized ul.border-top li form button > i {
+                font-size: 1.05rem !important;
+                margin-right: 0 !important;
+            }
+            /* Tooltip saat hover di icon */
+            #sidebar.minimized ul li > a[title]:hover::after {
+                content: attr(title);
+                position: absolute;
+                left: 65px;
+                background: #333;
+                color: #fff;
+                padding: 5px 10px;
+                border-radius: 5px;
+                font-size: 0.82rem;
+                white-space: nowrap;
+                z-index: 1000;
+                box-shadow: 2px 2px 6px rgba(0,0,0,0.2);
+            }
+            #sidebar.minimized ul li {
+                position: relative;
+            }
         }
     </style>
 </head>
@@ -512,7 +589,7 @@
 
         <ul class="list-unstyled components">
             <li class="{{ request()->routeIs('dashboard') ? 'active' : '' }}">
-                <a href="{{ route('dashboard') }}">
+                <a href="{{ route('dashboard') }}" title="Dashboard Utama">
                     <i class="fas fa-chart-line"></i> Dashboard Utama
                 </a>
             </li>
@@ -532,7 +609,8 @@
                    data-bs-toggle="collapse"
                    class="pelanggan-toggle"
                    aria-expanded="{{ $pelangganActive ? 'true' : 'false' }}"
-                   aria-controls="pelangganSubmenu">
+                   aria-controls="pelangganSubmenu"
+                   title="Data Pelanggan">
                     <i class="fas fa-users"></i> Data Pelanggan
                     <i class="fas fa-chevron-down"></i>
                 </a>
@@ -569,18 +647,18 @@
             @endif
             @if(Auth::user()->role?->name !== 'IT')
             <li class="{{ request()->routeIs('laporan.*') ? 'active' : '' }}">
-                <a href="{{ route('laporan.index') }}">
+                <a href="{{ route('laporan.index') }}" title="Laporan">
                     <i class="fas fa-file-alt"></i> Laporan
                 </a>
             </li>
             @endif
-            {{-- @if(Auth::user()->role?->name !== 'IT')
+            @if(Auth::user()->role?->name !== 'IT')
             <li class="{{ request()->routeIs('retention.*') ? 'active' : '' }}">
-                <a href="{{ route('retention.index') }}">
+                <a href="{{ route('retention.index') }}" title="Retention Customer">
                     <i class="fas fa-recycle"></i> Retention Customer
                 </a>
             </li>
-            @endif --}}
+            @endif
             @if(in_array(Auth::user()->role?->name, ['Admin', 'Super Admin', 'Direktur']))
             @php
                 $specialDayActive = request()->routeIs('special-day.*');
@@ -590,7 +668,8 @@
                    data-bs-toggle="collapse"
                    class="special-day-toggle"
                    aria-expanded="{{ $specialDayActive ? 'true' : 'false' }}"
-                   aria-controls="specialDaySubmenu">
+                   aria-controls="specialDaySubmenu"
+                   title="Special Day Member">
                     <i class="fas fa-birthday-cake"></i> Special Day Member
                     <i class="fas fa-chevron-down"></i>
                 </a>
@@ -620,7 +699,8 @@
                    data-bs-toggle="collapse"
                    class="approval-toggle"
                    aria-expanded="{{ $approvalActive ? 'true' : 'false' }}"
-                   aria-controls="approvalSubmenu">
+                   aria-controls="approvalSubmenu"
+                   title="Approval">
                     <i class="fas fa-check-double"></i> Approval
                     <i class="fas fa-chevron-down"></i>
                 </a>
@@ -651,22 +731,22 @@
             {{-- IT: hanya Manajemen User dan Log Aktivitas --}}
             @if(Auth::user()->role?->name === 'IT')
             <li class="{{ request()->routeIs('users*') ? 'active' : '' }}">
-                <a href="{{ route('users.index') }}">
+                <a href="{{ route('users.index') }}" title="Manajemen User">
                     <i class="fas fa-user-cog"></i> Manajemen User
                 </a>
             </li>
             <li class="{{ request()->routeIs('cabang.*') ? 'active' : '' }}">
-                <a href="{{ route('cabang.index') }}">
+                <a href="{{ route('cabang.index') }}" title="Manajemen Cabang">
                     <i class="fas fa-building"></i> Manajemen Cabang
                 </a>
             </li>
             <li class="{{ request()->routeIs('activity-log*') ? 'active' : '' }}">
-                <a href="{{ route('activity-log.index') }}">
+                <a href="{{ route('activity-log.index') }}" title="Log Aktivitas">
                     <i class="fas fa-history"></i> Log Aktivitas
                 </a>
             </li>
             <li class="{{ request()->routeIs('import-batch*') ? 'active' : '' }}">
-                <a href="{{ route('import-batch.index') }}">
+                <a href="{{ route('import-batch.index') }}" title="Riwayat Import">
                     <i class="fas fa-undo-alt"></i> Riwayat Import
                 </a>
             </li>
@@ -791,49 +871,82 @@
 
 <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
 <script>
-    // Toggle sidebar functionality for mobile
     document.addEventListener('DOMContentLoaded', function() {
         const sidebarCollapse = document.getElementById('sidebarCollapse');
         const sidebar = document.getElementById('sidebar');
         const sidebarOverlay = document.getElementById('sidebarOverlay');
-        
+        const SIDEBAR_KEY = 'sidebarMinimized';
+
+        // Restore minimized state on desktop
+        if (window.innerWidth > 991.98 && localStorage.getItem(SIDEBAR_KEY) === 'true') {
+            sidebar.classList.add('minimized');
+        }
+
         if (sidebarCollapse && sidebar) {
             sidebarCollapse.addEventListener('click', function() {
-                sidebar.classList.toggle('active');
-                if (sidebarOverlay) {
-                    sidebarOverlay.classList.toggle('active');
+                if (window.innerWidth > 991.98) {
+                    sidebar.classList.toggle('minimized');
+                    const isMin = sidebar.classList.contains('minimized');
+                    localStorage.setItem(SIDEBAR_KEY, isMin);
+                    if (isMin) {
+                        sidebar.querySelectorAll('.collapse.show').forEach(function(el) {
+                            var bsCollapse = bootstrap.Collapse.getInstance(el);
+                            if (bsCollapse) bsCollapse.hide();
+                        });
+                    }
+                } else {
+                    sidebar.classList.toggle('active');
+                    if (sidebarOverlay) sidebarOverlay.classList.toggle('active');
                 }
             });
         }
-        
-        // Close sidebar when clicking overlay
+
+        // Saat minimized & klik toggle submenu → expand sidebar dulu, lalu buka submenu
+        sidebar.querySelectorAll('[data-bs-toggle="collapse"]').forEach(function(toggle) {
+            toggle.addEventListener('click', function(e) {
+                if (window.innerWidth > 991.98 && sidebar.classList.contains('minimized')) {
+                    e.preventDefault();
+                    e.stopImmediatePropagation();
+                    sidebar.classList.remove('minimized');
+                    localStorage.setItem(SIDEBAR_KEY, 'false');
+                    var targetId = toggle.getAttribute('href') || toggle.getAttribute('data-bs-target');
+                    var targetEl = document.querySelector(targetId);
+                    if (targetEl) {
+                        var bsCollapse = bootstrap.Collapse.getOrCreateInstance(targetEl, { toggle: false });
+                        bsCollapse.show();
+                    }
+                }
+            }, true);
+        });
+
+        // Close sidebar when clicking overlay (mobile)
         if (sidebarOverlay && sidebar) {
             sidebarOverlay.addEventListener('click', function() {
                 sidebar.classList.remove('active');
                 sidebarOverlay.classList.remove('active');
             });
         }
-        
-        // Close sidebar when clicking on a menu item (mobile only)
-        const sidebarLinks = sidebar.querySelectorAll('a:not([data-bs-toggle="collapse"])');
-        sidebarLinks.forEach(function(link) {
+
+        // Close sidebar when clicking menu item (mobile only)
+        sidebar.querySelectorAll('a:not([data-bs-toggle="collapse"])').forEach(function(link) {
             link.addEventListener('click', function() {
                 if (window.innerWidth <= 991.98) {
                     sidebar.classList.remove('active');
-                    if (sidebarOverlay) {
-                        sidebarOverlay.classList.remove('active');
-                    }
+                    if (sidebarOverlay) sidebarOverlay.classList.remove('active');
                 }
             });
         });
-        
-        // Handle window resize
+
+        // On resize: restore correct state
         window.addEventListener('resize', function() {
             if (window.innerWidth > 991.98) {
                 sidebar.classList.remove('active');
-                if (sidebarOverlay) {
-                    sidebarOverlay.classList.remove('active');
+                if (sidebarOverlay) sidebarOverlay.classList.remove('active');
+                if (localStorage.getItem(SIDEBAR_KEY) === 'true') {
+                    sidebar.classList.add('minimized');
                 }
+            } else {
+                sidebar.classList.remove('minimized');
             }
         });
     });
