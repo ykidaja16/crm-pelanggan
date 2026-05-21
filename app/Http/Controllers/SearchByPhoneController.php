@@ -7,6 +7,7 @@ use App\Exports\SearchByPhoneNotFoundExport;
 use App\Models\Pelanggan;
 use Illuminate\Http\Request;
 use Illuminate\Pagination\LengthAwarePaginator;
+use Illuminate\Support\Facades\Session;
 use Maatwebsite\Excel\Facades\Excel;
 use PhpOffice\PhpSpreadsheet\Cell\Coordinate;
 
@@ -21,23 +22,34 @@ class SearchByPhoneController extends Controller
     public function index(Request $request)
     {
         $isPaginating  = $request->has('found_page') || $request->has('nf_page');
-        $isFreshSearch = session()->has('sbp_has_results');
+        $isFreshSearch = Session::has('sbp_has_results');
 
         if ($isFreshSearch || $isPaginating) {
-            $hasResults = session()->has(self::SESSION_FOUND);
+            $hasResults = Session::has(self::SESSION_FOUND);
         } else {
-            // Refresh atau kunjungan baru — buang data lama
-            session()->forget([self::SESSION_FOUND, self::SESSION_NFOUND]);
+            Session::forget([self::SESSION_FOUND, self::SESSION_NFOUND]);
             $hasResults = false;
         }
 
-        $foundAll    = $hasResults ? session(self::SESSION_FOUND,  []) : [];
-        $notFoundAll = $hasResults ? session(self::SESSION_NFOUND, []) : [];
+        $foundAll    = $hasResults ? (Session::get(self::SESSION_FOUND)  ?? []) : [];
+        $notFoundAll = $hasResults ? (Session::get(self::SESSION_NFOUND) ?? []) : [];
 
         $foundPage    = $this->paginate($foundAll,    self::PER_PAGE, $request->get('found_page', 1), 'found_page');
         $notFoundPage = $this->paginate($notFoundAll, self::PER_PAGE, $request->get('nf_page',    1), 'nf_page');
 
-        return view('pelanggan.search-by-phone', compact('foundPage', 'notFoundPage', 'hasResults'));
+        // Hitung offset record individual sebelum halaman ini (karena 1 grup bisa >1 record)
+        $foundRecordOffset = 0;
+        $startGroup = ($foundPage->currentPage() - 1) * self::PER_PAGE;
+        for ($i = 0; $i < $startGroup && isset($foundAll[$i]); $i++) {
+            $foundRecordOffset += count($foundAll[$i]['records']);
+        }
+
+        $notFoundOffset = $notFoundPage->firstItem() - 1;
+
+        return view('pelanggan.search-by-phone', compact(
+            'foundPage', 'notFoundPage', 'hasResults',
+            'foundRecordOffset', 'notFoundOffset'
+        ));
     }
 
     public function search(Request $request)
@@ -103,7 +115,6 @@ class SearchByPhoneController extends Controller
         }
 
         // ── Build serializable found / not-found arrays ───────────────────────
-        $classOrder  = ['Prioritas' => 4, 'Loyal' => 3, 'Potensial' => 2, 'Umum' => 1];
         $foundAll    = [];
         $notFoundAll = [];
 
@@ -131,6 +142,23 @@ class SearchByPhoneController extends Controller
             // no_telp: ambil dari pelanggan pertama (cukup 1)
             $noTelp = $ordered->first()->no_telp;
 
+            // Records individual per pelanggan — dipakai oleh export (1 baris per pelanggan)
+            $records = $ordered->map(fn ($p) => [
+                'id'                => $p->id,
+                'cabang_id'         => $p->cabang_id,
+                'pid'               => $p->pid,
+                'cabang'            => $p->cabang?->nama ?? '-',
+                'nama_db'           => $p->nama,
+                'no_telp'           => $noTelp,
+                'alamat'            => $p->alamat ?? '-',
+                'latest_visit'      => $p->latestKunjungan?->tanggal_kunjungan
+                    ? \Carbon\Carbon::parse($p->latestKunjungan->tanggal_kunjungan)->format('d/m/Y')
+                    : '-',
+                'total_kedatangan'  => $p->total_kedatangan ?? 0,
+                'class'             => $p->class ?? 'Umum',
+                'nama_excel'        => $excelEntry['nama'],
+            ])->all();
+
             $foundAll[] = [
                 'pids'         => $pids,
                 'pid_links'    => $pidLinks,
@@ -138,21 +166,17 @@ class SearchByPhoneController extends Controller
                 'nama_db'      => $namaDb,
                 'no_telp'      => $noTelp,
                 'alamat'       => $alamatStr,
-                'latest_visit' => $visitStr,   // sudah diformat "d/m/Y, d/m/Y"
-                'classes'      => $classesArr, // array untuk badge di view
-                'class_str'    => $classStr,   // string untuk export
+                'latest_visit' => $visitStr,
+                'classes'      => $classesArr,
+                'class_str'    => $classStr,
                 'nama_excel'   => $excelEntry['nama'],
+                'records'      => $records,    // untuk export per-baris
             ];
         }
 
-        session([
-            self::SESSION_FOUND  => $foundAll,
-            self::SESSION_NFOUND => $notFoundAll,
-        ]);
-
-        // Flash marker agar hasil hanya tampil sekali setelah upload;
-        // refresh tanpa marker ini akan membersihkan hasil otomatis.
-        session()->flash('sbp_has_results', true);
+        Session::put(self::SESSION_FOUND,  $foundAll);
+        Session::put(self::SESSION_NFOUND, $notFoundAll);
+        Session::flash('sbp_has_results', true);
 
         return redirect()->route('pelanggan.search-by-phone.index');
     }
@@ -161,7 +185,7 @@ class SearchByPhoneController extends Controller
 
     public function exportFound()
     {
-        $data = session(self::SESSION_FOUND, []);
+        $data = Session::get(self::SESSION_FOUND, []);
         if (empty($data)) {
             return back()->with('error', 'Tidak ada data untuk diekspor. Lakukan pencarian terlebih dahulu.');
         }
@@ -172,7 +196,7 @@ class SearchByPhoneController extends Controller
 
     public function exportNotFound()
     {
-        $data = session(self::SESSION_NFOUND, []);
+        $data = Session::get(self::SESSION_NFOUND, []);
         if (empty($data)) {
             return back()->with('error', 'Tidak ada data untuk diekspor. Lakukan pencarian terlebih dahulu.');
         }

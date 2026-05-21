@@ -118,49 +118,44 @@
                         <th>Nomer Telepon</th>
                         <th>Alamat</th>
                         <th>Kunjungan Terakhir</th>
+                        <th class="text-center">Total Kedatangan</th>
                         <th>Kelas</th>
                         <th>Nama di File Excel</th>
                     </tr>
                 </thead>
                 <tbody>
-                    @foreach($foundPage as $i => $item)
-                    <tr>
-                        <td class="px-3 text-muted">{{ $foundPage->firstItem() + $i }}</td>
-                        <td>
-                            @foreach($item['pid_links'] as $link)
-                                @php
-                                    $canAccess = empty($accessibleCabangIds)
-                                        || in_array($link['cabang_id'], $accessibleCabangIds);
-                                @endphp
+                    @php $rowNo = $foundRecordOffset + 1; @endphp
+                    @foreach($foundPage as $item)
+                        @foreach($item['records'] as $rec)
+                        @php
+                            $canAccess = empty($accessibleCabangIds)
+                                || in_array($rec['cabang_id'], $accessibleCabangIds);
+                            $kelasColor = match($rec['class']) {
+                                'Prioritas' => 'danger',
+                                'Loyal'     => 'warning',
+                                'Potensial' => 'info',
+                                default     => 'secondary',
+                            };
+                        @endphp
+                        <tr>
+                            <td class="px-3 text-muted">{{ $rowNo++ }}</td>
+                            <td>
                                 @if($canAccess)
-                                    <a href="{{ route('pelanggan.show', $link['id']) }}" class="text-decoration-none fw-semibold">{{ $link['pid'] }}</a>@if(!$loop->last), @endif
+                                    <a href="{{ route('pelanggan.show', $rec['id']) }}" class="text-decoration-none fw-semibold">{{ $rec['pid'] }}</a>
                                 @else
-                                    <span class="text-muted">{{ $link['pid'] }}</span>@if(!$loop->last), @endif
+                                    <span class="text-muted">{{ $rec['pid'] }}</span>
                                 @endif
-                            @endforeach
-                        </td>
-                        <td>{{ $item['cabang_names'] }}</td>
-                        <td>{{ $item['nama_db'] }}</td>
-                        <td>{{ $item['no_telp'] ?? '-' }}</td>
-                        <td class="text-truncate" style="max-width:160px" title="{{ $item['alamat'] }}">
-                            {{ $item['alamat'] ?? '-' }}
-                        </td>
-                        <td>{{ $item['latest_visit'] ?: '-' }}</td>
-                        <td>
-                            @foreach($item['classes'] as $kelas)
-                                @php
-                                    $kelasColor = match($kelas) {
-                                        'Prioritas' => 'danger',
-                                        'Loyal'     => 'warning',
-                                        'Potensial' => 'info',
-                                        default     => 'secondary',
-                                    };
-                                @endphp
-                                <span class="badge bg-{{ $kelasColor }}">{{ $kelas }}</span>
-                            @endforeach
-                        </td>
-                        <td class="fw-semibold text-primary">{{ $item['nama_excel'] }}</td>
-                    </tr>
+                            </td>
+                            <td>{{ $rec['cabang'] }}</td>
+                            <td>{{ $rec['nama_db'] }}</td>
+                            <td>{{ $rec['no_telp'] ?? '-' }}</td>
+                            <td class="text-truncate" style="max-width:160px" title="{{ $rec['alamat'] }}">{{ $rec['alamat'] }}</td>
+                            <td>{{ $rec['latest_visit'] ?: '-' }}</td>
+                            <td class="text-center">{{ number_format($rec['total_kedatangan']) }}</td>
+                            <td><span class="badge bg-{{ $kelasColor }}">{{ $rec['class'] }}</span></td>
+                            <td class="fw-semibold text-primary">{{ $rec['nama_excel'] }}</td>
+                        </tr>
+                        @endforeach
                     @endforeach
                 </tbody>
             </table>
@@ -202,7 +197,7 @@
                 <tbody>
                     @foreach($notFoundPage as $i => $item)
                     <tr>
-                        <td class="px-3 text-muted">{{ $notFoundPage->firstItem() + $i }}</td>
+                        <td class="px-3 text-muted">{{ $notFoundOffset + $i + 1 }}</td>
                         <td>{{ $item['nama'] }}</td>
                         <td>{{ $item['no_telp_raw'] }}</td>
                     </tr>

@@ -10,6 +10,7 @@ use Maatwebsite\Excel\Concerns\WithTitle;
 use PhpOffice\PhpSpreadsheet\Worksheet\Worksheet;
 use PhpOffice\PhpSpreadsheet\Style\Fill;
 use PhpOffice\PhpSpreadsheet\Style\Border;
+use PhpOffice\PhpSpreadsheet\Style\Alignment;
 
 class SearchByPhoneFoundExport implements FromArray, WithHeadings, WithStyles, WithColumnWidths, WithTitle
 {
@@ -27,25 +28,34 @@ class SearchByPhoneFoundExport implements FromArray, WithHeadings, WithStyles, W
 
     public function headings(): array
     {
-        return ['No', 'PID', 'Cabang', 'Nama (DB)', 'Nomer Telepon', 'Alamat', 'Kunjungan Terakhir', 'Kelas', 'Nama di File Excel'];
+        return [
+            'No', 'PID', 'Cabang', 'Nama (DB)', 'Nomer Telepon',
+            'Alamat', 'Kunjungan Terakhir', 'Total Kedatangan', 'Kelas', 'Nama di File Excel',
+        ];
     }
 
     public function array(): array
     {
         $rows = [];
-        foreach ($this->data as $i => $item) {
-            $rows[] = [
-                $i + 1,
-                $item['pids'],
-                $item['cabang_names'],
-                $item['nama_db'],
-                $item['no_telp'],
-                $item['alamat'],
-                $item['latest_visit'] ?: '-',
-                $item['class_str'],
-                $item['nama_excel'],
-            ];
+        $no   = 1;
+
+        foreach ($this->data as $item) {
+            foreach ($item['records'] as $rec) {
+                $rows[] = [
+                    $no++,
+                    $rec['pid'],
+                    $rec['cabang'],
+                    $rec['nama_db'],
+                    $rec['no_telp'],
+                    $rec['alamat'],
+                    $rec['latest_visit'],
+                    $rec['total_kedatangan'],
+                    $rec['class'],
+                    $rec['nama_excel'],
+                ];
+            }
         }
+
         return $rows;
     }
 
@@ -53,50 +63,72 @@ class SearchByPhoneFoundExport implements FromArray, WithHeadings, WithStyles, W
     {
         return [
             'A' => 6,
-            'B' => 22,
-            'C' => 30,
-            'D' => 25,
+            'B' => 16,
+            'C' => 22,
+            'D' => 28,
             'E' => 18,
-            'F' => 35,
+            'F' => 38,
             'G' => 20,
-            'H' => 12,
-            'I' => 25,
+            'H' => 18,
+            'I' => 12,
+            'J' => 28,
         ];
     }
 
     public function styles(Worksheet $sheet): array
     {
-        $lastRow = count($this->data) + 1;
+        $lastRow = count($this->array()) + 1;
 
-        $sheet->getStyle('A1:I1')->applyFromArray([
+        // Header
+        $sheet->getStyle('A1:J1')->applyFromArray([
             'font'      => ['bold' => true, 'color' => ['rgb' => 'FFFFFF']],
             'fill'      => ['fillType' => Fill::FILL_SOLID, 'startColor' => ['rgb' => '198754']],
-            'alignment' => ['horizontal' => 'center'],
+            'alignment' => ['horizontal' => Alignment::HORIZONTAL_CENTER, 'vertical' => Alignment::VERTICAL_CENTER],
         ]);
 
-        $sheet->getStyle("A1:I{$lastRow}")->applyFromArray([
-            'borders' => [
-                'allBorders' => ['borderStyle' => Border::BORDER_THIN, 'color' => ['rgb' => 'CCCCCC']],
-            ],
-        ]);
-
-        // Wrap text pada data rows untuk kolom yang bisa berisi lebih dari 1 nilai
+        // Border seluruh tabel
         if ($lastRow > 1) {
-            foreach ($this->data as $rowIndex => $item) {
-                $row = $rowIndex + 2; // baris data mulai dari 2
-                $multiCols = ['B', 'C', 'D', 'F', 'G', 'H']; // PID, Cabang, Nama, Alamat, Kunjungan, Kelas
-                foreach ($multiCols as $col) {
-                    $cellValue = (string) $sheet->getCell("{$col}{$row}")->getValue();
-                    if (str_contains($cellValue, ',')) {
-                        $sheet->getStyle("{$col}{$row}")
-                            ->getAlignment()
-                            ->setWrapText(true)
-                            ->setVertical(\PhpOffice\PhpSpreadsheet\Style\Alignment::VERTICAL_TOP);
-                    }
-                }
+            $sheet->getStyle("A1:J{$lastRow}")->applyFromArray([
+                'borders' => [
+                    'allBorders' => ['borderStyle' => Border::BORDER_THIN, 'color' => ['rgb' => 'CCCCCC']],
+                ],
+            ]);
+        }
+
+        // Wrap text + vertical top untuk kolom Alamat (F) dan Nama DB (D)
+        for ($row = 2; $row <= $lastRow; $row++) {
+            foreach (['D', 'F'] as $col) {
+                $sheet->getStyle("{$col}{$row}")
+                    ->getAlignment()
+                    ->setWrapText(true)
+                    ->setVertical(Alignment::VERTICAL_TOP);
             }
         }
 
+        // Warna selang-seling per grup nomor telepon agar mudah dibaca
+        $this->applyGroupColors($sheet);
+
         return [];
+    }
+
+    private function applyGroupColors(Worksheet $sheet): void
+    {
+        $colors = ['FFFFFF', 'F0FFF4']; // putih & hijau sangat muda
+        $colorIndex = 0;
+        $row = 2;
+
+        foreach ($this->data as $group) {
+            $count = count($group['records']);
+            $fillColor = $colors[$colorIndex % 2];
+
+            if ($fillColor !== 'FFFFFF') {
+                $sheet->getStyle("A{$row}:J" . ($row + $count - 1))->applyFromArray([
+                    'fill' => ['fillType' => Fill::FILL_SOLID, 'startColor' => ['rgb' => $fillColor]],
+                ]);
+            }
+
+            $row        += $count;
+            $colorIndex += 1;
+        }
     }
 }

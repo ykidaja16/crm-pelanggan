@@ -133,6 +133,155 @@
     @endif
 </div>
 
+{{-- ============ B. SMART INSIGHTS ============ --}}
+@if($isAdminOrAbove && count($smartInsights) > 0)
+<div class="card shadow-sm border-0 mb-4">
+    <div class="card-header bg-white py-3">
+        <h6 class="mb-0 fw-semibold"><i class="fas fa-lightbulb me-2 text-warning"></i>Smart Insight Otomatis</h6>
+    </div>
+    <div class="card-body py-3">
+        <div class="row g-2">
+            @foreach($smartInsights as $ins)
+            <div class="col-12 col-md-6">
+                <div class="alert alert-{{ $ins['type'] }} py-2 px-3 mb-0 d-flex align-items-start gap-2 border">
+                    <i class="fas fa-{{ $ins['icon'] }} mt-1 flex-shrink-0"></i>
+                    <span class="small">{{ $ins['text'] }}</span>
+                </div>
+            </div>
+            @endforeach
+        </div>
+    </div>
+</div>
+@endif
+
+{{-- ============ A. ANALISIS CABANG (Direktur only) ============ --}}
+@if($isDirektur && $analisisCabang && count($analisisCabang) > 1)
+@php
+    $best_ret  = collect($analisisCabang)->sortByDesc('retRate')->first();
+    $most_baru = collect($analisisCabang)->sortByDesc('baru')->first();
+    $most_lost = collect($analisisCabang)->sortByDesc('lost')->first();
+    $best_grow = collect($analisisCabang)->sortByDesc('growth')->first();
+@endphp
+<div class="card shadow-sm border-0 mb-4">
+    <div class="card-header bg-white py-3 d-flex justify-content-between align-items-center">
+        <h6 class="mb-0 fw-semibold"><i class="fas fa-trophy me-2 text-warning"></i>Analisis Cabang <span class="badge bg-warning text-dark ms-1" style="font-size:.65rem">Direktur</span></h6>
+    </div>
+    <div class="card-body">
+        {{-- Leaderboard ranking --}}
+        <div class="row g-3 mb-4">
+            <div class="col-6 col-md-3">
+                <div class="card border-success border-opacity-50 h-100">
+                    <div class="card-body text-center py-3">
+                        <i class="fas fa-medal fa-lg text-success mb-1"></i>
+                        <p class="text-muted mb-0" style="font-size:.7rem">Retention Terbaik</p>
+                        <p class="fw-bold text-success mb-0 small">{{ $best_ret['nama'] }}</p>
+                        <p class="fw-bold mb-0">{{ $best_ret['retRate'] ?? 'N/A' }}%</p>
+                    </div>
+                </div>
+            </div>
+            <div class="col-6 col-md-3">
+                <div class="card border-info border-opacity-50 h-100">
+                    <div class="card-body text-center py-3">
+                        <i class="fas fa-user-plus fa-lg text-info mb-1"></i>
+                        <p class="text-muted mb-0" style="font-size:.7rem">Pelanggan Baru Terbanyak</p>
+                        <p class="fw-bold text-info mb-0 small">{{ $most_baru['nama'] }}</p>
+                        <p class="fw-bold mb-0">{{ number_format($most_baru['baru']) }}</p>
+                    </div>
+                </div>
+            </div>
+            <div class="col-6 col-md-3">
+                <div class="card border-danger border-opacity-50 h-100">
+                    <div class="card-body text-center py-3">
+                        <i class="fas fa-user-slash fa-lg text-danger mb-1"></i>
+                        <p class="text-muted mb-0" style="font-size:.7rem">Pelanggan Hilang Terbanyak</p>
+                        <p class="fw-bold text-danger mb-0 small">{{ $most_lost['nama'] }}</p>
+                        <p class="fw-bold mb-0">{{ number_format($most_lost['lost']) }}</p>
+                    </div>
+                </div>
+            </div>
+            <div class="col-6 col-md-3">
+                <div class="card border-primary border-opacity-50 h-100">
+                    <div class="card-body text-center py-3">
+                        <i class="fas fa-chart-line fa-lg text-primary mb-1"></i>
+                        <p class="text-muted mb-0" style="font-size:.7rem">Growth Tertinggi</p>
+                        <p class="fw-bold text-primary mb-0 small">{{ $best_grow['nama'] }}</p>
+                        <p class="fw-bold mb-0">{{ $best_grow['growth'] !== null ? $best_grow['growth'].'%' : 'N/A' }}</p>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        {{-- Tabel perbandingan cabang --}}
+        <div class="table-responsive mb-4">
+            <table class="table table-hover table-bordered align-middle mb-0" style="font-size:.85rem">
+                <thead class="table-light">
+                    <tr>
+                        <th class="px-3">Cabang</th>
+                        <th class="text-center">Pelanggan Awal</th>
+                        <th class="text-center">Pelanggan Baru</th>
+                        <th class="text-center">Retained</th>
+                        <th class="text-center">Lost (real-time)</th>
+                        <th class="text-center">Retention Rate</th>
+                        <th class="text-center">Growth</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    @foreach($analisisCabang as $cab)
+                    <tr>
+                        <td class="px-3 fw-semibold">{{ $cab['nama'] }}</td>
+                        <td class="text-center">{{ number_format($cab['awal']) }}</td>
+                        <td class="text-center text-info fw-semibold">{{ number_format($cab['baru']) }}</td>
+                        <td class="text-center text-success fw-semibold">{{ number_format($cab['retained']) }}</td>
+                        <td class="text-center text-danger fw-semibold">{{ number_format($cab['lost']) }}</td>
+                        <td class="text-center">
+                            @if(!is_null($cab['retRate']))
+                            <span class="badge {{ $cab['retRate'] >= 70 ? 'bg-success' : ($cab['retRate'] >= 40 ? 'bg-warning text-dark' : 'bg-danger') }}">
+                                {{ $cab['retRate'] }}%
+                            </span>
+                            @else
+                            <span class="text-muted small">-</span>
+                            @endif
+                        </td>
+                        <td class="text-center">
+                            @if(!is_null($cab['growth']))
+                            <span class="fw-semibold {{ $cab['growth'] >= 0 ? 'text-success' : 'text-danger' }}">
+                                {{ $cab['growth'] >= 0 ? '+' : '' }}{{ $cab['growth'] }}%
+                            </span>
+                            @else
+                            <span class="text-muted small">-</span>
+                            @endif
+                        </td>
+                    </tr>
+                    @endforeach
+                </tbody>
+            </table>
+        </div>
+
+        {{-- Bar Chart perbandingan cabang — 3 chart terpisah agar skala tidak bentrok --}}
+        <div class="row g-3 mt-1">
+            <div class="col-12 col-md-4">
+                <p class="small fw-semibold text-success mb-1"><i class="fas fa-percentage me-1"></i>Retention Rate (%)</p>
+                <div style="position:relative;height:180px">
+                    <canvas id="chartCabangRetRate"></canvas>
+                </div>
+            </div>
+            <div class="col-12 col-md-4">
+                <p class="small fw-semibold text-info mb-1"><i class="fas fa-user-plus me-1"></i>Pelanggan Baru</p>
+                <div style="position:relative;height:180px">
+                    <canvas id="chartCabangBaru"></canvas>
+                </div>
+            </div>
+            <div class="col-12 col-md-4">
+                <p class="small fw-semibold text-danger mb-1"><i class="fas fa-user-slash me-1"></i>Lost (real-time)</p>
+                <div style="position:relative;height:180px">
+                    <canvas id="chartCabangLost"></canvas>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+@endif
+
 {{-- ============ STATUS RETENTION ============ --}}
 <div class="card shadow-sm border-0 mb-4">
     <div class="card-header bg-white py-3">
@@ -301,11 +450,389 @@
     </div>
 </div>
 
+{{-- ============ REVENUE RETENTION ============ --}}
+@if($isAdminOrAbove && $revenueData)
+<div class="card shadow-sm border-0 mb-4">
+    <div class="card-header bg-white py-3 d-flex justify-content-between align-items-center">
+        <h6 class="mb-0 fw-semibold"><i class="fas fa-coins me-2 text-warning"></i>Revenue Retention</h6>
+        <span class="text-muted small">vs {{ $revenueData['prev_label'] }}</span>
+    </div>
+    <div class="card-body">
+        <div class="row g-3 mb-3">
+            {{-- Revenue Rate --}}
+            <div class="col-md-3">
+                <div class="card border-0 bg-light h-100 text-center py-3">
+                    <div class="card-body p-2">
+                        <p class="text-muted small mb-1 fw-semibold" style="font-size:.72rem">Revenue Retention Rate</p>
+                        @php $rr = $revenueData['ret_rate']; @endphp
+                        <h3 class="fw-bold mb-0 {{ is_null($rr) ? 'text-muted' : ($rr >= 70 ? 'text-success' : ($rr >= 40 ? 'text-warning' : 'text-danger')) }}">
+                            {{ is_null($rr) ? '-' : $rr.'%' }}
+                        </h3>
+                        <p class="text-muted mb-0" style="font-size:.7rem">Rev retained / Rev periode lalu</p>
+                    </div>
+                </div>
+            </div>
+            {{-- Total Revenue --}}
+            <div class="col-md-3">
+                <div class="card border-0 bg-light h-100 text-center py-3">
+                    <div class="card-body p-2">
+                        <p class="text-muted small mb-1 fw-semibold" style="font-size:.72rem">Total Revenue Periode Ini</p>
+                        <h5 class="fw-bold text-primary mb-0">Rp {{ number_format($revenueData['total'], 0, ',', '.') }}</h5>
+                        @if($revenueData['prev'] > 0)
+                        <p class="mb-0" style="font-size:.7rem">
+                            <span class="{{ $revenueData['growth'] >= 0 ? 'text-success' : 'text-danger' }} fw-semibold">
+                                {{ $revenueData['growth'] >= 0 ? '▲' : '▼' }} {{ abs($revenueData['growth']) }}%
+                            </span>
+                            <span class="text-muted"> vs periode lalu</span>
+                        </p>
+                        @endif
+                    </div>
+                </div>
+            </div>
+            {{-- Revenue dari Retained --}}
+            <div class="col-md-3">
+                <div class="card border-0 bg-light h-100 text-center py-3">
+                    <div class="card-body p-2">
+                        <p class="text-muted small mb-1 fw-semibold" style="font-size:.72rem">Dari Pelanggan Retained</p>
+                        <h5 class="fw-bold text-success mb-0">Rp {{ number_format($revenueData['retained'], 0, ',', '.') }}</h5>
+                        @if($revenueData['total'] > 0)
+                        <p class="text-muted mb-0" style="font-size:.7rem">{{ round($revenueData['retained']/$revenueData['total']*100) }}% dari total</p>
+                        @endif
+                    </div>
+                </div>
+            </div>
+            {{-- Revenue dari Baru --}}
+            <div class="col-md-3">
+                <div class="card border-0 bg-light h-100 text-center py-3">
+                    <div class="card-body p-2">
+                        <p class="text-muted small mb-1 fw-semibold" style="font-size:.72rem">Dari Pelanggan Baru</p>
+                        <h5 class="fw-bold text-info mb-0">Rp {{ number_format($revenueData['baru'], 0, ',', '.') }}</h5>
+                        @if($revenueData['total'] > 0)
+                        <p class="text-muted mb-0" style="font-size:.7rem">{{ round($revenueData['baru']/$revenueData['total']*100) }}% dari total</p>
+                        @endif
+                    </div>
+                </div>
+            </div>
+        </div>
+        {{-- Progress bar komposisi revenue --}}
+        @if($revenueData['total'] > 0)
+        @php
+            $pctRetained = round($revenueData['retained'] / $revenueData['total'] * 100);
+            $pctBaru     = 100 - $pctRetained;
+        @endphp
+        <p class="small text-muted mb-1 fw-semibold">Komposisi Revenue</p>
+        <div class="progress" style="height:22px;border-radius:6px">
+            <div class="progress-bar bg-success" style="width:{{ $pctRetained }}%" title="Retained: {{ $pctRetained }}%">
+                <span class="small fw-semibold">Retained {{ $pctRetained }}%</span>
+            </div>
+            <div class="progress-bar bg-info" style="width:{{ $pctBaru }}%" title="Baru: {{ $pctBaru }}%">
+                <span class="small fw-semibold">Baru {{ $pctBaru }}%</span>
+            </div>
+        </div>
+        @endif
+    </div>
+</div>
+@endif
+
+{{-- ============ RETENTION BY KLASIFIKASI ============ --}}
+@if($isAdminOrAbove && $retByKlasifikasi && count($retByKlasifikasi) > 0)
+<div class="card shadow-sm border-0 mb-4">
+    <div class="card-header bg-white py-3">
+        <h6 class="mb-0 fw-semibold"><i class="fas fa-layer-group me-2 text-primary"></i>Retention by Klasifikasi</h6>
+    </div>
+    <div class="card-body">
+        <div class="row g-3">
+            {{-- Tabel --}}
+            <div class="col-md-7">
+                <div class="table-responsive">
+                    <table class="table table-hover align-middle mb-0" style="font-size:.85rem">
+                        <thead class="table-light">
+                            <tr>
+                                <th class="px-3">Klasifikasi</th>
+                                <th class="text-center">Awal</th>
+                                <th class="text-center">Retained</th>
+                                <th class="text-center">Baru</th>
+                                <th class="text-center">Retention Rate</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            @foreach($retByKlasifikasi as $rk)
+                            @php
+                                $badge = match($rk['kelas']) {
+                                    'Prioritas' => 'bg-danger bg-opacity-10 text-danger border-danger',
+                                    'Loyal'     => 'bg-success bg-opacity-10 text-success border-success',
+                                    'Potensial' => 'bg-warning bg-opacity-10 text-warning border-warning',
+                                    default     => 'bg-secondary bg-opacity-10 text-secondary border-secondary',
+                                };
+                            @endphp
+                            <tr>
+                                <td class="px-3">
+                                    <span class="badge {{ $badge }} border">{{ strtoupper($rk['kelas']) }}</span>
+                                </td>
+                                <td class="text-center">{{ number_format($rk['awal']) }}</td>
+                                <td class="text-center text-success fw-semibold">{{ number_format($rk['retained']) }}</td>
+                                <td class="text-center text-info fw-semibold">{{ number_format($rk['baru']) }}</td>
+                                <td class="text-center">
+                                    @if(!is_null($rk['rate']))
+                                    <div class="d-flex align-items-center gap-2">
+                                        <div class="progress flex-grow-1" style="height:8px">
+                                            <div class="progress-bar {{ $rk['rate'] >= 70 ? 'bg-success' : ($rk['rate'] >= 40 ? 'bg-warning' : 'bg-danger') }}"
+                                                 style="width:{{ $rk['rate'] }}%"></div>
+                                        </div>
+                                        <span class="fw-semibold {{ $rk['rate'] >= 70 ? 'text-success' : ($rk['rate'] >= 40 ? 'text-warning' : 'text-danger') }}" style="min-width:42px">
+                                            {{ $rk['rate'] }}%
+                                        </span>
+                                    </div>
+                                    @else
+                                    <span class="text-muted small">-</span>
+                                    @endif
+                                </td>
+                            </tr>
+                            @endforeach
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+            {{-- Bar Chart --}}
+            <div class="col-md-5">
+                <div style="position:relative;height:200px">
+                    <canvas id="chartKlasifikasiRetRate"></canvas>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+@endif
+
+{{-- ============ C. REPEAT VISIT RATE ============ --}}
+@if($isAdminOrAbove && $repeatVisitData)
+<div class="card shadow-sm border-0 mb-4">
+    <div class="card-header bg-white py-3">
+        <h6 class="mb-0 fw-semibold"><i class="fas fa-redo me-2 text-info"></i>Repeat Visit Rate</h6>
+    </div>
+    <div class="card-body">
+        <div class="row g-3 mb-4">
+            <div class="col-6 col-md-3">
+                <div class="card border-0 bg-light h-100 text-center py-3">
+                    <div class="card-body p-2">
+                        <p class="text-muted small mb-1 fw-semibold" style="font-size:.72rem">Total Pelanggan Aktif</p>
+                        <h4 class="fw-bold text-primary mb-0">{{ number_format($repeatVisitData['total_pelanggan']) }}</h4>
+                        <p class="text-muted mb-0" style="font-size:.7rem">dalam periode ini</p>
+                    </div>
+                </div>
+            </div>
+            <div class="col-6 col-md-3">
+                <div class="card border-0 bg-light h-100 text-center py-3">
+                    <div class="card-body p-2">
+                        <p class="text-muted small mb-1 fw-semibold" style="font-size:.72rem">Rata-rata Kunjungan</p>
+                        <h4 class="fw-bold text-info mb-0">{{ $repeatVisitData['avg_visit'] }}x</h4>
+                        <p class="text-muted mb-0" style="font-size:.7rem">per pelanggan</p>
+                    </div>
+                </div>
+            </div>
+            <div class="col-6 col-md-3">
+                <div class="card border-0 bg-light h-100 text-center py-3">
+                    <div class="card-body p-2">
+                        <p class="text-muted small mb-1 fw-semibold" style="font-size:.72rem">Datang &gt; 2x</p>
+                        <h4 class="fw-bold text-success mb-0">{{ number_format($repeatVisitData['more_than_2']) }}</h4>
+                        @if($repeatVisitData['total_pelanggan'] > 0)
+                        <p class="text-muted mb-0" style="font-size:.7rem">{{ round($repeatVisitData['more_than_2']/$repeatVisitData['total_pelanggan']*100) }}% pelanggan</p>
+                        @endif
+                    </div>
+                </div>
+            </div>
+            <div class="col-6 col-md-3">
+                <div class="card border-0 bg-light h-100 text-center py-3">
+                    <div class="card-body p-2">
+                        <p class="text-muted small mb-1 fw-semibold" style="font-size:.72rem">Datang &gt; 5x</p>
+                        <h4 class="fw-bold text-warning mb-0">{{ number_format($repeatVisitData['more_than_5']) }}</h4>
+                        @if($repeatVisitData['total_pelanggan'] > 0)
+                        <p class="text-muted mb-0" style="font-size:.7rem">{{ round($repeatVisitData['more_than_5']/$repeatVisitData['total_pelanggan']*100) }}% pelanggan</p>
+                        @endif
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        {{-- Top 5 pelanggan paling aktif --}}
+        @if($repeatVisitData['top_active']->count() > 0)
+        <h6 class="fw-semibold text-muted mb-3" style="font-size:.82rem"><i class="fas fa-star me-1 text-warning"></i>Pelanggan Paling Aktif Periode Ini</h6>
+        <div class="table-responsive">
+            <table class="table table-hover align-middle mb-0" style="font-size:.85rem">
+                <thead class="table-light">
+                    <tr>
+                        <th class="px-3" style="width:40px">#</th>
+                        <th>PID</th>
+                        <th>Nama</th>
+                        <th>Cabang</th>
+                        <th class="text-center">Kunjungan</th>
+                        <th class="text-center">Aksi</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    @foreach($repeatVisitData['top_active'] as $idx => $ta)
+                    <tr>
+                        <td class="px-3 fw-bold text-warning">{{ $idx + 1 }}</td>
+                        <td><code class="bg-light px-1 rounded small">{{ $ta->pid }}</code></td>
+                        <td class="fw-semibold">{{ $ta->nama }}</td>
+                        <td>
+                            @php $cabNama = $cabangs->firstWhere('id', $ta->cabang_id)?->nama ?? '-'; @endphp
+                            <span class="badge bg-primary bg-opacity-10 text-primary border border-primary small">{{ $cabNama }}</span>
+                        </td>
+                        <td class="text-center">
+                            <span class="badge bg-success">{{ $ta->visit_count }}x</span>
+                        </td>
+                        <td class="text-center">
+                            <a href="{{ route('pelanggan.show', $ta->id) }}" class="btn btn-sm btn-outline-primary"><i class="fas fa-eye"></i></a>
+                        </td>
+                    </tr>
+                    @endforeach
+                </tbody>
+            </table>
+        </div>
+        @endif
+    </div>
+</div>
+@endif
+
+{{-- ============ C. COHORT ANALYSIS ============ --}}
+@if($isAdminOrAbove && $cohortData && count($cohortData['matrix']) > 0)
+<div class="card shadow-sm border-0 mb-4">
+    <div class="card-header bg-white py-3">
+        <h6 class="mb-0 fw-semibold"><i class="fas fa-th me-2 text-primary"></i>Cohort Analysis
+            <span class="text-muted small fw-normal ms-1">(berdasarkan bulan pertama datang, 6 bulan terakhir)</span>
+        </h6>
+    </div>
+    <div class="card-body">
+        <p class="text-muted small mb-3">Setiap baris = kelompok pelanggan berdasarkan bulan pertama datang. Kolom menunjukkan berapa % yang kembali di bulan berikutnya.</p>
+        <div class="table-responsive">
+            <table class="table table-bordered align-middle text-center mb-0" style="font-size:.82rem">
+                <thead class="table-light">
+                    <tr>
+                        <th class="text-start px-3">Cohort</th>
+                        <th>Ukuran</th>
+                        @foreach($cohortData['months'] as $idx => $cm)
+                        <th>Bulan +{{ $idx }}</th>
+                        @endforeach
+                    </tr>
+                </thead>
+                <tbody>
+                    @foreach($cohortData['matrix'] as $row)
+                    <tr>
+                        <td class="text-start px-3 fw-semibold">{{ \Carbon\Carbon::createFromFormat('Y-m', $row['month'])->format('M Y') }}</td>
+                        <td class="fw-semibold">{{ number_format($row['size']) }}</td>
+                        @foreach($row['months'] as $mIdx => $mData)
+                        @if(is_null($mData))
+                        <td class="text-muted" style="background:#f8f9fa">-</td>
+                        @else
+                        @php
+                            $pct = $mData['pct'];
+                            $bg  = $mIdx === 0 ? '#0d6efd' : ($pct >= 60 ? '#198754' : ($pct >= 30 ? '#fd7e14' : ($pct >= 10 ? '#ffc107' : '#dee2e6')));
+                            $fg  = ($pct >= 10 || $mIdx === 0) ? '#fff' : '#6c757d';
+                        @endphp
+                        <td style="background:{{ $bg }};color:{{ $fg }};font-weight:600" title="{{ $mData['count'] }} pelanggan">
+                            {{ $mIdx === 0 ? '100%' : $pct.'%' }}
+                        </td>
+                        @endif
+                        @endforeach
+                    </tr>
+                    @endforeach
+                </tbody>
+            </table>
+        </div>
+        <div class="mt-2 small text-muted">
+            <i class="fas fa-info-circle me-1"></i>
+            Warna: <span class="badge bg-success">≥60%</span> <span class="badge bg-warning text-dark">≥30%</span> <span class="badge" style="background:#ffc107;color:#fff">≥10%</span> <span class="badge bg-secondary">&lt;10%</span>
+        </div>
+    </div>
+</div>
+@endif
+
 @endsection
 
 @section('scripts')
 <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
 <script>
+{{-- Chart Retention by Klasifikasi --}}
+@if($isAdminOrAbove && $retByKlasifikasi && count($retByKlasifikasi) > 0)
+(function() {
+    const klsLabels = @json(collect($retByKlasifikasi)->pluck('kelas'));
+    const klsRates  = @json(collect($retByKlasifikasi)->pluck('rate'));
+    const klsColors = klsLabels.map(k => {
+        if (k === 'Prioritas') return 'rgba(220,53,69,0.75)';
+        if (k === 'Loyal')     return 'rgba(25,135,84,0.75)';
+        if (k === 'Potensial') return 'rgba(255,193,7,0.75)';
+        return 'rgba(108,117,125,0.75)';
+    });
+    new Chart(document.getElementById('chartKlasifikasiRetRate').getContext('2d'), {
+        type: 'bar',
+        data: {
+            labels: klsLabels,
+            datasets: [{
+                label: 'Retention Rate (%)',
+                data: klsRates.map(v => v ?? 0),
+                backgroundColor: klsColors,
+                borderRadius: 5, borderWidth: 0,
+            }]
+        },
+        options: {
+            responsive: true, maintainAspectRatio: false,
+            plugins: {
+                legend: { display: false },
+                tooltip: { callbacks: { label: ctx => ctx.parsed.y + '%' } }
+            },
+            scales: {
+                x: { ticks: { font: { size: 11 } } },
+                y: { beginAtZero: true, max: 100, ticks: { callback: v => v + '%', font: { size: 11 } } }
+            }
+        }
+    });
+})();
+@endif
+
+{{-- Bar chart Analisis Cabang (Direktur only) --}}
+@if($isDirektur && $analisisCabang && count($analisisCabang) > 1)
+(function() {
+    const cabangLabels  = @json(collect($analisisCabang)->pluck('nama'));
+    const retentionData = @json(collect($analisisCabang)->pluck('retRate'));
+    const baruData      = @json(collect($analisisCabang)->pluck('baru'));
+    const lostData      = @json(collect($analisisCabang)->pluck('lost'));
+
+    function makeCabangChart(id, data, color, suffix) {
+        return new Chart(document.getElementById(id).getContext('2d'), {
+            type: 'bar',
+            data: {
+                labels: cabangLabels,
+                datasets: [{
+                    data: data,
+                    backgroundColor: color + '0.7)',
+                    borderColor: color + '1)',
+                    borderWidth: 1,
+                    borderRadius: 4,
+                }]
+            },
+            options: {
+                responsive: true, maintainAspectRatio: false,
+                plugins: { legend: { display: false } },
+                scales: {
+                    x: { ticks: { font: { size: 10 }, maxRotation: 30 } },
+                    y: {
+                        beginAtZero: true,
+                        ticks: {
+                            font: { size: 10 },
+                            callback: v => suffix === '%' ? v + '%' : v.toLocaleString('id-ID')
+                        }
+                    }
+                }
+            }
+        });
+    }
+    makeCabangChart('chartCabangRetRate', retentionData.map(v => v ?? 0), 'rgba(25,135,84,', '%');
+    makeCabangChart('chartCabangBaru',    baruData,                        'rgba(13,202,240,', '');
+    makeCabangChart('chartCabangLost',    lostData,                        'rgba(220,53,69,',  '');
+})();
+@endif
+
 (function() {
     const labels    = @json($trendLabels);
     const pelanggan = @json($trendPelanggan);
