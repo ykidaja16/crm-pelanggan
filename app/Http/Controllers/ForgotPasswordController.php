@@ -16,23 +16,26 @@ class ForgotPasswordController extends Controller
 
     public function sendResetLinkEmail(Request $request)
     {
-        $request->validate(['email' => 'required|email']);
+        $request->validate(['username' => 'required|string']);
 
-        // Find user by email
-        $user = User::where('email', $request->email)->first();
+        $user = User::where('username', $request->username)->first();
 
         if (!$user) {
-            return back()->withErrors(['email' => 'Email tidak ditemukan.']);
+            return back()->withErrors(['username' => 'Username tidak ditemukan.']);
         }
 
-        // Create password reset request record (tidak mengirim email)
-        $resetRequest = PasswordResetRequest::create([
-            'user_id' => $user->id,
-            'status' => 'pending',
-            'requested_at' => now(),
-        ]);
+        // Cek jika sudah ada pending request
+        $existing = PasswordResetRequest::where('user_id', $user->id)
+            ->where('status', 'pending')->first();
 
-        // Tampilkan pesan bahwa request telah dikirim ke superadmin
-        return back()->with(['status' => 'Permintaan reset password telah dikirim. IT akan mereset password Anda.']);
+        if (!$existing) {
+            PasswordResetRequest::create([
+                'user_id' => $user->id,
+                'status' => 'pending',
+                'requested_at' => now(),
+            ]);
+        }
+
+        return back()->with('status', 'Permintaan reset password telah dikirim. Silakan hubungi tim IT untuk proses selanjutnya.');
     }
 }
