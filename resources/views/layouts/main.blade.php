@@ -61,9 +61,48 @@
             min-height: 100vh;
         }
         #sidebar .sidebar-header {
-            padding: 20px;
-            background: linear-gradient(135deg, #0056b3 0%, #00a8cc 100%);
-            color: white;
+            padding: 18px 20px;
+            background: #ffffff;
+            position: relative;
+        }
+        #sidebar .sidebar-header::after {
+            content: '';
+            position: absolute;
+            bottom: 0; left: 0; right: 0;
+            height: 2px;
+            background: linear-gradient(90deg, #1a4fa0, #1e90ff);
+        }
+        .sidebar-hd-inner {
+            display: flex;
+            align-items: center;
+            gap: 14px;
+        }
+        .sidebar-logo-img {
+            height: 44px;
+            width: auto;
+            max-width: none;
+            flex-shrink: 0;
+        }
+        .sidebar-brand-name {
+            display: block;
+            font-size: 1.05rem;
+            font-weight: 700;
+            color: #1a3c78;
+            line-height: 1.25;
+            letter-spacing: 0.2px;
+        }
+        .sidebar-brand-name span {
+            font-weight: 400;
+            color: #4a6fa5;
+        }
+        .sidebar-brand-sub {
+            display: block;
+            font-size: 0.62rem;
+            letter-spacing: 2px;
+            text-transform: uppercase;
+            color: #7a90b0;
+            margin-top: 5px;
+            font-weight: 500;
         }
         #sidebar ul.components {
             padding: 20px 0;
@@ -349,13 +388,14 @@
                 padding: 12px;
             }
             
-            #sidebar .sidebar-header img {
-                height: 35px !important;
-                margin-bottom: 3px !important;
+            #sidebar .sidebar-logo-img {
+                height: 34px !important;
             }
-            
-            #sidebar .sidebar-header h4 {
+            #sidebar .sidebar-brand-name {
                 font-size: 0.85rem;
+            }
+            #sidebar .sidebar-brand-sub {
+                font-size: 0.54rem;
             }
             
             /* Menu items more compact */
@@ -503,18 +543,20 @@
                 overflow: hidden;
             }
             #sidebar.minimized .sidebar-header {
-                padding: 12px 5px;
+                padding: 16px 0;
                 text-align: center;
             }
-            #sidebar.minimized .sidebar-header h4 {
+            #sidebar.minimized .sidebar-hd-inner {
+                justify-content: center;
+            }
+            #sidebar.minimized .sidebar-hd-inner > div {
                 display: none !important;
             }
-            #sidebar.minimized .sidebar-header img {
-                height: 38px !important;
+            #sidebar.minimized .sidebar-logo-img {
+                max-height: 30px !important;
+                max-width: 52px !important;
+                height: auto !important;
                 width: auto !important;
-                max-width: 50px !important;
-                object-fit: contain !important;
-                margin-bottom: 0 !important;
             }
             /* Sembunyikan teks dengan font-size: 0, icon tetap terlihat */
             #sidebar.minimized ul li > a {
@@ -579,10 +621,14 @@
 <div class="wrapper">
     <!-- Sidebar -->
     <nav id="sidebar">
-        <div class="sidebar-header text-center">
-            <img src="{{ asset('images/logosima.png') }}" alt="SIMA Lab Logo" style="height: 60px; margin-bottom: 10px; max-width: 100%;">
-            <!-- <h4 class="mb-0">SIMA Lab</h4> -->
-            <h4 class="mb-0">CRM System</h4> 
+        <div class="sidebar-header">
+            <div class="sidebar-hd-inner">
+                <img src="{{ asset('images/logosima.png') }}" alt="SIMA Lab" class="sidebar-logo-img">
+                <div>
+                    <span class="sidebar-brand-name">CRM <span>System</span></span>
+                    <span class="sidebar-brand-sub">Medical Lab</span>
+                </div>
+            </div>
         </div>
 
 
@@ -652,13 +698,13 @@
                 </a>
             </li>
             @endif
-            @if(Auth::user()->role?->name !== 'IT')
+            {{-- @if(Auth::user()->role?->name !== 'IT')
             <li class="{{ request()->routeIs('retention.*') ? 'active' : '' }}">
                 <a href="{{ route('retention.index') }}" title="Retention Customer">
                     <i class="fas fa-recycle"></i> Retention Customer
                 </a>
             </li>
-            @endif
+            @endif --}}
             @if(in_array(Auth::user()->role?->name, ['Admin', 'Super Admin', 'Direktur']))
             @php
                 $specialDayActive = request()->routeIs('special-day.*');
