@@ -491,7 +491,7 @@ class RetentionController extends Controller
 
     /**
      * Bangun query daftar pelanggan berdasarkan status retention.
-     * Menggunakan GROUP BY + HAVING agar efisien di DB level.
+     * Menggunakan joinSub untuk menghindari MySQL ONLY_FULL_GROUP_BY (error 1055).
      */
     private function buildStatusQuery(string $status, array $accessibleCabangIds, ?int $cabangId)
     {
@@ -502,17 +502,18 @@ class RetentionController extends Controller
             default   => [60, null],
         };
 
+        $lastVisitSub = DB::table('kunjungans')
+            ->selectRaw('pelanggan_id, MAX(tanggal_kunjungan) as last_visit')
+            ->groupBy('pelanggan_id');
+
         $query = Pelanggan::with('cabang')
-            ->select('pelanggans.*')
-            ->selectRaw('MAX(kunjungans.tanggal_kunjungan) as last_visit')
-            ->selectRaw('DATEDIFF(CURDATE(), MAX(kunjungans.tanggal_kunjungan)) as days_since')
-            ->join('kunjungans', 'kunjungans.pelanggan_id', '=', 'pelanggans.id')
+            ->joinSub($lastVisitSub, 'lv', 'lv.pelanggan_id', '=', 'pelanggans.id')
             ->whereNull('pelanggans.deleted_at')
-            ->groupBy('pelanggans.id')
-            ->havingRaw('DATEDIFF(CURDATE(), MAX(kunjungans.tanggal_kunjungan)) > ?', [$minDays]);
+            ->select('pelanggans.*', 'lv.last_visit', DB::raw('DATEDIFF(CURDATE(), lv.last_visit) as days_since'))
+            ->whereRaw('DATEDIFF(CURDATE(), lv.last_visit) > ?', [$minDays]);
 
         if ($maxDays) {
-            $query->havingRaw('DATEDIFF(CURDATE(), MAX(kunjungans.tanggal_kunjungan)) <= ?', [$maxDays]);
+            $query->whereRaw('DATEDIFF(CURDATE(), lv.last_visit) <= ?', [$maxDays]);
         }
 
         if ($cabangId) {
@@ -521,6 +522,6 @@ class RetentionController extends Controller
             $query->whereIn('pelanggans.cabang_id', $accessibleCabangIds);
         }
 
-        return $query->orderByRaw('days_since DESC');
+        return $query->orderByRaw('DATEDIFF(CURDATE(), lv.last_visit) DESC');
     }
 }
