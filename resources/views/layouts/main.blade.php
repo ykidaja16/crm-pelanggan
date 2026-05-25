@@ -698,13 +698,13 @@
                 </a>
             </li>
             @endif
-            {{-- @if(Auth::user()->role?->name !== 'IT')
+            @if(Auth::user()->role?->name === 'Direktur')
             <li class="{{ request()->routeIs('retention.*') ? 'active' : '' }}">
                 <a href="{{ route('retention.index') }}" title="Retention Customer">
                     <i class="fas fa-recycle"></i> Retention Customer
                 </a>
             </li>
-            @endif --}}
+            @endif
             @if(in_array(Auth::user()->role?->name, ['Admin', 'Super Admin', 'Direktur']))
             @php
                 $specialDayActive = request()->routeIs('special-day.*');
