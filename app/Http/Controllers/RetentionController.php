@@ -407,32 +407,44 @@ class RetentionController extends Controller
                 'prev_label' => $prevLabel,
             ];
 
-            // ── RETENTION BY KLASIFIKASI ── (3 query GROUP BY class, efisien)
-            $qKelasAwal = DB::table('pelanggans as p')
+            // ── RETENTION BY KLASIFIKASI ──
+            // Pre-compute kelas in inner query, then GROUP BY the alias in outer query
+            // to avoid MySQL ONLY_FULL_GROUP_BY error (error 1055) on production.
+
+            $subAwal = DB::table('pelanggans as p')
                 ->whereNull('p.deleted_at')
                 ->whereExists(fn($q) => $q->from('kunjungans as k')->whereColumn('k.pelanggan_id', 'p.id')->where('k.tanggal_kunjungan', '<', $startStr))
-                ->selectRaw('COALESCE(NULLIF(p.class,""),"Lainnya") as kelas, COUNT(DISTINCT p.id) as jumlah')
-                ->groupBy(DB::raw('COALESCE(NULLIF(p.class,""),"Lainnya")'));
-            $this->applyCabangFilter($qKelasAwal, $accessibleCabangIds, $cabangId, 'p.cabang_id');
-            $kelasAwal = $qKelasAwal->pluck('jumlah', 'kelas');
+                ->select('p.id', DB::raw('COALESCE(NULLIF(p.class,""),"Lainnya") as kelas'));
+            $this->applyCabangFilter($subAwal, $accessibleCabangIds, $cabangId, 'p.cabang_id');
+            $kelasAwal = DB::table(DB::raw("({$subAwal->toSql()}) as t"))
+                ->mergeBindings($subAwal)
+                ->selectRaw('kelas, COUNT(DISTINCT id) as jumlah')
+                ->groupBy('kelas')
+                ->pluck('jumlah', 'kelas');
 
-            $qKelasRetained = DB::table('pelanggans as p')
+            $subRetained = DB::table('pelanggans as p')
                 ->whereNull('p.deleted_at')
                 ->whereExists(fn($q) => $q->from('kunjungans as k')->whereColumn('k.pelanggan_id', 'p.id')->where('k.tanggal_kunjungan', '<', $startStr))
                 ->whereExists(fn($q) => $q->from('kunjungans as k2')->whereColumn('k2.pelanggan_id', 'p.id')->whereBetween('k2.tanggal_kunjungan', [$startStr, $endStr]))
-                ->selectRaw('COALESCE(NULLIF(p.class,""),"Lainnya") as kelas, COUNT(DISTINCT p.id) as jumlah')
-                ->groupBy(DB::raw('COALESCE(NULLIF(p.class,""),"Lainnya")'));
-            $this->applyCabangFilter($qKelasRetained, $accessibleCabangIds, $cabangId, 'p.cabang_id');
-            $kelasRetained = $qKelasRetained->pluck('jumlah', 'kelas');
+                ->select('p.id', DB::raw('COALESCE(NULLIF(p.class,""),"Lainnya") as kelas'));
+            $this->applyCabangFilter($subRetained, $accessibleCabangIds, $cabangId, 'p.cabang_id');
+            $kelasRetained = DB::table(DB::raw("({$subRetained->toSql()}) as t"))
+                ->mergeBindings($subRetained)
+                ->selectRaw('kelas, COUNT(DISTINCT id) as jumlah')
+                ->groupBy('kelas')
+                ->pluck('jumlah', 'kelas');
 
-            $qKelasBaru = DB::table('pelanggans as p')
+            $subBaru = DB::table('pelanggans as p')
                 ->whereNull('p.deleted_at')
                 ->whereExists(fn($q) => $q->from('kunjungans as k')->whereColumn('k.pelanggan_id', 'p.id')->whereBetween('k.tanggal_kunjungan', [$startStr, $endStr]))
                 ->whereNotExists(fn($q) => $q->from('kunjungans as k2')->whereColumn('k2.pelanggan_id', 'p.id')->where('k2.tanggal_kunjungan', '<', $startStr))
-                ->selectRaw('COALESCE(NULLIF(p.class,""),"Lainnya") as kelas, COUNT(DISTINCT p.id) as jumlah')
-                ->groupBy(DB::raw('COALESCE(NULLIF(p.class,""),"Lainnya")'));
-            $this->applyCabangFilter($qKelasBaru, $accessibleCabangIds, $cabangId, 'p.cabang_id');
-            $kelasBaru = $qKelasBaru->pluck('jumlah', 'kelas');
+                ->select('p.id', DB::raw('COALESCE(NULLIF(p.class,""),"Lainnya") as kelas'));
+            $this->applyCabangFilter($subBaru, $accessibleCabangIds, $cabangId, 'p.cabang_id');
+            $kelasBaru = DB::table(DB::raw("({$subBaru->toSql()}) as t"))
+                ->mergeBindings($subBaru)
+                ->selectRaw('kelas, COUNT(DISTINCT id) as jumlah')
+                ->groupBy('kelas')
+                ->pluck('jumlah', 'kelas');
 
             $allKelas = $kelasAwal->keys()->merge($kelasRetained->keys())->merge($kelasBaru->keys())->unique();
             $klasifikasiOrder = ['Prioritas', 'Loyal', 'Potensial', 'Lainnya'];
