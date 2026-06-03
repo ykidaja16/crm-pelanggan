@@ -5,6 +5,9 @@
 @section('content')
 <div class="d-flex justify-content-between align-items-center mb-4">
     <h3 class="text-primary mb-0 fw-semibold"><i class="fas fa-recycle me-2"></i>Dashboard Retention Customer</h3>
+    <a href="{{ route('retention.export', request()->except(['status', 'page'])) }}" class="btn btn-success btn-sm">
+        <i class="fas fa-file-excel me-1"></i>Export Excel
+    </a>
 </div>
 
 {{-- ============ FILTER ============ --}}

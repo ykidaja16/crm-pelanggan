@@ -32,7 +32,7 @@
 
         <form action="{{ route('pelanggan.search-by-phone.search') }}" method="POST" enctype="multipart/form-data">
             @csrf
-            <div class="row g-3 align-items-end">
+            <div class="row g-3">
                 <div class="col-md-5">
                     <label for="file" class="form-label fw-semibold">File Excel / CSV</label>
                     <input type="file" name="file" id="file"
@@ -43,13 +43,16 @@
                     @enderror
                     <div class="form-text">Format: xlsx, xls, csv, txt. Maks 10 MB.</div>
                 </div>
-                <div class="col-md-auto d-flex gap-2 flex-wrap">
-                    <button type="submit" class="btn btn-primary btn-sm">
-                        <i class="fas fa-search me-1"></i>Proses Pencarian
-                    </button>
-                    <a href="{{ route('pelanggan.search-by-phone.template') }}" class="btn btn-outline-success btn-sm">
-                        <i class="fas fa-download me-1"></i>Download Template
-                    </a>
+                <div class="col-md-auto">
+                    <label class="form-label d-block">&nbsp;</label>
+                    <div class="d-flex gap-2 flex-wrap">
+                        <button type="submit" class="btn btn-primary btn-sm">
+                            <i class="fas fa-search me-1"></i>Proses Pencarian
+                        </button>
+                        <a href="{{ route('pelanggan.search-by-phone.template') }}" class="btn btn-outline-success btn-sm">
+                            <i class="fas fa-download me-1"></i>Download Template
+                        </a>
+                    </div>
                 </div>
             </div>
         </form>

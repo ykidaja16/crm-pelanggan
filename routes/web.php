@@ -152,6 +152,7 @@ Route::middleware([Authenticate::class])->group(function () {
 
     // ─── Retention Customer ───────────────────────────────────────────────────
     Route::get('/retention', [RetentionController::class, 'index'])->name('retention.index');
+    Route::get('/retention/export', [RetentionController::class, 'export'])->name('retention.export');
 
     // ─── Detail Pelanggan (semua role bisa lihat) ─────────────────────────────
     Route::get('/pelanggan/{pelanggan}/show', [PelangganController::class, 'show'])->name('pelanggan.show');

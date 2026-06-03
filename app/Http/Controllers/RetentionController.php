@@ -6,9 +6,11 @@ use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\DB;
 use Carbon\Carbon;
+use App\Exports\RetentionExport;
 use App\Models\Cabang;
 use App\Models\Pelanggan;
 use App\Models\User;
+use Maatwebsite\Excel\Facades\Excel;
 
 class RetentionController extends Controller
 {
@@ -31,6 +33,64 @@ class RetentionController extends Controller
         if ($cabangId && !empty($accessibleCabangIds) && !in_array($cabangId, $accessibleCabangIds)) {
             $cabangId = null;
         }
+
+        $data = $this->buildRetentionData($user, $cabangs, $period, $year, $month, $cabangId, $accessibleCabangIds);
+        extract($data);
+
+        // --- LIST PELANGGAN BY STATUS (paginated) ---
+        $statusPelanggan = null;
+        if ($statusFilter && in_array($statusFilter, ['at_risk', 'dormant', 'lost'])) {
+            $statusPelanggan = $this->buildStatusQuery($statusFilter, $accessibleCabangIds, $cabangId)
+                ->paginate(25)
+                ->withQueryString();
+        }
+
+        return view('retention.index', compact(
+            'period', 'year', 'month', 'cabangs', 'cabangId',
+            'startDate', 'endDate',
+            'pelangganAwal', 'pelangganBaru', 'pelangganRetained',
+            'retentionRate', 'statusCounts',
+            'trendLabels', 'trendPelanggan', 'trendKunjungan',
+            'statusFilter', 'statusPelanggan',
+            'isDirektur', 'isAdminOrAbove',
+            'analisisCabang', 'smartInsights', 'repeatVisitData', 'cohortData',
+            'revenueData', 'retByKlasifikasi'
+        ));
+    }
+
+    public function export(Request $request)
+    {
+        /** @var User $user */
+        $user = Auth::user();
+        $accessibleCabangIds = $user->getAccessibleCabangIds();
+        $cabangs = empty($accessibleCabangIds)
+            ? Cabang::all()
+            : Cabang::whereIn('id', $accessibleCabangIds)->get();
+
+        $period   = $request->period   ?? 'monthly';
+        $year     = (int) ($request->year  ?? date('Y'));
+        $month    = (int) ($request->month ?? date('m'));
+        $cabangId = $request->cabang_id ? (int) $request->cabang_id : null;
+
+        if ($cabangId && !empty($accessibleCabangIds) && !in_array($cabangId, $accessibleCabangIds)) {
+            $cabangId = null;
+        }
+
+        $data = $this->buildRetentionData($user, $cabangs, $period, $year, $month, $cabangId, $accessibleCabangIds);
+
+        $label = $period === 'monthly'
+            ? \Carbon\Carbon::create($year, $month, 1)->format('Y-m')
+            : (string) $year;
+        $filename = "Retention_{$label}.xlsx";
+
+        return Excel::download(new RetentionExport($data), $filename);
+    }
+
+    private function buildRetentionData($user, $cabangs, string $period, int $year, int $month, ?int $cabangId, array $accessibleCabangIds): array
+    {
+        $roleName       = $user->role?->name;
+        $isDirektur     = $roleName === 'Direktur';
+        $isAdminOrAbove = in_array($roleName, ['Admin', 'Super Admin', 'Direktur']);
 
         // Period boundaries
         if ($period === 'monthly') {
@@ -142,19 +202,6 @@ class RetentionController extends Controller
             $trendPelanggan[] = (int) ($trendRaw[$key]->total_pelanggan ?? 0);
             $trendKunjungan[] = (int) ($trendRaw[$key]->total_kunjungan ?? 0);
         }
-
-        // --- LIST PELANGGAN BY STATUS (paginated) ---
-        $statusPelanggan = null;
-        if ($statusFilter && in_array($statusFilter, ['at_risk', 'dormant', 'lost'])) {
-            $statusPelanggan = $this->buildStatusQuery($statusFilter, $accessibleCabangIds, $cabangId)
-                ->paginate(25)
-                ->withQueryString();
-        }
-
-        // ── ROLE FLAGS ──
-        $roleName       = $user->role?->name;
-        $isDirektur     = $roleName === 'Direktur';
-        $isAdminOrAbove = in_array($roleName, ['Admin', 'Super Admin', 'Direktur']);
 
         // ── A. ANALISIS CABANG (Direktur only) ──
         $analisisCabang = null;
@@ -464,22 +511,18 @@ class RetentionController extends Controller
             })->values()->all();
         }
 
-        return view('retention.index', compact(
+        return compact(
             'period', 'year', 'month', 'cabangs', 'cabangId',
             'startDate', 'endDate',
             'pelangganAwal', 'pelangganBaru', 'pelangganRetained',
             'retentionRate', 'statusCounts',
             'trendLabels', 'trendPelanggan', 'trendKunjungan',
-            'statusFilter', 'statusPelanggan',
-            'isDirektur', 'isAdminOrAbove',
+            'isDirektur', 'isAdminOrAbove', 'accessibleCabangIds',
             'analisisCabang', 'smartInsights', 'repeatVisitData', 'cohortData',
             'revenueData', 'retByKlasifikasi'
-        ));
+        );
     }
 
-    /**
-     * Terapkan filter cabang ke query builder.
-     */
     private function applyCabangFilter($query, array $accessibleCabangIds, ?int $cabangId, string $column): void
     {
         if ($cabangId) {
