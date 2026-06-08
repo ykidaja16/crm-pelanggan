@@ -700,8 +700,8 @@
             @endif
             @if(Auth::user()->role?->name === 'Direktur')
             <li class="{{ request()->routeIs('retention.*') ? 'active' : '' }}">
-                <a href="{{ route('retention.index') }}" title="Retention Customer">
-                    <i class="fas fa-recycle"></i> Retention Customer
+                <a href="{{ route('retention.index') }}" title="Analisis Data">
+                    <i class="fas fa-recycle"></i> Analisis Data
                 </a>
             </li>
             @endif

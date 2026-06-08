@@ -438,7 +438,7 @@ class PelangganExport implements FromCollection, WithHeadings, WithStyles, WithC
     {
         if ($this->search) return ' - DETAIL KUNJUNGAN: ' . strtoupper($this->search);
         if ($this->type === 'perbulan' && $this->bulan && $this->tahun)
-            return ' - PER BULAN ' . strtoupper(Carbon::create()->month($this->bulan)->format('F')) . ' ' . $this->tahun;
+            return ' - PER BULAN ' . strtoupper(Carbon::createFromDate((int) $this->tahun, (int) $this->bulan, 1)->format('F')) . ' ' . $this->tahun;
         if ($this->type === 'pertahun' && $this->tahun)
             return ' - TAHUN ' . $this->tahun;
         if ($this->type === 'range' && $this->tanggalMulai && $this->tanggalSelesai)
