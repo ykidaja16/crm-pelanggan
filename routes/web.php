@@ -150,9 +150,11 @@ Route::middleware([Authenticate::class])->group(function () {
     Route::get('/laporan/preview', [\App\Http\Controllers\LaporanController::class, 'preview'])->name('laporan.preview');
     Route::get('/laporan/export', [\App\Http\Controllers\LaporanController::class, 'export'])->name('laporan.export');
 
-    // ─── Retention Customer ───────────────────────────────────────────────────
-    Route::get('/retention', [RetentionController::class, 'index'])->name('retention.index');
-    Route::get('/retention/export', [RetentionController::class, 'export'])->name('retention.export');
+    // ─── Retention Customer (Direktur only) ──────────────────────────────────
+    Route::middleware(['direktur'])->group(function () {
+        Route::get('/retention', [RetentionController::class, 'index'])->name('retention.index');
+        Route::get('/retention/export', [RetentionController::class, 'export'])->name('retention.export');
+    });
 
     // ─── Detail Pelanggan (semua role bisa lihat) ─────────────────────────────
     Route::get('/pelanggan/{pelanggan}/show', [PelangganController::class, 'show'])->name('pelanggan.show');

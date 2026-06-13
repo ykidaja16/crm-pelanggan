@@ -49,7 +49,7 @@ class RetentionController extends Controller
             'period', 'year', 'month', 'cabangs', 'cabangId',
             'startDate', 'endDate',
             'pelangganAwal', 'pelangganBaru', 'pelangganRetained',
-            'retentionRate', 'statusCounts',
+            'totalPelanggan', 'retentionRate', 'statusCounts',
             'trendLabels', 'trendPelanggan', 'trendKunjungan',
             'statusFilter', 'statusPelanggan',
             'isDirektur', 'isAdminOrAbove',
@@ -132,26 +132,24 @@ class RetentionController extends Controller
         $this->applyCabangFilter($qBaru, $accessibleCabangIds, $cabangId, 'p.cabang_id');
         $pelangganBaru = $qBaru->count();
 
-        // Retained Customer = pelanggan lama (pernah datang sebelum periode)
-        //                     yang DATANG KEMBALI di periode ini
+        // Retained Customer = pelanggan yang pernah kembali s.d. akhir periode
+        // (punya >= 2 kunjungan sampai endDate)
         $qRetained = DB::table('pelanggans as p')
             ->whereNull('p.deleted_at')
-            ->whereExists(function ($q) use ($startStr) {
-                $q->from('kunjungans as k1')
-                  ->whereColumn('k1.pelanggan_id', 'p.id')
-                  ->where('k1.tanggal_kunjungan', '<', $startStr);
-            })
-            ->whereExists(function ($q) use ($startStr, $endStr) {
-                $q->from('kunjungans as k2')
-                  ->whereColumn('k2.pelanggan_id', 'p.id')
-                  ->whereBetween('k2.tanggal_kunjungan', [$startStr, $endStr]);
-            });
+            ->whereRaw('(SELECT COUNT(*) FROM kunjungans k WHERE k.pelanggan_id = p.id AND k.tanggal_kunjungan <= ?) >= 2', [$endStr]);
         $this->applyCabangFilter($qRetained, $accessibleCabangIds, $cabangId, 'p.cabang_id');
         $pelangganRetained = $qRetained->count();
 
-        // Retention Rate = Retained / Awal × 100%
-        $retentionRate = $pelangganAwal > 0
-            ? round(($pelangganRetained / $pelangganAwal) * 100, 1)
+        // Total Pelanggan = semua pelanggan yang sudah punya kunjungan s.d. endDate
+        $qTotal = DB::table('pelanggans as p')
+            ->whereNull('p.deleted_at')
+            ->whereRaw('(SELECT COUNT(*) FROM kunjungans k WHERE k.pelanggan_id = p.id AND k.tanggal_kunjungan <= ?) >= 1', [$endStr]);
+        $this->applyCabangFilter($qTotal, $accessibleCabangIds, $cabangId, 'p.cabang_id');
+        $totalPelanggan = $qTotal->count();
+
+        // Retention Rate = Retained / Total Pelanggan × 100%
+        $retentionRate = $totalPelanggan > 0
+            ? round(($pelangganRetained / $totalPelanggan) * 100, 1)
             : null;
 
         // --- STATUS RETENTION (real-time, berdasarkan hari ini) ---
@@ -268,16 +266,14 @@ class RetentionController extends Controller
                 ? Carbon::create($year, $month, 1)->subMonth()->format('F Y')
                 : (string)($year - 1);
 
-            $qPA = DB::table('pelanggans as p')->whereNull('p.deleted_at')
-                ->whereExists(fn($q) => $q->from('kunjungans as k')->whereColumn('k.pelanggan_id', 'p.id')->where('k.tanggal_kunjungan', '<', $prevStart));
-            $this->applyCabangFilter($qPA, $accessibleCabangIds, $cabangId, 'p.cabang_id');
-            $prevAwal = $qPA->count();
-
-            $qPR = DB::table('pelanggans as p')->whereNull('p.deleted_at')
-                ->whereExists(fn($q) => $q->from('kunjungans as k')->whereColumn('k.pelanggan_id', 'p.id')->where('k.tanggal_kunjungan', '<', $prevStart))
-                ->whereExists(fn($q) => $q->from('kunjungans as k2')->whereColumn('k2.pelanggan_id', 'p.id')->whereBetween('k2.tanggal_kunjungan', [$prevStart, $prevEnd]));
-            $this->applyCabangFilter($qPR, $accessibleCabangIds, $cabangId, 'p.cabang_id');
-            $prevRetRate = $prevAwal > 0 ? round(($qPR->count() / $prevAwal) * 100, 1) : null;
+            $qPrevRetained = DB::table('pelanggans as p')->whereNull('p.deleted_at')
+                ->whereRaw('(SELECT COUNT(*) FROM kunjungans k WHERE k.pelanggan_id = p.id AND k.tanggal_kunjungan <= ?) >= 2', [$prevEnd]);
+            $this->applyCabangFilter($qPrevRetained, $accessibleCabangIds, $cabangId, 'p.cabang_id');
+            $qPrevTotal = DB::table('pelanggans as p')->whereNull('p.deleted_at')
+                ->whereRaw('(SELECT COUNT(*) FROM kunjungans k WHERE k.pelanggan_id = p.id AND k.tanggal_kunjungan <= ?) >= 1', [$prevEnd]);
+            $this->applyCabangFilter($qPrevTotal, $accessibleCabangIds, $cabangId, 'p.cabang_id');
+            $prevTotalPelanggan = $qPrevTotal->count();
+            $prevRetRate = $prevTotalPelanggan > 0 ? round(($qPrevRetained->count() / $prevTotalPelanggan) * 100, 1) : null;
 
             if (!is_null($retentionRate) && !is_null($prevRetRate)) {
                 $diff = round($retentionRate - $prevRetRate, 1);
@@ -515,7 +511,7 @@ class RetentionController extends Controller
             'period', 'year', 'month', 'cabangs', 'cabangId',
             'startDate', 'endDate',
             'pelangganAwal', 'pelangganBaru', 'pelangganRetained',
-            'retentionRate', 'statusCounts',
+            'totalPelanggan', 'retentionRate', 'statusCounts',
             'trendLabels', 'trendPelanggan', 'trendKunjungan',
             'isDirektur', 'isAdminOrAbove', 'accessibleCabangIds',
             'analisisCabang', 'smartInsights', 'repeatVisitData', 'cohortData',

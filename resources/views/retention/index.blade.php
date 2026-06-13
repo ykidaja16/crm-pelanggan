@@ -94,7 +94,7 @@
     {{-- Breakdown Cards --}}
     <div class="col-md-8">
         <div class="row g-3 h-100">
-            <div class="col-6 col-md-4">
+            <div class="col-6 col-md-3">
                 <div class="card shadow-sm border-0 h-100 text-center py-3">
                     <div class="card-body p-2">
                         <p class="text-muted small mb-1 fw-semibold" style="font-size:.72rem">Pelanggan Awal</p>
@@ -103,7 +103,7 @@
                     </div>
                 </div>
             </div>
-            <div class="col-6 col-md-4">
+            <div class="col-6 col-md-3">
                 <div class="card shadow-sm border-0 h-100 text-center py-3">
                     <div class="card-body p-2">
                         <p class="text-muted small mb-1 fw-semibold" style="font-size:.72rem">Pelanggan Baru</p>
@@ -112,12 +112,21 @@
                     </div>
                 </div>
             </div>
-            <div class="col-6 col-md-4">
+            <div class="col-6 col-md-3">
+                <div class="card shadow-sm border-0 h-100 text-center py-3">
+                    <div class="card-body p-2">
+                        <p class="text-muted small mb-1 fw-semibold" style="font-size:.72rem">Total Pelanggan</p>
+                        <h4 class="fw-bold text-secondary mb-0">{{ number_format($totalPelanggan) }}</h4>
+                        <p class="text-muted mb-0" style="font-size:.7rem">semua pelanggan s.d. periode ini</p>
+                    </div>
+                </div>
+            </div>
+            <div class="col-6 col-md-3">
                 <div class="card shadow-sm border-0 h-100 text-center py-3">
                     <div class="card-body p-2">
                         <p class="text-muted small mb-1 fw-semibold" style="font-size:.72rem">Retained Customer</p>
                         <h4 class="fw-bold text-success mb-0">{{ number_format($pelangganRetained) }}</h4>
-                        <p class="text-muted mb-0" style="font-size:.7rem">pelanggan lama yang kembali</p>
+                        <p class="text-muted mb-0" style="font-size:.7rem">pernah kembali s.d. periode ini</p>
                     </div>
                 </div>
             </div>
@@ -129,9 +138,9 @@
 <div class="alert alert-light border small mb-4 py-2">
     <i class="fas fa-info-circle text-primary me-1"></i>
     <strong>Formula:</strong>
-    Retained Customer &divide; Pelanggan Awal &times; 100%
-    &nbsp;=&nbsp; {{ number_format($pelangganRetained) }} &divide; {{ $pelangganAwal > 0 ? number_format($pelangganAwal) : '?' }} &times; 100%
-    @if($pelangganAwal > 0)
+    Retained Customer &divide; Total Pelanggan &times; 100%
+    &nbsp;=&nbsp; {{ number_format($pelangganRetained) }} &divide; {{ $totalPelanggan > 0 ? number_format($totalPelanggan) : '?' }} &times; 100%
+    @if($totalPelanggan > 0)
     &nbsp;=&nbsp; <strong>{{ $retentionRate }}%</strong>
     @endif
 </div>

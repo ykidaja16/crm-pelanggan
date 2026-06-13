@@ -119,7 +119,7 @@ class RetentionSummarySheet implements FromArray, WithTitle, WithStyles, WithCol
         $rows[] = [
             'Pelanggan Retained',
             number_format((int) $d['pelangganRetained']),
-            'Pelanggan lama yang kembali di periode ini',
+            'Pelanggan yang pernah kembali s.d. akhir periode (kumulatif)',
         ];
         $rows[] = [
             'Retention Rate',
