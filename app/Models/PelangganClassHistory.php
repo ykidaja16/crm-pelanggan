@@ -12,7 +12,8 @@ class PelangganClassHistory extends Model
         'new_class',
         'changed_at',
         'changed_by',
-        'reason'
+        'reason',
+        'is_sync',
     ];
 
     protected $casts = [

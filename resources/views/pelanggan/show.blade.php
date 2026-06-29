@@ -212,7 +212,14 @@
                                         <span class="badge bg-secondary bg-opacity-10 text-secondary border border-secondary">{{ $history->new_class }}</span>
                                     @endif
                                 </td>
-                                <td class="text-muted small">{{ $history->reason }}</td>
+                                <td class="text-muted small">
+                                    @if($history->is_sync)
+                                        <span class="badge bg-primary bg-opacity-10 text-primary border border-primary me-1">
+                                            <i class="fas fa-sync-alt me-1"></i>Sinkronisasi
+                                        </span>
+                                    @endif
+                                    {{ $history->reason }}
+                                </td>
                             </tr>
                         @empty
                             <tr>

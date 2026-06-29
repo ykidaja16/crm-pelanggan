@@ -516,7 +516,7 @@ class PelangganImportExportController extends Controller
     public function syncMismatchNames(Request $request)
     {
         $isAjax = $request->ajax() || $request->wantsJson();
-
+    
         $validated = $request->validate([
             'selected_mismatches'              => 'required|array|min:1',
             'selected_mismatches.*.pid'        => 'required|string',
@@ -554,8 +554,8 @@ class PelangganImportExportController extends Controller
                 }
             }
         });
-
-        $message = 'Data Pelanggans Berhasil Disesuaikan, Silahkan Import Ulang.';
+      
+        $message = "Data Pelanggans Berhasil Disesuaikan, Silahkan Import Ulang.";
 
         if ($isAjax) {
             return response()->json([

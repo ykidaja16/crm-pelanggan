@@ -25,6 +25,7 @@ class Pelanggan extends Model
         'alamat',
         'kota',
         'class',
+        'pre_sync_class',
         'is_pelanggan_khusus',
         'kategori_khusus',
         'total_kedatangan',
@@ -133,6 +134,25 @@ class Pelanggan extends Model
      */
     public function updateStats(?\Carbon\Carbon $visitDate = null, ?string $changeReason = null): void
     {
+        // Jika kelas sebelumnya pernah diturunkan oleh Synchronize, pulihkan dulu
+        // sebelum menghitung ulang berdasarkan data kunjungan baru.
+        if ($this->pre_sync_class !== null) {
+            $syncedClass      = $this->class;
+            $restoredClass    = $this->pre_sync_class;
+
+            $this->classHistories()->create([
+                'previous_class' => $syncedClass,
+                'new_class'      => $restoredClass,
+                'changed_at'     => $visitDate ?? now(),
+                'changed_by'     => Auth::check() ? Auth::id() : null,
+                'reason'         => 'Kelas dipulihkan karena ada kunjungan baru setelah Sinkronisasi',
+                'is_sync'        => false,
+            ]);
+
+            $this->class          = $restoredClass;
+            $this->pre_sync_class = null;
+        }
+
         $oldClass = $this->class;
 
         // Single query untuk sum total_kedatangan dan sum biaya sekaligus

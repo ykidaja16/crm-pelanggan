@@ -189,8 +189,9 @@ class ImportBatchController extends Controller
                                     'total_kedatangan' => $snap->total_kedatangan_before,
                                     'total_biaya'      => $snap->total_biaya_before,
                                     'class'            => $snap->class_before,
+                                    'pre_sync_class'   => null,
                                 ]);
-                                
+
                                 // Catat riwayat perubahan kelas jika ada perubahan
                                 if ($oldClass !== $snap->class_before) {
                                     PelangganClassHistory::create([
@@ -245,6 +246,7 @@ class ImportBatchController extends Controller
                                 'total_kedatangan' => $newTotalKedatangan,
                                 'total_biaya'      => $newTotalBiaya,
                                 'class'            => $newClass,
+                                'pre_sync_class'   => null,
                             ]);
                             
                             // Catat riwayat perubahan kelas jika ada perubahan
@@ -294,8 +296,9 @@ class ImportBatchController extends Controller
                                     'total_kedatangan' => $snap->total_kedatangan_before,
                                     'total_biaya'      => $snap->total_biaya_before,
                                     'class'            => $snap->class_before,
+                                    'pre_sync_class'   => null,
                                 ]);
-                                
+
                                 // Catat riwayat perubahan kelas jika ada perubahan
                                 if ($oldClass !== $snap->class_before) {
                                     PelangganClassHistory::create([

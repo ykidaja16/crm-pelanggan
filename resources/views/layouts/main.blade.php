@@ -648,7 +648,9 @@
                                 || request()->routeIs('pelanggan.edit')
                                 || request()->routeIs('pelanggan.khusus*')
                                 || request()->routeIs('pelanggan.update-nik.*')
-                                || request()->routeIs('pelanggan.search-by-phone.*');
+                                || request()->routeIs('pelanggan.search-by-phone.*')
+                                || request()->routeIs('pelanggan.sinkronisasi')
+                                || request()->routeIs('pelanggan.sinkronisasi.result');
             @endphp
             <li class="{{ $pelangganActive ? 'active' : '' }}">
                 <a href="#pelangganSubmenu"
@@ -688,6 +690,13 @@
                         </a>
                     </li>
                     @endif
+                    {{-- @if(in_array(Auth::user()->role?->name, ['Admin', 'Super Admin']))
+                    <li class="{{ request()->routeIs('pelanggan.sinkronisasi') ? 'active' : '' }}">
+                        <a href="{{ route('pelanggan.sinkronisasi') }}">
+                            <i class="fas fa-sync-alt me-2"></i>Sinkronisasi Data
+                        </a>
+                    </li>
+                    @endif --}}
                 </ul>
             </li>
             @endif
@@ -698,13 +707,13 @@
                 </a>
             </li>
             @endif
-            @if(Auth::user()->role?->name === 'Direktur')
+            {{-- @if(Auth::user()->role?->name === 'Direktur')
             <li class="{{ request()->routeIs('retention.*') ? 'active' : '' }}">
                 <a href="{{ route('retention.index') }}" title="Analisis Data">
                     <i class="fas fa-recycle"></i> Analisis Data
                 </a>
             </li>
-            @endif
+            @endif --}}
             @if(in_array(Auth::user()->role?->name, ['Admin', 'Super Admin', 'Direktur']))
             @php
                 $specialDayActive = request()->routeIs('special-day.*');

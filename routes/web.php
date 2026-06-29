@@ -18,6 +18,7 @@ use App\Http\Controllers\ImportBatchController;
 use App\Http\Controllers\PelangganNikUpdateController;
 use App\Http\Controllers\RetentionController;
 use App\Http\Controllers\SearchByPhoneController;
+use App\Http\Controllers\SinkronisasiController;
 use App\Http\Middleware\EnsureUserIsAdmin;
 use App\Http\Middleware\EnsureUserIsSuperAdmin;
 use App\Http\Middleware\EnsureUserIsIT;
@@ -168,6 +169,12 @@ Route::middleware([Authenticate::class])->group(function () {
 
     // ─── Admin & Super Admin routes ───────────────────────────────────────────
     Route::middleware([EnsureUserIsAdmin::class])->group(function () {
+
+        // Sinkronisasi Kelas Pelanggan
+        Route::get('/pelanggan/sinkronisasi', [SinkronisasiController::class, 'index'])->name('pelanggan.sinkronisasi');
+        Route::post('/pelanggan/sinkronisasi/run', [SinkronisasiController::class, 'synchronize'])->name('pelanggan.sinkronisasi.run');
+        Route::get('/pelanggan/sinkronisasi/result', [SinkronisasiController::class, 'result'])->name('pelanggan.sinkronisasi.result');
+        Route::get('/pelanggan/sinkronisasi/export/{type}', [SinkronisasiController::class, 'export'])->name('pelanggan.sinkronisasi.export');
 
         // Input Data Pelanggan (Tambah Manual + Import)
         Route::get('/pelanggan/input', [PelangganController::class, 'inputPage'])->name('pelanggan.input');
