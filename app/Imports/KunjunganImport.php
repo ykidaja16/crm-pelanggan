@@ -139,7 +139,7 @@ class KunjunganImport implements ToCollection, WithStartRow
 
                 $no = isset($rowArray[0]) ? (int) $rowArray[0] : null;
                 $namaPasien = isset($rowArray[1]) ? trim((string) $rowArray[1]) : '';
-                $totalKedatangan = isset($rowArray[2]) ? (int) $rowArray[2] : 0;
+                $totalKedatangan = 1; // Selalu 1 per baris — abaikan nilai kolom Excel agar tidak salah input
                 $tanggalKedatangan = $rowArray[3] ?? null;
                 $totalBiaya = $rowArray[4] ?? null;
                 $noTelp = isset($rowArray[5]) ? trim((string) $rowArray[5]) : null;

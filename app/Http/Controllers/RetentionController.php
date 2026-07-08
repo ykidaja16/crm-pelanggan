@@ -54,7 +54,7 @@ class RetentionController extends Controller
             'statusFilter', 'statusPelanggan',
             'isDirektur', 'isAdminOrAbove',
             'analisisCabang', 'smartInsights', 'repeatVisitData', 'cohortData',
-            'revenueData', 'retByKlasifikasi'
+            'revenueData', 'retByKlasifikasi', 'marketingStrategies'
         ));
     }
 
@@ -330,6 +330,104 @@ class RetentionController extends Controller
             }
         }
 
+        // ── B2. MARKETING STRATEGIES (AI Rule-Based) ──
+        $marketingStrategies = [];
+        if ($isAdminOrAbove) {
+            // Ambil data distribusi kelas
+            $qKelas = DB::table('pelanggans as p')->whereNull('p.deleted_at')
+                ->selectRaw('COALESCE(NULLIF(p.class,""), "Umum") as kelas, COUNT(*) as jumlah')
+                ->groupBy(DB::raw('COALESCE(NULLIF(p.class,""), "Umum")'));
+            if ($cabangId) $qKelas->where('p.cabang_id', $cabangId);
+            elseif (!empty($accessibleCabangIds)) $qKelas->whereIn('p.cabang_id', $accessibleCabangIds);
+            $kelasDist = $qKelas->pluck('jumlah', 'kelas');
+            $totalKelas = $kelasDist->sum() ?: 1;
+
+            $pctUmum      = round(($kelasDist['Umum']      ?? 0) / $totalKelas * 100, 1);
+            $pctPotensial = round(($kelasDist['Potensial'] ?? 0) / $totalKelas * 100, 1);
+            $pctLoyal     = round(($kelasDist['Loyal']     ?? 0) / $totalKelas * 100, 1);
+            $pctPrioritas = round(($kelasDist['Prioritas'] ?? 0) / $totalKelas * 100, 1);
+
+            $jumlahLost   = (int)($statusCounts->lost_total    ?? 0);
+            $jumlahAtRisk = (int)($statusCounts->at_risk_total ?? 0);
+
+            // Strategi 1: Program loyalitas jika Umum dominan
+            if ($pctUmum > 50) {
+                $marketingStrategies[] = [
+                    'priority' => 'high',
+                    'icon'     => 'medal',
+                    'title'    => 'Program Loyalty Berjenjang',
+                    'desc'     => "{$pctUmum}% pelanggan masih kelas Umum. Buat program poin reward atau membership card bertingkat (Bronze → Silver → Gold) untuk mendorong repeat visit dan mempercepat naik kelas ke Potensial.",
+                ];
+            }
+
+            // Strategi 2: Konversi Potensial → Loyal
+            if ($pctPotensial > 20 && $pctLoyal < $pctPotensial) {
+                $jmlPotensial = (int)($kelasDist['Potensial'] ?? 0);
+                $marketingStrategies[] = [
+                    'priority' => 'high',
+                    'icon'     => 'arrow-up',
+                    'title'    => 'Akselerasi Kelas Potensial → Loyal',
+                    'desc'     => "Ada {$jmlPotensial} pelanggan Potensial ({$pctPotensial}%) yang mendekati kelas Loyal. Berikan insentif eksklusif (diskon spesial, notifikasi personal, atau paket bundling) kepada segmen ini untuk mempercepat frekuensi kunjungan mereka.",
+                ];
+            }
+
+            // Strategi 3: Re-engagement untuk pelanggan lost/at-risk
+            if ($jumlahLost > 0 || $jumlahAtRisk > 0) {
+                $marketingStrategies[] = [
+                    'priority' => $jumlahLost > 50 ? 'high' : 'medium',
+                    'icon'     => 'envelope-open-text',
+                    'title'    => 'Kampanye Re-engagement',
+                    'desc'     => "Terdapat {$jumlahLost} pelanggan lost dan {$jumlahAtRisk} pelanggan at-risk. Kirim pesan personal via WhatsApp/SMS berisi penawaran \"Kami Kangen Anda\" dengan voucher kembali atau reminder layanan terbaru. Segmentasi berdasarkan terakhir kunjungan untuk pesan yang lebih relevan.",
+                ];
+            }
+
+            // Strategi 4: Hari sibuk → promo hari sepi
+            $qDayAll = DB::table('kunjungans as k')
+                ->join('pelanggans as p', 'p.id', '=', 'k.pelanggan_id')
+                ->whereNull('p.deleted_at')->whereBetween('k.tanggal_kunjungan', [$startStr, $endStr]);
+            if ($cabangId) $qDayAll->where('p.cabang_id', $cabangId);
+            elseif (!empty($accessibleCabangIds)) $qDayAll->whereIn('p.cabang_id', $accessibleCabangIds);
+            $dayDist = $qDayAll->selectRaw('DAYOFWEEK(k.tanggal_kunjungan) as dow, COUNT(k.id) as total')
+                ->groupBy(DB::raw('DAYOFWEEK(k.tanggal_kunjungan)'))
+                ->pluck('total', 'dow');
+
+            if ($dayDist->count() >= 3) {
+                $maxDay = $dayDist->sortDesc()->keys()->first();
+                $minDay = $dayDist->sort()->keys()->first();
+                $dayNames = ['', 'Minggu', 'Senin', 'Selasa', 'Rabu', 'Kamis', 'Jumat', 'Sabtu'];
+                if ($maxDay !== $minDay && isset($dayNames[$maxDay], $dayNames[$minDay])) {
+                    $marketingStrategies[] = [
+                        'priority' => 'medium',
+                        'icon'     => 'calendar-alt',
+                        'title'    => 'Promo Hari Sepi untuk Ratakan Beban',
+                        'desc'     => "Kunjungan paling tinggi di hari {$dayNames[$maxDay]}, terendah di hari {$dayNames[$minDay]}. Buat promo khusus hari {$dayNames[$minDay]} (misalnya diskon 10–15% atau layanan gratis konsultasi awal) untuk mendistribusikan kunjungan secara merata dan mengurangi antrian di hari sibuk.",
+                    ];
+                }
+            }
+
+            // Strategi 5: Pertahankan & manjakan pelanggan Prioritas/Loyal
+            $jmlPrioritas = (int)($kelasDist['Prioritas'] ?? 0);
+            $jmlLoyal     = (int)($kelasDist['Loyal']     ?? 0);
+            if ($jmlPrioritas + $jmlLoyal > 0) {
+                $marketingStrategies[] = [
+                    'priority' => 'medium',
+                    'icon'     => 'crown',
+                    'title'    => 'Retensi VIP: Pelanggan Loyal & Prioritas',
+                    'desc'     => "Ada " . ($jmlPrioritas + $jmlLoyal) . " pelanggan kelas atas (Loyal: {$jmlLoyal}, Prioritas: {$jmlPrioritas}). Berikan layanan eksklusif seperti antrian prioritas, notifikasi layanan baru lebih awal, birthday gift, atau undangan event khusus. Mempertahankan segmen ini jauh lebih hemat biaya daripada mencari pelanggan baru.",
+                ];
+            }
+
+            // Strategi 6: Program referral
+            if ($totalPelanggan > 50) {
+                $marketingStrategies[] = [
+                    'priority' => 'low',
+                    'icon'     => 'share-alt',
+                    'title'    => 'Program Referral Word-of-Mouth',
+                    'desc'     => "Dengan {$totalPelanggan} pelanggan aktif, aktifkan program \"Ajak Teman\" di mana pelanggan mendapat reward (diskon/poin) jika membawa pelanggan baru. Pelanggan loyal adalah brand ambassador terbaik — manfaatkan jaringan mereka untuk pertumbuhan organik.",
+                ];
+            }
+        }
+
         // ── C. ANALISIS RETENTION LEBIH DALAM ──
         $repeatVisitData  = null;
         $cohortData       = null;
@@ -515,7 +613,7 @@ class RetentionController extends Controller
             'trendLabels', 'trendPelanggan', 'trendKunjungan',
             'isDirektur', 'isAdminOrAbove', 'accessibleCabangIds',
             'analisisCabang', 'smartInsights', 'repeatVisitData', 'cohortData',
-            'revenueData', 'retByKlasifikasi'
+            'revenueData', 'retByKlasifikasi', 'marketingStrategies'
         );
     }
 

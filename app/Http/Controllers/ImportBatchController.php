@@ -182,30 +182,18 @@ class ImportBatchController extends Controller
                             }
                         } else {
                             $pelangganId = $snap->pelanggan_id;
-                            $pelanggan = Pelanggan::find($pelangganId);
+                            $pelanggan   = Pelanggan::find($pelangganId);
                             if ($pelanggan) {
-                                $oldClass = $pelanggan->class;
-                                Pelanggan::where('id', $pelangganId)->update([
-                                    'total_kedatangan' => $snap->total_kedatangan_before,
-                                    'total_biaya'      => $snap->total_biaya_before,
-                                    'class'            => $snap->class_before,
-                                    'pre_sync_class'   => null,
-                                ]);
-
-                                // Catat riwayat perubahan kelas jika ada perubahan
-                                if ($oldClass !== $snap->class_before) {
-                                    PelangganClassHistory::create([
-                                        'pelanggan_id'    => $pelangganId,
-                                        'previous_class'  => $oldClass,
-                                        'new_class'       => $snap->class_before,
-                                        'changed_at'      => now(),
-                                        'changed_by'      => Auth::id(),
-                                        'reason'          => "Hasil rollback data import batch ({$batch->filename}) - {$batch->total_rows} baris"
-                                    ]);
-                                    Log::info("Rollback MODE A: class history recorded for pelanggan {$pelangganId}");
-                                }
-                                
-                                Log::info("Rollback MODE A: restored pelanggan ID {$pelangganId}");
+                                // FIX: Recalculate stats dari kunjungan aktual yang tersisa,
+                                // bukan restore nilai snapshot secara mentah.
+                                // Ini memastikan total_kedatangan, total_biaya, dan class
+                                // selalu sinkron dengan data kunjungan yang benar-benar ada di DB.
+                                // pre_sync_class dan pencatatan riwayat kelas ditangani oleh updateStats().
+                                $pelanggan->updateStats(
+                                    now(),
+                                    "Hasil rollback data import batch ({$batch->filename}) - {$batch->total_rows} baris"
+                                );
+                                Log::info("Rollback MODE A: recalculated stats for pelanggan ID {$pelangganId}");
                             }
                         }
                     }
@@ -278,7 +266,7 @@ class ImportBatchController extends Controller
                         Log::warning("Rollback MODE C: no kunjungan found via timestamp, proceeding with snapshot restore only");
                     }
 
-                    // Restore pelanggan dari snapshot
+                    // Recalculate pelanggan dari kunjungan aktual yang tersisa
                     foreach ($snapshots as $snap) {
                         if ($snap->is_new_pelanggan) {
                             // forceDelete: hapus permanen agar re-import tidak kena duplicate PID
@@ -289,30 +277,18 @@ class ImportBatchController extends Controller
                             }
                         } else {
                             $pelangganId = $snap->pelanggan_id;
-                            $pelanggan = Pelanggan::find($pelangganId);
+                            $pelanggan   = Pelanggan::find($pelangganId);
                             if ($pelanggan) {
-                                $oldClass = $pelanggan->class;
-                                Pelanggan::where('id', $pelangganId)->update([
-                                    'total_kedatangan' => $snap->total_kedatangan_before,
-                                    'total_biaya'      => $snap->total_biaya_before,
-                                    'class'            => $snap->class_before,
-                                    'pre_sync_class'   => null,
-                                ]);
-
-                                // Catat riwayat perubahan kelas jika ada perubahan
-                                if ($oldClass !== $snap->class_before) {
-                                    PelangganClassHistory::create([
-                                        'pelanggan_id'    => $pelangganId,
-                                        'previous_class'  => $oldClass,
-                                        'new_class'       => $snap->class_before,
-                                        'changed_at'      => now(),
-                                        'changed_by'      => Auth::id(),
-                                        'reason'          => "Hasil rollback data import batch ({$batch->filename}) - {$batch->total_rows} baris"
-                                    ]);
-                                    Log::info("Rollback MODE C: class history recorded for pelanggan {$pelangganId}");
-                                }
-                                
-                                Log::info("Rollback MODE C: restored pelanggan ID {$pelangganId} from snapshot");
+                                // FIX: Recalculate stats dari kunjungan aktual yang tersisa,
+                                // bukan restore nilai snapshot secara mentah.
+                                // Ini memastikan total_kedatangan, total_biaya, dan class
+                                // selalu sinkron dengan data kunjungan yang benar-benar ada di DB.
+                                // pre_sync_class dan pencatatan riwayat kelas ditangani oleh updateStats().
+                                $pelanggan->updateStats(
+                                    now(),
+                                    "Hasil rollback data import batch ({$batch->filename}) - {$batch->total_rows} baris"
+                                );
+                                Log::info("Rollback MODE C: recalculated stats for pelanggan ID {$pelangganId}");
                             }
                         }
                     }

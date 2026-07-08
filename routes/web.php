@@ -19,6 +19,7 @@ use App\Http\Controllers\PelangganNikUpdateController;
 use App\Http\Controllers\RetentionController;
 use App\Http\Controllers\SearchByPhoneController;
 use App\Http\Controllers\SinkronisasiController;
+use App\Http\Controllers\PertumbuhanKelasController;
 use App\Http\Middleware\EnsureUserIsAdmin;
 use App\Http\Middleware\EnsureUserIsSuperAdmin;
 use App\Http\Middleware\EnsureUserIsIT;
@@ -175,6 +176,12 @@ Route::middleware([Authenticate::class])->group(function () {
         Route::post('/pelanggan/sinkronisasi/run', [SinkronisasiController::class, 'synchronize'])->name('pelanggan.sinkronisasi.run');
         Route::get('/pelanggan/sinkronisasi/result', [SinkronisasiController::class, 'result'])->name('pelanggan.sinkronisasi.result');
         Route::get('/pelanggan/sinkronisasi/export/{type}', [SinkronisasiController::class, 'export'])->name('pelanggan.sinkronisasi.export');
+
+        // Pertumbuhan Kelas Pelanggan (Admin, Super Admin, Direktur)
+        Route::get('/pertumbuhan-kelas', [PertumbuhanKelasController::class, 'index'])->name('pertumbuhan-kelas.index');
+        Route::get('/pertumbuhan-kelas/detail', [PertumbuhanKelasController::class, 'detail'])->name('pertumbuhan-kelas.detail');
+        Route::get('/pertumbuhan-kelas/export-ringkasan', [PertumbuhanKelasController::class, 'exportRingkasan'])->name('pertumbuhan-kelas.export-ringkasan');
+        Route::get('/pertumbuhan-kelas/export-detail', [PertumbuhanKelasController::class, 'exportDetail'])->name('pertumbuhan-kelas.export-detail');
 
         // Input Data Pelanggan (Tambah Manual + Import)
         Route::get('/pelanggan/input', [PelangganController::class, 'inputPage'])->name('pelanggan.input');

@@ -166,7 +166,58 @@
 </div>
 @endif
 
-{{-- ============ A. ANALISIS CABANG (Direktur only) ============ --}}
+{{-- ============ B2. SARAN STRATEGI MARKETING (AI) ============ --}}
+@if($isAdminOrAbove && isset($marketingStrategies) && count($marketingStrategies) > 0)
+@php
+    $priorityConfig = [
+        'high'   => ['color' => 'danger',  'badge' => 'Prioritas Tinggi', 'border' => '#DC3545'],
+        'medium' => ['color' => 'warning', 'badge' => 'Prioritas Sedang', 'border' => '#FFC107'],
+        'low'    => ['color' => 'info',    'badge' => 'Tambahan',          'border' => '#0DCAF0'],
+    ];
+@endphp
+<div class="card shadow-sm border-0 mb-4">
+    <div class="card-header bg-white py-3 d-flex align-items-center justify-content-between">
+        <h6 class="mb-0 fw-semibold">
+            <i class="fas fa-robot me-2 text-primary"></i>Saran Strategi Marketing
+            <span class="badge bg-primary bg-opacity-10 text-primary border border-primary ms-2" style="font-size:.65rem;">AI berbasis data</span>
+        </h6>
+        <span class="text-muted small">{{ count($marketingStrategies) }} rekomendasi aktif</span>
+    </div>
+    <div class="card-body py-3">
+        <p class="text-muted small mb-3">
+            <i class="fas fa-info-circle me-1"></i>
+            Rekomendasi berikut di-generate otomatis berdasarkan data retention, distribusi kelas, dan pola kunjungan pelanggan Anda pada periode ini.
+        </p>
+        <div class="row g-3">
+            @foreach($marketingStrategies as $strat)
+            @php $pc = $priorityConfig[$strat['priority']] ?? $priorityConfig['low']; @endphp
+            <div class="col-12 col-md-6">
+                <div class="card h-100 border-{{ $pc['color'] }} border-opacity-50" style="border-left: 4px solid {{ $pc['border'] }} !important;">
+                    <div class="card-body py-3 px-3">
+                        <div class="d-flex align-items-start gap-3">
+                            <div class="rounded-circle d-flex align-items-center justify-content-center flex-shrink-0"
+                                 style="width:38px; height:38px; background:{{ $pc['border'] }}22;">
+                                <i class="fas fa-{{ $strat['icon'] }} text-{{ $pc['color'] }}"></i>
+                            </div>
+                            <div class="flex-grow-1">
+                                <div class="d-flex align-items-center gap-2 mb-1">
+                                    <h6 class="mb-0 fw-semibold small">{{ $strat['title'] }}</h6>
+                                    <span class="badge bg-{{ $pc['color'] }} bg-opacity-10 text-{{ $pc['color'] }} border border-{{ $pc['color'] }}"
+                                          style="font-size:.62rem; padding:2px 6px;">{{ $pc['badge'] }}</span>
+                                </div>
+                                <p class="mb-0 text-muted" style="font-size:.82rem; line-height:1.5;">{{ $strat['desc'] }}</p>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+            @endforeach
+        </div>
+    </div>
+</div>
+@endif
+
+
 @if($isDirektur && $analisisCabang && count($analisisCabang) > 1)
 @php
     $best_ret  = collect($analisisCabang)->sortByDesc('retRate')->first();

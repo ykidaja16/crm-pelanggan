@@ -523,6 +523,7 @@ class PelangganImportExportController extends Controller
             'selected_mismatches.*.excel_nama' => 'required|string',
             'selected_mismatches.*.row_number' => 'nullable|integer',
             'selected_mismatches.*.error_key'  => 'nullable|string',
+            'original_filename'                => 'nullable|string|max:255',
         ], [
             'selected_mismatches.required' => 'Tidak ada data mismatch yang dipilih.',
             'selected_mismatches.array'    => 'Format data mismatch tidak valid.',
@@ -554,8 +555,11 @@ class PelangganImportExportController extends Controller
                 }
             }
         });
-      
-        $message = "Data Pelanggans Berhasil Disesuaikan, Silahkan Import Ulang.";
+
+        // Sisipkan nama file ke notifikasi jika tersedia
+        $originalFilename = trim((string) ($validated['original_filename'] ?? ''));
+        $fileInfo = $originalFilename !== '' ? " File {$originalFilename}" : '';
+        $message  = "Data Pelanggans Berhasil Disesuaikan, Silahkan Import Ulang{$fileInfo}.";
 
         if ($isAjax) {
             return response()->json([
@@ -612,7 +616,7 @@ class PelangganImportExportController extends Controller
 
             $no               = isset($row[0]) ? (int) $row[0] : null;
             $nama             = trim($row[1] ?? '');
-            $totalKedatangan  = isset($row[2]) ? (int) $row[2] : 0;
+            $totalKedatangan  = 1; // Selalu 1 per baris — abaikan nilai kolom Excel agar tidak salah input
             $tanggalKedatangan = $row[3] ?? null;
             $biaya            = $row[4] ?? null;
             $noTelp           = trim($row[5] ?? '');

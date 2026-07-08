@@ -707,13 +707,20 @@
                 </a>
             </li>
             @endif
-            {{-- @if(Auth::user()->role?->name === 'Direktur')
+            @if(in_array(Auth::user()->role?->name, ['Admin', 'Super Admin', 'Direktur']))
+            <li class="{{ request()->routeIs('pertumbuhan-kelas.*') ? 'active' : '' }}">
+                <a href="{{ route('pertumbuhan-kelas.index') }}" title="Pertumbuhan Kelas">
+                    <i class="fas fa-chart-line"></i> Pertumbuhan Kelas
+                </a>
+            </li>
+            @endif
+            @if(Auth::user()->role?->name === 'Direktur')
             <li class="{{ request()->routeIs('retention.*') ? 'active' : '' }}">
                 <a href="{{ route('retention.index') }}" title="Analisis Data">
                     <i class="fas fa-recycle"></i> Analisis Data
                 </a>
             </li>
-            @endif --}}
+            @endif
             @if(in_array(Auth::user()->role?->name, ['Admin', 'Super Admin', 'Direktur']))
             @php
                 $specialDayActive = request()->routeIs('special-day.*');

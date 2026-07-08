@@ -127,6 +127,9 @@
 // =============================================
 // IMPORT - Real-time Progress Bar
 // =============================================
+// Nama file terakhir yang diimport — disimpan agar tetap tersedia setelah file input direset
+let lastImportFilename = '';
+
 function startImport() {
     const fileInput         = document.getElementById('fileInput');
     const importBtn         = document.getElementById('importBtn');
@@ -149,6 +152,7 @@ function startImport() {
     }
 
     const file     = fileInput.files[0];
+    lastImportFilename = file.name; // Simpan nama file sebelum file input direset
     const validExt = ['.xlsx', '.xls', '.csv'];
     const isValid  = validExt.some(ext => file.name.toLowerCase().endsWith(ext));
     if (!isValid) {
@@ -286,6 +290,8 @@ async function submitSelectedMismatchSync() {
     });
 
     try {
+        const originalFilename = lastImportFilename || '';
+
         const resp = await fetch('{{ route("pelanggan.import.sync-mismatch-names") }}', {
             method: 'POST',
             headers: {
@@ -294,7 +300,7 @@ async function submitSelectedMismatchSync() {
                 'Accept': 'application/json',
                 'X-CSRF-TOKEN': '{{ csrf_token() }}'
             },
-            body: JSON.stringify({ selected_mismatches: selected })
+            body: JSON.stringify({ selected_mismatches: selected, original_filename: originalFilename })
         });
 
         let data = {};
