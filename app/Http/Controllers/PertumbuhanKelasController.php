@@ -267,7 +267,7 @@ class PertumbuhanKelasController extends Controller
                 ->whereColumn('k.pelanggan_id', 'p.id')
                 ->whereBetween('k.tanggal_kunjungan', [$startStr, $endStr]))
             ->selectRaw('COALESCE(NULLIF(p.class,""), "Umum") as kelas, COUNT(DISTINCT p.id) as jumlah')
-            ->groupBy(DB::raw('COALESCE(NULLIF(p.class,""), "Umum")'));
+            ->groupByRaw('COALESCE(NULLIF(p.class,""), "Umum")');
 
         if ($cabangId) {
             $q->where('p.cabang_id', $cabangId);
@@ -285,17 +285,18 @@ class PertumbuhanKelasController extends Controller
      */
     private function countNewByKelas(string $startStr, string $endStr, array $accessibleCabangIds, ?int $cabangId): array
     {
-        // Subquery: first visit date per customer
-        $firstVisit = DB::table('kunjungans')
-            ->selectRaw('pelanggan_id, MIN(tanggal_kunjungan) as first_visit')
-            ->groupBy('pelanggan_id');
+        // Subquery: pelanggan_id whose first visit falls within the period
+        // Menggunakan whereIn + havingRaw agar aman di MySQL ONLY_FULL_GROUP_BY (strict mode)
+        $firstVisitInPeriod = DB::table('kunjungans')
+            ->selectRaw('pelanggan_id')
+            ->groupBy('pelanggan_id')
+            ->havingRaw('MIN(tanggal_kunjungan) BETWEEN ? AND ?', [$startStr, $endStr]);
 
         $q = DB::table('pelanggans as p')
             ->whereNull('p.deleted_at')
-            ->joinSub($firstVisit, 'fv', 'fv.pelanggan_id', '=', 'p.id')
-            ->whereBetween('fv.first_visit', [$startStr, $endStr])
+            ->whereIn('p.id', $firstVisitInPeriod)
             ->selectRaw('COALESCE(NULLIF(p.class,""), "Umum") as kelas, COUNT(DISTINCT p.id) as jumlah')
-            ->groupBy(DB::raw('COALESCE(NULLIF(p.class,""), "Umum")'));
+            ->groupByRaw('COALESCE(NULLIF(p.class,""), "Umum")');
 
         if ($cabangId) {
             $q->where('p.cabang_id', $cabangId);
@@ -315,7 +316,7 @@ class PertumbuhanKelasController extends Controller
         $q = DB::table('pelanggans as p')
             ->whereNull('p.deleted_at')
             ->selectRaw('COALESCE(NULLIF(p.class,""), "Umum") as kelas, COUNT(DISTINCT p.id) as jumlah')
-            ->groupBy(DB::raw('COALESCE(NULLIF(p.class,""), "Umum")'));
+            ->groupByRaw('COALESCE(NULLIF(p.class,""), "Umum")');
 
         if ($cabangId) {
             $q->where('p.cabang_id', $cabangId);
