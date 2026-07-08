@@ -21,11 +21,11 @@ class PertumbuhanKelasDetailExport implements FromQuery, WithMapping, WithHeadin
     private int $rowNum = 0;
 
     public function __construct(
-        private Builder $query,
+        private $query,
         private string $kelasLabel
     ) {}
 
-    public function query(): Builder { return $this->query; }
+    public function query() { return $this->query; }
     public function startCell(): string { return 'A3'; }
     public function title(): string { return 'Detail Kelas'; }
 

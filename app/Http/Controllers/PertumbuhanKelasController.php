@@ -266,8 +266,8 @@ class PertumbuhanKelasController extends Controller
             ->whereExists(fn($sub) => $sub->from('kunjungans as k')
                 ->whereColumn('k.pelanggan_id', 'p.id')
                 ->whereBetween('k.tanggal_kunjungan', [$startStr, $endStr]))
-            ->selectRaw('COALESCE(NULLIF(p.class,""), "Umum") as kelas, COUNT(DISTINCT p.id) as jumlah')
-            ->groupByRaw('COALESCE(NULLIF(p.class,""), "Umum")');
+            ->selectRaw('p.class as kelas, COUNT(DISTINCT p.id) as jumlah')
+            ->groupBy('p.class');
 
         if ($cabangId) {
             $q->where('p.cabang_id', $cabangId);
@@ -275,7 +275,7 @@ class PertumbuhanKelasController extends Controller
             $q->whereIn('p.cabang_id', $accessibleCabangIds);
         }
 
-        return $q->pluck('jumlah', 'kelas')->toArray();
+        return $this->normalizeKelasResult($q->get());
     }
 
     /**
@@ -285,8 +285,6 @@ class PertumbuhanKelasController extends Controller
      */
     private function countNewByKelas(string $startStr, string $endStr, array $accessibleCabangIds, ?int $cabangId): array
     {
-        // Subquery: pelanggan_id whose first visit falls within the period
-        // Menggunakan whereIn + havingRaw agar aman di MySQL ONLY_FULL_GROUP_BY (strict mode)
         $firstVisitInPeriod = DB::table('kunjungans')
             ->selectRaw('pelanggan_id')
             ->groupBy('pelanggan_id')
@@ -295,8 +293,8 @@ class PertumbuhanKelasController extends Controller
         $q = DB::table('pelanggans as p')
             ->whereNull('p.deleted_at')
             ->whereIn('p.id', $firstVisitInPeriod)
-            ->selectRaw('COALESCE(NULLIF(p.class,""), "Umum") as kelas, COUNT(DISTINCT p.id) as jumlah')
-            ->groupByRaw('COALESCE(NULLIF(p.class,""), "Umum")');
+            ->selectRaw('p.class as kelas, COUNT(DISTINCT p.id) as jumlah')
+            ->groupBy('p.class');
 
         if ($cabangId) {
             $q->where('p.cabang_id', $cabangId);
@@ -304,26 +302,39 @@ class PertumbuhanKelasController extends Controller
             $q->whereIn('p.cabang_id', $accessibleCabangIds);
         }
 
-        return $q->pluck('jumlah', 'kelas')->toArray();
+        return $this->normalizeKelasResult($q->get());
+    }
+
+    /**
+     * Normalisasi hasil query GROUP BY p.class:
+     * map null/empty string ke 'Umum', merge jika ada duplikat.
+     */
+    private function normalizeKelasResult($rows): array
+    {
+        $result = [];
+        foreach ($rows as $row) {
+            $kelas = ($row->kelas === null || $row->kelas === '') ? 'Umum' : $row->kelas;
+            $result[$kelas] = ($result[$kelas] ?? 0) + (int) $row->jumlah;
+        }
+        return $result;
     }
 
     private function buildSummaryData(string $startStr, string $endStr, array $accessibleCabangIds, ?int $cabangId): array
     {
-        // Jumlah pelanggan aktif per kelas di periode ini
         $perKelas = $this->countByKelas($startStr, $endStr, $accessibleCabangIds, $cabangId);
 
-        // Total pelanggan keseluruhan per kelas (semua waktu)
         $q = DB::table('pelanggans as p')
             ->whereNull('p.deleted_at')
-            ->selectRaw('COALESCE(NULLIF(p.class,""), "Umum") as kelas, COUNT(DISTINCT p.id) as jumlah')
-            ->groupByRaw('COALESCE(NULLIF(p.class,""), "Umum")');
+            ->selectRaw('p.class as kelas, COUNT(DISTINCT p.id) as jumlah')
+            ->groupBy('p.class');
 
         if ($cabangId) {
             $q->where('p.cabang_id', $cabangId);
         } elseif (!empty($accessibleCabangIds)) {
             $q->whereIn('p.cabang_id', $accessibleCabangIds);
         }
-        $totalPerKelas = $q->pluck('jumlah', 'kelas')->toArray();
+
+        $totalPerKelas = $this->normalizeKelasResult($q->get());
         $grandTotal    = array_sum($totalPerKelas);
 
         $result = [];
