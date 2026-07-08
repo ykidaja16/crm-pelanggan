@@ -446,25 +446,29 @@ document.addEventListener('DOMContentLoaded', () => {
             });
         });
 
-        // ── Insight bullet
-        const actWord = st.diff > 0 ? 'naik' : (st.diff < 0 ? 'turun' : 'stabil');
-        const change  = st.diff !== 0
-            ? `${Math.abs(st.diff)} (${sign}${st.pct}%)`
-            : 'tidak berubah';
+        // ── Insight bullet — gunakan data summaryRaw (aktif & total dari controller)
+        const aktif = item.aktif ?? 0;
+        const total = item.total ?? 0;
+        const aktifPct = total > 0 ? ((aktif / total) * 100).toFixed(1) : 0;
         insights.push({
             color: col,
-            html: `<strong>${item.kelas}</strong> ${actWord} <strong>${change}</strong> pelanggan aktif dibanding bulan lalu.`
+            html: `<strong>${item.kelas}</strong>: <strong>${fmt(total)}</strong> pelanggan terdaftar, <strong>${fmt(aktif)}</strong> aktif periode ini (${aktifPct}% dari kelas ini).`
         });
     });
 
-    // Dominant class overall insight
-    const dom = summaryRaw.length > 0 ? summaryRaw[0] : null;
+    // Dominant class overall insight (kelas dengan % terbesar dari total)
+    const dom = summaryRaw.length > 0
+        ? summaryRaw.reduce((a, b) => parseFloat(a.pct) >= parseFloat(b.pct) ? a : b, summaryRaw[0])
+        : null;
     if (dom) {
-        insights.push({ color:'#3B82F6', html:`<strong>${dom.kelas}</strong> mendominasi dengan <strong>${dom.pct}%</strong> (${fmt(dom.total)}) dari total pelanggan.` });
+        insights.push({ color:'#3B82F6', html:`<strong>${dom.kelas}</strong> mendominasi dengan <strong>${dom.pct}%</strong> (${fmt(dom.total)}) dari total seluruh pelanggan terdaftar.` });
     }
-    // Total aktif insight
-    const totalWord = grandDiff > 0 ? 'bertambah' : (grandDiff < 0 ? 'berkurang' : 'tidak berubah');
-    insights.push({ color:'#15803d', html:`Total pelanggan aktif <strong>${totalWord} ${fmt(Math.abs(grandDiff))} (${grandDiff>=0?'+':''}${grandPct.toFixed(1)}%)</strong> dibanding periode lalu.` });
+
+    // Total keseluruhan insight
+    const grandTotalReg  = summaryRaw.reduce((s, d) => s + (d.total ?? 0), 0);
+    const grandTotalAktif = summaryRaw.reduce((s, d) => s + (d.aktif ?? 0), 0);
+    const grandAktifPct  = grandTotalReg > 0 ? ((grandTotalAktif / grandTotalReg) * 100).toFixed(1) : 0;
+    insights.push({ color:'#15803d', html:`Total <strong>${fmt(grandTotalReg)}</strong> pelanggan terdaftar, <strong>${fmt(grandTotalAktif)}</strong> aktif periode ini (<strong>${grandAktifPct}%</strong>).` });
 
     document.getElementById('insight-list').innerHTML = insights.map(i =>
         `<li class="d-flex align-items-start gap-2 mb-2 small text-dark">
