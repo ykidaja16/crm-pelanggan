@@ -288,13 +288,12 @@
                 <thead class="table-light">
                     <tr>
                         <th class="ps-3">Kelas</th>
-                        <th class="text-center">Total Pelanggan<br><small class="fw-normal text-muted">(Periode Ini)</small></th>
-                        <th class="text-center">Bulan Lalu</th>
-                        <th class="text-center">Perubahan</th>
-                        <th class="text-center">% Perubahan</th>
-                        <th class="text-center">Aktif Periode Ini</th>
+                        <th class="text-center">Total Terdaftar<br><small class="fw-normal text-muted">(Semua Waktu)</small></th>
                         <th class="text-center">% dari Total</th>
-                        <th class="text-center" style="min-width:110px;">Trend 12 Bulan</th>
+                        <th class="text-center">Penambahan Baru<br><small class="fw-normal text-muted">(Periode Ini)</small></th>
+                        <th class="text-center">Bulan Terbaik<br><small class="fw-normal text-muted">(Tertinggi)</small></th>
+                        <th class="text-center">Rata-rata<br><small class="fw-normal text-muted">/Bulan</small></th>
+                        <th class="text-center" style="min-width:110px;">Trend Periode</th>
                         <th class="text-center pe-3">Aksi</th>
                     </tr>
                 </thead>
@@ -306,11 +305,10 @@
                             <span class="badge rounded-pill px-3 py-2 kelas-bg-{{ $kelasSlug }}" style="font-size:.8rem;">{{ $item['kelas'] }}</span>
                         </td>
                         <td class="text-center fw-bold">{{ number_format($item['total'],0,',','.') }}</td>
-                        <td class="text-center text-muted" id="tbl-prev-{{ Str::slug($item['kelas']) }}">—</td>
-                        <td class="text-center fw-semibold"  id="tbl-diff-{{ Str::slug($item['kelas']) }}">—</td>
-                        <td class="text-center fw-semibold"  id="tbl-pct-{{ Str::slug($item['kelas']) }}">—</td>
-                        <td class="text-center">{{ number_format($item['aktif'],0,',','.') }}</td>
                         <td class="text-center">{{ $item['pct'] }}%</td>
+                        <td class="text-center fw-semibold" id="tbl-baru-{{ Str::slug($item['kelas']) }}">—</td>
+                        <td class="text-center small"        id="tbl-peak-{{ Str::slug($item['kelas']) }}">—</td>
+                        <td class="text-center text-muted"   id="tbl-avg-{{ Str::slug($item['kelas']) }}">—</td>
                         <td class="text-center p-1">
                             <canvas id="spark-{{ Str::slug($item['kelas']) }}" width="100" height="32"></canvas>
                         </td>
@@ -411,20 +409,36 @@ document.addEventListener('DOMContentLoaded', () => {
         const cardEl = document.getElementById('klass-diff-' + slug);
         if (cardEl) cardEl.innerHTML = diffHtml(st.diff, st.pct, 'vs bulan lalu');
 
-        // ── Table cells
-        const elPrev = document.getElementById('tbl-prev-' + slug);
-        const elDiff = document.getElementById('tbl-diff-' + slug);
-        const elPct  = document.getElementById('tbl-pct-'  + slug);
+        // ── Table cells — data penambahan baru dari chartRaw
+        const slug2 = item.kelas.toLowerCase().replace(/\s+/g, '-');
+        const elBaru = document.getElementById('tbl-baru-' + slug2);
+        const elPeak = document.getElementById('tbl-peak-' + slug2);
+        const elAvg  = document.getElementById('tbl-avg-'  + slug2);
 
-        if (elPrev) elPrev.textContent = fmt(st.prev);
-        if (elDiff) {
-            const arrow = st.diff > 0 ? '↑' : (st.diff < 0 ? '↓' : '→');
-            const cls   = st.diff > 0 ? 'text-success-d' : (st.diff < 0 ? 'text-danger-d' : 'text-muted');
-            elDiff.innerHTML = `<span class="${cls}">${arrow} ${fmt(Math.abs(st.diff))}</span>`;
+        // Total penambahan baru seluruh periode (sum semua titik trend)
+        const totalBaru = st.trend.reduce((s, v) => s + (v || 0), 0);
+
+        // Bulan terbaik (nilai tertinggi + labelnya)
+        let peakVal = 0, peakLabel = '-';
+        st.trend.forEach((v, i) => {
+            if ((v || 0) > peakVal) { peakVal = v; peakLabel = chartRaw.labels[i] || '-'; }
+        });
+
+        // Rata-rata per bulan (hanya bulan yg ada datanya)
+        const activePeriods = st.trend.filter(v => (v || 0) > 0).length;
+        const avg = activePeriods > 0 ? (totalBaru / activePeriods).toFixed(1) : 0;
+
+        if (elBaru) {
+            const cls = totalBaru > 0 ? 'text-success-d' : 'text-muted';
+            elBaru.innerHTML = `<span class="${cls}">${totalBaru > 0 ? '+' : ''}${fmt(totalBaru)}</span>`;
         }
-        if (elPct) {
-            const cls = st.diff > 0 ? 'text-success-d' : (st.diff < 0 ? 'text-danger-d' : 'text-muted');
-            elPct.innerHTML = `<span class="${cls}">${sign}${st.pct}%</span>`;
+        if (elPeak) {
+            elPeak.innerHTML = peakVal > 0
+                ? `<span class="fw-semibold">${fmt(peakVal)}</span><br><span class="text-muted" style="font-size:.75rem;">${peakLabel}</span>`
+                : `<span class="text-muted">—</span>`;
+        }
+        if (elAvg) {
+            elAvg.textContent = avg > 0 ? avg + '/bln' : '—';
         }
 
         // ── Sparkline (render after layout paint)
@@ -447,7 +461,6 @@ document.addEventListener('DOMContentLoaded', () => {
         });
 
         // ── Insight bullet — gunakan total penambahan baru dari grafik (konsisten dgn judul dashboard)
-        const totalBaru = st.trend.reduce((s, v) => s + (v || 0), 0);
         const totalTerdaftar = item.total ?? 0;
         insights.push({
             color: col,
