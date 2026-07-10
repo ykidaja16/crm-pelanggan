@@ -41,7 +41,7 @@ class PertumbuhanKelasDetailExport implements FromQuery, WithMapping, WithHeadin
             $p->dob ? Carbon::parse($p->dob)->format('d-m-Y') : '-',
             $p->alamat ?? '-',
             (int) $p->total_kedatangan,
-            $p->tgl_kunjungan_terakhir ? Carbon::parse($p->tgl_kunjungan_terakhir)->format('d-m-Y') : '-',
+            $p->latestKunjungan?->tanggal_kunjungan ? Carbon::parse($p->latestKunjungan->tanggal_kunjungan)->format('d-m-Y') : '-',
             (float) $p->total_biaya,
             $p->class ?? '-',
         ];

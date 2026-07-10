@@ -79,7 +79,7 @@ class PertumbuhanKelasController extends Controller
         // Resolve tanggal dari semua jenis filter (monthly/5year/range)
         [$startStr, $endStr] = $this->buildPeriod($filterType, $year, $month, $dateFrom, $dateTo);
 
-        $query = Pelanggan::with('cabang')
+        $query = Pelanggan::with(['cabang', 'latestKunjungan'])
             ->whereNull('deleted_at')
             ->when($kelas && $kelas !== 'all', fn($q) => $q->where('class', $kelas))
             ->when($startStr, fn($q) => $q->whereHas('kunjungans', fn($kq) => $kq->where('tanggal_kunjungan', '>=', $startStr)))
@@ -146,7 +146,7 @@ class PertumbuhanKelasController extends Controller
         // Resolve tanggal dari semua jenis filter
         [$startStr, $endStr] = $this->buildPeriod($filterType, $year, $month, $dateFrom, $dateTo);
 
-        $query = Pelanggan::with('cabang')
+        $query = Pelanggan::with(['cabang', 'latestKunjungan'])
             ->whereNull('deleted_at')
             ->when($kelas && $kelas !== 'all', fn($q) => $q->where('class', $kelas))
             ->when($startStr, fn($q) => $q->whereHas('kunjungans', fn($kq) => $kq->where('tanggal_kunjungan', '>=', $startStr)))

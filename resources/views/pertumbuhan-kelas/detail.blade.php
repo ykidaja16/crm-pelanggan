@@ -71,10 +71,24 @@
                         </td>
                         <td>{{ $p->nama }}</td>
                         <td class="text-muted small">{{ $p->cabang?->nama ?? '-' }}</td>
-                        <td class="text-muted small">{{ $p->no_telp ?? '-' }}</td>
+                        <td class="text-muted small">
+                            @if($p->no_telp)
+                                @php
+                                    $waNum = $p->no_telp;
+                                    if (str_starts_with($waNum, '0')) { $waNum = '62' . substr($waNum, 1); }
+                                @endphp
+                                <a href="https://api.whatsapp.com/send/?phone={{ $waNum }}&text&type=phone_number&app_absent=0" target="_blank" class="text-decoration-none" title="Chat WhatsApp">
+                                    <i class="fab fa-whatsapp text-success me-1"></i>{{ $p->no_telp }}
+                                </a>
+                            @else
+                                -
+                            @endif
+                        </td>
                         <td class="text-center fw-semibold">{{ number_format($p->total_kedatangan) }}</td>
                         <td class="text-center text-muted small">
-                            {{ $p->tgl_kunjungan_terakhir ? \Carbon\Carbon::parse($p->tgl_kunjungan_terakhir)->format('d-m-Y') : '-' }}
+                            {{ $p->latestKunjungan?->tanggal_kunjungan
+                                ? \Carbon\Carbon::parse($p->latestKunjungan->tanggal_kunjungan)->format('d-m-Y')
+                                : '-' }}
                         </td>
                         <td class="text-end text-muted small">
                             {{ number_format($p->total_biaya, 0, ',', '.') }}
