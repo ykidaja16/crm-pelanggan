@@ -398,12 +398,15 @@ document.addEventListener('DOMContentLoaded', () => {
     const kpiBaruSub = document.getElementById('kpi-baru-sub');
     if (kpiBaruEl) kpiBaruEl.textContent = '+' + fmt(grandBaruTotal);
     if (kpiBaruSub) {
-        const momDiffHtml = grandDiff === 0
-            ? `<span class="neutral">Stabil vs periode sebelumnya</span>`
-            : grandDiff > 0
-                ? `<span class="arrow-up">↑ ${fmt(grandDiff)} lebih banyak</span> <span class="text-muted fw-normal">vs ${lastLabel || 'periode sebelumnya'}</span>`
-                : `<span class="arrow-dn">↓ ${fmt(Math.abs(grandDiff))} lebih sedikit</span> <span class="text-muted fw-normal">di ${lastLabel || 'periode sebelumnya'}</span>`;
-        kpiBaruSub.innerHTML = momDiffHtml;
+        const nowLabel  = chartRaw.labels[nowIdx]  || '';
+        const prevLabel = prevIdx !== null ? (chartRaw.labels[prevIdx] || '') : '';
+        if (grandDiff === 0) {
+            kpiBaruSub.innerHTML = `<span class="neutral">Penambahan baru di <strong>${nowLabel}</strong> sama dengan <strong>${prevLabel}</strong></span>`;
+        } else if (grandDiff > 0) {
+            kpiBaruSub.innerHTML = `<span class="arrow-up">↑ +${fmt(grandDiff)} penambahan baru lebih banyak</span> <span class="text-muted fw-normal">di <strong>${nowLabel}</strong> vs <strong>${prevLabel}</strong></span>`;
+        } else {
+            kpiBaruSub.innerHTML = `<span class="arrow-dn">↓ ${fmt(Math.abs(grandDiff))} penambahan baru lebih sedikit</span> <span class="text-muted fw-normal">di <strong>${nowLabel}</strong> vs <strong>${prevLabel}</strong></span>`;
+        }
     }
 
     // Progress bar width (set via JS to avoid Blade expression in style="")
