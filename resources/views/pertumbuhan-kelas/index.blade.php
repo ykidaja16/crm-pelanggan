@@ -289,7 +289,7 @@
                     <tr>
                         <th class="ps-3">Kelas</th>
                         <th class="text-center">Total Terdaftar<br><small class="fw-normal text-muted">(Semua Waktu)</small></th>
-                        <th class="text-center">% dari Total</th>
+                        <th class="text-center">% dari Total Semua Pelanggan</th>
                         <th class="text-center">Penambahan Baru<br><small class="fw-normal text-muted">(Periode Ini)</small></th>
                         <th class="text-center">Bulan Terbaik<br><small class="fw-normal text-muted">(Tertinggi)</small></th>
                         <th class="text-center">Rata-rata<br><small class="fw-normal text-muted">/Bulan</small></th>
