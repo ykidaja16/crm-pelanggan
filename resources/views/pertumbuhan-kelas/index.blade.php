@@ -136,10 +136,10 @@
             <div class="card-body p-3">
                 <div class="d-flex align-items-center gap-2 mb-2">
                     <div class="pk-icon" style="background:#e0e7ff;color:#4338ca;"><i class="fas fa-users"></i></div>
-                    <span class="small fw-semibold text-muted">Total Pelanggan</span>
+                    <span class="small fw-semibold text-muted">Total Terdaftar</span>
                 </div>
                 <div class="fs-3 fw-bold" style="color:#1e293b;">{{ number_format($grandTotal,0,',','.') }}</div>
-                <div class="pk-diff-line" id="kpi-total-diff"><span class="neutral">— Menghitung...</span></div>
+                <div class="pk-diff-line"><span class="neutral">Semua kelas, semua waktu</span></div>
             </div>
         </div>
     </div>
@@ -147,11 +147,11 @@
         <div class="card pk-kpi-main h-100 border-0 shadow-sm">
             <div class="card-body p-3">
                 <div class="d-flex align-items-center gap-2 mb-2">
-                    <div class="pk-icon" style="background:#dcfce7;color:#15803d;"><i class="fas fa-chart-line"></i></div>
-                    <span class="small fw-semibold text-muted">Pertumbuhan (MoM)</span>
+                    <div class="pk-icon" style="background:#dcfce7;color:#15803d;"><i class="fas fa-user-plus"></i></div>
+                    <span class="small fw-semibold text-muted">Penambahan Baru</span>
                 </div>
-                <div class="fs-3 fw-bold" id="kpi-pct" style="color:#1e293b;">—</div>
-                <div class="pk-diff-line" id="kpi-pct-sub"><span class="neutral">— vs periode lalu</span></div>
+                <div class="fs-3 fw-bold text-success-d" id="kpi-baru-val">—</div>
+                <div class="pk-diff-line" id="kpi-baru-sub"><span class="neutral">— Selama periode ini</span></div>
             </div>
         </div>
     </div>
@@ -160,10 +160,10 @@
             <div class="card-body p-3">
                 <div class="d-flex align-items-center gap-2 mb-2">
                     <div class="pk-icon" style="background:#cffafe;color:#0369a1;"><i class="fas fa-user-check"></i></div>
-                    <span class="small fw-semibold text-muted">Aktif Bulan Ini</span>
+                    <span class="small fw-semibold text-muted">Aktif Periode Ini</span>
                 </div>
                 <div class="fs-3 fw-bold" style="color:#1e293b;">{{ number_format($grandAktif,0,',','.') }}</div>
-                <div class="pk-diff-line" id="kpi-aktif-diff"><span class="neutral">— vs periode lalu</span></div>
+                <div class="pk-diff-line"><span class="neutral">Punya kunjungan di {{ $periodLabel }}</span></div>
             </div>
         </div>
     </div>
@@ -346,13 +346,16 @@ const summaryRaw = JSON.parse(document.getElementById('summary-data').textConten
 
 const COLOR = { Prioritas:'#8B5CF6', Loyal:'#3B82F6', Potensial:'#F59E0B', Umum:'#6B7280' };
 
-// ── Determine current period index ───────────────────────────────
+// ── Determine current period index (last non-zero data point) ────
 const filterType   = "{{ $filterType }}";
-const selMonth     = parseInt("{{ $month }}", 10); // 1-12
 
-// For monthly: chart has 12 points (Jan=0 … Dec=11)
-// For yearly/range: use last index
-let nowIdx  = filterType === 'monthly' ? selMonth - 1 : chartRaw.labels.length - 1;
+// Cari index terakhir yang ada datanya (bulan terakhir dengan penambahan baru)
+let nowIdx = -1;
+for (let i = chartRaw.labels.length - 1; i >= 0; i--) {
+    const hasData = chartRaw.datasets.some(ds => (ds.data[i] || 0) > 0);
+    if (hasData) { nowIdx = i; break; }
+}
+if (nowIdx < 0) nowIdx = chartRaw.labels.length - 1; // fallback: index terakhir
 let prevIdx = nowIdx > 0 ? nowIdx - 1 : null;
 
 // ── Build per-class stats ─────────────────────────────────────────
@@ -372,6 +375,10 @@ chartRaw.datasets.forEach(ds => {
 const grandDiff = totalNow - totalPrev;
 const grandPct  = totalPrev > 0 ? (grandDiff / totalPrev * 100) : (totalNow > 0 ? 100 : 0);
 
+// Total penambahan baru seluruh periode (sum semua titik semua dataset)
+const grandBaruTotal = chartRaw.datasets.reduce((s, ds) => s + ds.data.reduce((a, v) => a + (v || 0), 0), 0);
+const lastLabel = chartRaw.labels[nowIdx] || '';
+
 // ── Helpers ───────────────────────────────────────────────────────
 const fmt = n => n.toLocaleString('id-ID');
 
@@ -385,10 +392,19 @@ function diffHtml(diff, pct, label='vs periode lalu') {
 document.addEventListener('DOMContentLoaded', () => {
 
     // Top KPI cards
-    document.getElementById('kpi-total-diff').innerHTML  = diffHtml(grandDiff, grandPct.toFixed(1));
-    document.getElementById('kpi-pct').innerHTML         = `<span class="${grandDiff>=0?'text-success-d':'text-danger-d'}">${grandDiff>=0?'+':''}${grandPct.toFixed(1)}%</span>`;
-    document.getElementById('kpi-pct-sub').innerHTML     = diffHtml(grandDiff, grandPct.toFixed(1));
-    document.getElementById('kpi-aktif-diff').innerHTML  = diffHtml(grandDiff, grandPct.toFixed(1));
+    // KPI-1: Total Terdaftar — sudah statis dari PHP, tidak perlu JS
+    // KPI-2: Penambahan Baru Periode Ini — sum seluruh chart
+    const kpiBaruEl = document.getElementById('kpi-baru-val');
+    const kpiBaruSub = document.getElementById('kpi-baru-sub');
+    if (kpiBaruEl) kpiBaruEl.textContent = '+' + fmt(grandBaruTotal);
+    if (kpiBaruSub) {
+        const momDiffHtml = grandDiff === 0
+            ? `<span class="neutral">Stabil vs periode sebelumnya</span>`
+            : grandDiff > 0
+                ? `<span class="arrow-up">↑ ${fmt(grandDiff)} lebih banyak</span> <span class="text-muted fw-normal">vs ${lastLabel || 'periode sebelumnya'}</span>`
+                : `<span class="arrow-dn">↓ ${fmt(Math.abs(grandDiff))} lebih sedikit</span> <span class="text-muted fw-normal">di ${lastLabel || 'periode sebelumnya'}</span>`;
+        kpiBaruSub.innerHTML = momDiffHtml;
+    }
 
     // Progress bar width (set via JS to avoid Blade expression in style="")
     const pkBar = document.getElementById('pk-premium-bar');
