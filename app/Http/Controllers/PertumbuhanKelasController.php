@@ -64,20 +64,26 @@ class PertumbuhanKelasController extends Controller
         $user                = Auth::user();
         $accessibleCabangIds = $user->getAccessibleCabangIds();
 
-        $kelas    = $request->kelas;
-        $dateFrom = $request->date_from ?? null;
-        $dateTo   = $request->date_to   ?? null;
-        $cabangId = $request->cabang_id  ? (int) $request->cabang_id : null;
+        $kelas      = $request->kelas;
+        $filterType = $request->filter_type ?? 'monthly';
+        $year       = (int) ($request->year  ?? date('Y'));
+        $month      = (int) ($request->month ?? date('m'));
+        $dateFrom   = $request->date_from ?? null;
+        $dateTo     = $request->date_to   ?? null;
+        $cabangId   = $request->cabang_id  ? (int) $request->cabang_id : null;
 
         if ($cabangId && !empty($accessibleCabangIds) && !in_array($cabangId, $accessibleCabangIds)) {
             $cabangId = null;
         }
 
+        // Resolve tanggal dari semua jenis filter (monthly/5year/range)
+        [$startStr, $endStr] = $this->buildPeriod($filterType, $year, $month, $dateFrom, $dateTo);
+
         $query = Pelanggan::with('cabang')
             ->whereNull('deleted_at')
             ->when($kelas && $kelas !== 'all', fn($q) => $q->where('class', $kelas))
-            ->when($dateFrom, fn($q) => $q->whereHas('kunjungans', fn($kq) => $kq->where('tanggal_kunjungan', '>=', $dateFrom)))
-            ->when($dateTo,   fn($q) => $q->whereHas('kunjungans', fn($kq) => $kq->where('tanggal_kunjungan', '<=', $dateTo)))
+            ->when($startStr, fn($q) => $q->whereHas('kunjungans', fn($kq) => $kq->where('tanggal_kunjungan', '>=', $startStr)))
+            ->when($endStr,   fn($q) => $q->whereHas('kunjungans', fn($kq) => $kq->where('tanggal_kunjungan', '<=', $endStr)))
             ->when($cabangId, fn($q) => $q->where('cabang_id', $cabangId))
             ->when(!$cabangId && !empty($accessibleCabangIds), fn($q) => $q->whereIn('cabang_id', $accessibleCabangIds))
             ->orderByRaw("FIELD(class, 'Prioritas','Loyal','Potensial','Umum')")
@@ -90,8 +96,8 @@ class PertumbuhanKelasController extends Controller
         $pelangganList = $query->paginate(25)->withQueryString();
 
         return view('pertumbuhan-kelas.detail', compact(
-            'pelangganList', 'kelas', 'dateFrom', 'dateTo', 'cabangId'
-        ));
+            'pelangganList', 'kelas', 'cabangId'
+        ) + ['dateFrom' => $startStr, 'dateTo' => $endStr]);
     }
 
     public function exportRingkasan(Request $request)
@@ -125,20 +131,26 @@ class PertumbuhanKelasController extends Controller
         $user                = Auth::user();
         $accessibleCabangIds = $user->getAccessibleCabangIds();
 
-        $kelas    = $request->kelas;
-        $dateFrom = $request->date_from ?? null;
-        $dateTo   = $request->date_to   ?? null;
-        $cabangId = $request->cabang_id  ? (int) $request->cabang_id : null;
+        $kelas      = $request->kelas;
+        $filterType = $request->filter_type ?? 'monthly';
+        $year       = (int) ($request->year  ?? date('Y'));
+        $month      = (int) ($request->month ?? date('m'));
+        $dateFrom   = $request->date_from ?? null;
+        $dateTo     = $request->date_to   ?? null;
+        $cabangId   = $request->cabang_id  ? (int) $request->cabang_id : null;
 
         if ($cabangId && !empty($accessibleCabangIds) && !in_array($cabangId, $accessibleCabangIds)) {
             $cabangId = null;
         }
 
+        // Resolve tanggal dari semua jenis filter
+        [$startStr, $endStr] = $this->buildPeriod($filterType, $year, $month, $dateFrom, $dateTo);
+
         $query = Pelanggan::with('cabang')
             ->whereNull('deleted_at')
             ->when($kelas && $kelas !== 'all', fn($q) => $q->where('class', $kelas))
-            ->when($dateFrom, fn($q) => $q->whereHas('kunjungans', fn($kq) => $kq->where('tanggal_kunjungan', '>=', $dateFrom)))
-            ->when($dateTo,   fn($q) => $q->whereHas('kunjungans', fn($kq) => $kq->where('tanggal_kunjungan', '<=', $dateTo)))
+            ->when($startStr, fn($q) => $q->whereHas('kunjungans', fn($kq) => $kq->where('tanggal_kunjungan', '>=', $startStr)))
+            ->when($endStr,   fn($q) => $q->whereHas('kunjungans', fn($kq) => $kq->where('tanggal_kunjungan', '<=', $endStr)))
             ->when($cabangId, fn($q) => $q->where('cabang_id', $cabangId))
             ->when(!$cabangId && !empty($accessibleCabangIds), fn($q) => $q->whereIn('cabang_id', $accessibleCabangIds))
             ->orderByRaw("FIELD(class, 'Prioritas','Loyal','Potensial','Umum')")
