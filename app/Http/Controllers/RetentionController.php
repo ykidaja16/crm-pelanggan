@@ -383,7 +383,7 @@ class RetentionController extends Controller
                     'priority' => $jumlahLost > 50 ? 'high' : 'medium',
                     'icon'     => 'envelope-open-text',
                     'title'    => 'Kampanye Re-engagement',
-                    'desc'     => "Terdapat {$jumlahLost} pelanggan lost dan {$jumlahAtRisk} pelanggan at-risk. Kirim pesan personal via WhatsApp/SMS berisi penawaran \"Kami Kangen Anda\" dengan voucher kembali atau reminder layanan terbaru. Segmentasi berdasarkan terakhir kunjungan untuk pesan yang lebih relevan.",
+                    'desc'     => "Terdapat {$jumlahLost} pelanggan lost dan {$jumlahAtRisk} pelanggan at-risk. Kirim pesan personal via WhatsApp/SMS berisi penawaran dengan voucher kembali atau reminder layanan terbaru. Segmentasi berdasarkan terakhir kunjungan untuk pesan yang lebih relevan.",
                 ];
             }
 
