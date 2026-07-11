@@ -335,11 +335,17 @@ class RetentionController extends Controller
         if ($isAdminOrAbove) {
             // Ambil data distribusi kelas
             $qKelas = DB::table('pelanggans as p')->whereNull('p.deleted_at')
-                ->selectRaw('COALESCE(NULLIF(p.class,""), "Umum") as kelas, COUNT(*) as jumlah')
-                ->groupBy(DB::raw('COALESCE(NULLIF(p.class,""), "Umum")'));
+                ->selectRaw('p.class as kelas, COUNT(*) as jumlah')
+                ->groupBy('p.class');
             if ($cabangId) $qKelas->where('p.cabang_id', $cabangId);
             elseif (!empty($accessibleCabangIds)) $qKelas->whereIn('p.cabang_id', $accessibleCabangIds);
-            $kelasDist = $qKelas->pluck('jumlah', 'kelas');
+            // Remap null/empty → 'Umum' di PHP (hindari COALESCE di GROUP BY yg ditolak MySQL strict mode)
+            $kelasDistRaw = $qKelas->pluck('jumlah', 'kelas');
+            $kelasDist = collect();
+            foreach ($kelasDistRaw as $k => $v) {
+                $normalized = ($k === null || $k === '') ? 'Umum' : $k;
+                $kelasDist[$normalized] = ($kelasDist[$normalized] ?? 0) + $v;
+            }
             $totalKelas = $kelasDist->sum() ?: 1;
 
             $pctUmum      = round(($kelasDist['Umum']      ?? 0) / $totalKelas * 100, 1);
