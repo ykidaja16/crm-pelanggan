@@ -401,13 +401,14 @@ class PelangganController extends Controller
             $tglSubquery = "SELECT MAX(tanggal_kunjungan) FROM kunjungans
                 WHERE kunjungans.pelanggan_id = pelanggans.id
                 AND tanggal_kunjungan BETWEEN '{$tanggal_mulai}' AND '{$tanggal_selesai}'";
-            // Fix: kumulatif semua kunjungan <= tanggal_selesai (seperti LaporanController)
             $biayaSubquery    = "SELECT COALESCE(SUM(biaya), 0) FROM kunjungans
                 WHERE kunjungans.pelanggan_id = pelanggans.id
                 AND DATE(tanggal_kunjungan) <= '{$tanggal_selesai}'";
+            // Fix: hitung kedatangan HANYA dalam range (bukan kumulatif),
+            // agar konsisten dengan filter kelas historis yang juga berbasis range.
             $kedatanganSubquery = "SELECT COALESCE(SUM(total_kedatangan), 0) FROM kunjungans
                 WHERE kunjungans.pelanggan_id = pelanggans.id
-                AND DATE(tanggal_kunjungan) <= '{$tanggal_selesai}'";
+                AND DATE(tanggal_kunjungan) BETWEEN '{$tanggal_mulai}' AND '{$tanggal_selesai}'";
             $endOfPeriod = $tanggal_selesai;
         } else {
             $tglSubquery        = "SELECT MAX(tanggal_kunjungan) FROM kunjungans
@@ -482,7 +483,7 @@ class PelangganController extends Controller
                     FROM pelanggan_class_histories pchl
                     WHERE pchl.pelanggan_id = pelanggans.id
                       AND pchl.changed_at <= '{$safeEndOfPeriod}'
-                    ORDER BY pchl.changed_at DESC, pchl.id DESC
+                    ORDER BY pchl.id DESC
                     LIMIT 1
                 )";
 
@@ -656,7 +657,7 @@ class PelangganController extends Controller
         if (!empty($endOfPeriod)) {
             $pelangganIds = $pelanggan->pluck('id');
             $allHistories = \App\Models\PelangganClassHistory::whereIn('pelanggan_id', $pelangganIds)
-                ->orderBy('changed_at', 'asc')
+                ->orderBy('id', 'asc')
                 ->get()
                 ->groupBy('pelanggan_id');
 

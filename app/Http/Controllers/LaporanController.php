@@ -224,14 +224,16 @@ class LaporanController extends Controller
                               WHERE kunjungans.pelanggan_id = pelanggans.id
                                 AND DATE(tanggal_kunjungan) <= '{$endOfPeriodStr}'";
         } elseif ($type === 'range' && $tanggalMulai && $tanggalSelesai) {
+            $safeMulai   = addslashes($tanggalMulai);
             $safeSelesai = addslashes($tanggalSelesai);
-            // Kumulatif sampai akhir range (tanggal_selesai), konsisten dengan perbulan/pertahun
             $biayaSub      = "SELECT COALESCE(SUM(biaya), 0) FROM kunjungans
                               WHERE kunjungans.pelanggan_id = pelanggans.id
                                 AND DATE(tanggal_kunjungan) <= '{$safeSelesai}'";
+            // Fix: hitung kedatangan HANYA dalam range (bukan kumulatif),
+            // agar konsisten dengan filter kelas historis yang juga berbasis range.
             $kedatanganSub = "SELECT COALESCE(SUM(total_kedatangan), 0) FROM kunjungans
                               WHERE kunjungans.pelanggan_id = pelanggans.id
-                                AND DATE(tanggal_kunjungan) <= '{$safeSelesai}'";
+                                AND DATE(tanggal_kunjungan) BETWEEN '{$safeMulai}' AND '{$safeSelesai}'";
         } else {
             $biayaSub      = null;
             $kedatanganSub = null;
@@ -298,7 +300,7 @@ class LaporanController extends Controller
                     FROM pelanggan_class_histories pchl
                     WHERE pchl.pelanggan_id = pelanggans.id
                       AND pchl.changed_at <= '{$endOfPeriod}'
-                    ORDER BY pchl.changed_at DESC, pchl.id DESC
+                    ORDER BY pchl.id DESC
                     LIMIT 1
                 )";
 
@@ -484,7 +486,7 @@ class LaporanController extends Controller
 
         // Ambil semua histories sekaligus (1 query)
         $allHistories = PelangganClassHistory::whereIn('pelanggan_id', $pelangganIds)
-            ->orderBy('changed_at', 'asc')
+            ->orderBy('id', 'asc')
             ->get()
             ->groupBy('pelanggan_id');
 
