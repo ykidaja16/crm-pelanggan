@@ -26,9 +26,10 @@ class LaporanController extends Controller
             ? Cabang::orderBy('nama')->get()
             : Cabang::whereIn('id', $accessibleCabangIds)->orderBy('nama')->get();
 
+        $isMultiCabang = $cabangs->count() > 1;
         $kelasList = Kelas::orderedNames();
 
-        return view('laporan.index', compact('cabangs', 'kelasList'));
+        return view('laporan.index', compact('cabangs', 'kelasList', 'isMultiCabang'));
     }
 
     /**

@@ -328,6 +328,8 @@ class PelangganController extends Controller
             ? Cabang::all()
             : Cabang::whereIn('id', $accessibleCabangIds)->get();
 
+        $isMultiCabang = $cabangs->count() > 1;
+
         // Tampilkan data kosong saat pertama kali masuk (belum klik filter)
         if (!$type && !$search && !$kelompokPelanggan && !$tipePelanggan
             && !$cabangId && !$kelas && !$omsetRange && !$kedatanganRange) {
@@ -348,6 +350,7 @@ class PelangganController extends Controller
                 'sort'               => $sort,
                 'direction'          => $direction,
                 'searchMode'         => false,
+                'isMultiCabang'      => $isMultiCabang,
             ]);
         }
 
@@ -699,8 +702,8 @@ class PelangganController extends Controller
             'kedatangan_range'   => $kedatanganRange,
             'kelas'              => $kelas,
             'kelompok_pelanggan' => $kelompokPelanggan,
-'tanggal_mulai'    => $tanggal_mulai,
-            'tanggal_selesai'   => $tanggal_selesai,
+            'tanggal_mulai'      => $tanggal_mulai,
+            'tanggal_selesai'    => $tanggal_selesai,
             'tipe_pelanggan'     => $tipePelanggan,
             'cabangs'            => $cabangs,
             'kelasList'          => Kelas::orderedNames(),
@@ -708,6 +711,7 @@ class PelangganController extends Controller
             'direction'          => $direction,
             'searchMode'         => (bool) $search,
             'usePeriodeBiaya'    => ($biayaSubquery !== null),
+            'isMultiCabang'      => $isMultiCabang,
         ]);
     }
 

@@ -76,9 +76,11 @@
                 <div class="col-md-3">
                     <label class="form-label fw-medium small">Cabang</label>
                     <select name="cabang_id" class="form-select">
-                        <option value="">Semua Cabang</option>
+                        @if($isMultiCabang ?? true)
+                            <option value="">Semua Cabang</option>
+                        @endif
                         @foreach($cabangs as $cabang)
-                            <option value="{{ $cabang->id }}">{{ $cabang->nama }}</option>
+                            <option value="{{ $cabang->id }}" {{ (request('cabang_id', $isMultiCabang ?? true ? '' : $cabang->id)) == $cabang->id ? 'selected' : '' }}>{{ $cabang->nama }}</option>
                         @endforeach
                     </select>
                 </div>

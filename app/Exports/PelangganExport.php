@@ -192,6 +192,8 @@ class PelangganExport implements FromCollection, WithHeadings, WithStyles, WithC
                         && $k->tanggal_kunjungan->year  == $this->tahun;
                 });
                 $p->tgl_kunjungan = $kunjunganFiltered->sortByDesc('tanggal_kunjungan')->first()?->tanggal_kunjungan->format('d-m-Y') ?? '-';
+                // Kedatangan dalam periode (untuk filter kedatangan_range)
+                $p->kedatangan_periode = (int) $kunjunganFiltered->sum('total_kedatangan');
                 return $kunjunganFiltered->isNotEmpty();
 
             } elseif ($this->type == 'pertahun') {
@@ -199,6 +201,7 @@ class PelangganExport implements FromCollection, WithHeadings, WithStyles, WithC
                     return $k->tanggal_kunjungan->year == $this->tahun;
                 });
                 $p->tgl_kunjungan = $kunjunganFiltered->sortByDesc('tanggal_kunjungan')->first()?->tanggal_kunjungan->format('d-m-Y') ?? '-';
+                $p->kedatangan_periode = (int) $kunjunganFiltered->sum('total_kedatangan');
                 return $kunjunganFiltered->isNotEmpty();
 
             } elseif ($this->type == 'range' && $this->tanggalMulai && $this->tanggalSelesai) {
@@ -209,11 +212,14 @@ class PelangganExport implements FromCollection, WithHeadings, WithStyles, WithC
                     return $tgl >= $mulai && $tgl <= $selesai;
                 });
                 $p->tgl_kunjungan = $kunjunganFiltered->sortByDesc('tanggal_kunjungan')->first()?->tanggal_kunjungan->format('d-m-Y') ?? '-';
+                // Kedatangan HANYA dalam range (bukan kumulatif), konsisten dengan controller
+                $p->kedatangan_periode = (int) $kunjunganFiltered->sum('total_kedatangan');
                 return $kunjunganFiltered->isNotEmpty();
 
             } else {
                 // type = 'semua' atau kosong → tampilkan semua
                 $p->tgl_kunjungan = $p->kunjungans->sortByDesc('tanggal_kunjungan')->first()?->tanggal_kunjungan->format('d-m-Y') ?? '-';
+                $p->kedatangan_periode = (int) $p->total_kedatangan;
                 return true;
             }
         });
@@ -282,17 +288,16 @@ class PelangganExport implements FromCollection, WithHeadings, WithStyles, WithC
             });
         }
 
-        // Apply kedatangan range filter (gunakan nilai range, bukan ALL-TIME)
+        // Apply kedatangan range filter — gunakan kedatangan_periode (dalam periode saja),
+        // bukan total_kedatangan_range (kumulatif), agar sinkron dengan controller
         if ($this->kedatanganRange !== null && $this->kedatanganRange !== '') {
             $pelanggan = $pelanggan->filter(function ($p) {
-                $kedatangan = $p->total_kedatangan_range;
+                $kedatangan = $p->kedatangan_periode;
                 switch ($this->kedatanganRange) {
-                    case '0':
-                        return $kedatangan <= 2;
                     case '1':
-                        return $kedatangan >= 3 && $kedatangan <= 4;
+                        return $kedatangan == 1;
                     case '2':
-                        return $kedatangan > 4;
+                        return $kedatangan > 1;
                     default:
                         return true;
                 }

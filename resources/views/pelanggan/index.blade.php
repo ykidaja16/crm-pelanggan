@@ -60,10 +60,16 @@
                         <!-- Row 1: Cabang, Kelas, Omset, Kedatangan -->
                         <div class="col-md-3">
                             <label class="form-label fw-medium small">Cabang</label>
+                            @php
+                                $selectedCabangId = $cabang_id ?? '';
+                                $autoSelectSingle = !($isMultiCabang ?? true);
+                            @endphp
                             <select name="cabang_id" class="form-select">
-                                <option value="">Semua Cabang</option>
+                                @if($isMultiCabang ?? true)
+                                    <option value="">Semua Cabang</option>
+                                @endif
                                 @foreach($cabangs as $cabang)
-                                    <option value="{{ $cabang->id }}" {{ ($cabang_id ?? '') == $cabang->id ? 'selected' : '' }}>
+                                    <option value="{{ $cabang->id }}" {{ ($selectedCabangId != '' ? $selectedCabangId == $cabang->id : $autoSelectSingle) ? 'selected' : '' }}>
                                         {{ $cabang->nama }}
                                     </option>
                                 @endforeach
@@ -106,13 +112,18 @@
                             <select name="type" id="typeSelect" class="form-select">
                                 <option value="semua" {{ ($type ?? 'semua') == 'semua' ? 'selected' : '' }}>Semua Data</option>
                                 <option value="perbulan" {{ ($type ?? '') == 'perbulan' ? 'selected' : '' }}>Per Bulan</option>
-<option value="pertahun" {{ ($type ?? '') == 'pertahun' ? 'selected' : '' }}>Per Tahun</option>
-<option value="range" {{ ($type ?? '') == 'range' ? 'selected' : '' }}>Range Tanggal</option>
-
+                                <option value="pertahun" {{ ($type ?? '') == 'pertahun' ? 'selected' : '' }}>Per Tahun</option>
+                                <option value="range" {{ ($type ?? '') == 'range' ? 'selected' : '' }}>Range Tanggal</option>
                             </select>
                         </div>
 
-                        <div class="col-md-3" id="bulanContainer" style="{{ !($type ?? '') || ($type ?? '') == 'pertahun' || ($type ?? '') == 'semua' ? 'display:none;' : '' }}">
+                        @php
+                            $typVal     = $type ?? '';
+                            $bulanHide  = (!$typVal || $typVal == 'pertahun' || $typVal == 'semua');
+                            $tahunHide  = (!$typVal || $typVal == 'semua');
+                        @endphp
+
+                        <div class="col-md-3" id="bulanContainer"@if($bulanHide) style="display:none;"@endif>
                             <label class="form-label fw-medium small">Bulan</label>
                             <select name="bulan" class="form-select">
                                 @for($i = 1; $i <= 12; $i++)
@@ -123,7 +134,7 @@
                             </select>
                         </div>
 
-                        <div class="col-md-3" id="tahunContainer" style="{{ !($type ?? '') || ($type ?? '') == 'semua' ? 'display:none;' : '' }}">
+                        <div class="col-md-3" id="tahunContainer"@if($tahunHide) style="display:none;"@endif>
                             <label class="form-label fw-medium small">Tahun</label>
                             <select name="tahun" class="form-select">
                                 @for($i = date('Y'); $i >= date('Y') - 8; $i--)
@@ -133,11 +144,12 @@
                         </div>
 
                         <!-- Range Tanggal -->
-                        <div class="col-md-3" id="rangeContainer" style="{{ ($type ?? '') != 'range' ? 'display:none;' : '' }}">
+                        @php $rangeHide = ($type ?? '') != 'range'; @endphp
+                        <div class="col-md-3" id="rangeContainer"@if($rangeHide) style="display:none;"@endif>
                             <label class="form-label fw-medium small">Tanggal Mulai</label>
                             <input type="date" name="tanggal_mulai" class="form-control" value="{{ request('tanggal_mulai') }}">
                         </div>
-                        <div class="col-md-3" id="rangeContainer2" style="{{ ($type ?? '') != 'range' ? 'display:none;' : '' }}">
+                        <div class="col-md-3" id="rangeContainer2"@if($rangeHide) style="display:none;"@endif>
                             <label class="form-label fw-medium small">Tanggal Selesai</label>
                             <input type="date" name="tanggal_selesai" class="form-control" value="{{ request('tanggal_selesai') }}">
                         </div>
