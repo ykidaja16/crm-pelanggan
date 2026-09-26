@@ -102,6 +102,25 @@
                         </div>
                     </div>
 
+                    <!-- Pemeriksaan -->
+                    <div class="col-md-6">
+                        <label for="pemeriksaan" class="form-label fw-semibold">
+                            <i class="fas fa-stethoscope me-1 text-primary"></i> Pemeriksaan <span class="text-muted small fw-normal">(Opsional)</span>
+                        </label>
+                        <input type="text"
+                               class="form-control form-control-lg @error('pemeriksaan') is-invalid @enderror"
+                               id="pemeriksaan"
+                               name="pemeriksaan"
+                               value="{{ old('pemeriksaan', $kunjungan->pemeriksaan) }}"
+                               placeholder="Contoh: Diabetes, Kolestrol, Urine Lengkap">
+                        @error('pemeriksaan')
+                            <div class="invalid-feedback">{{ $message }}</div>
+                        @enderror
+                        <div class="form-text text-muted">
+                            Detail jenis pemeriksaan pasien pada kunjungan ini.
+                        </div>
+                    </div>
+
                 </div>
 
                 <!-- Alasan Perubahan -->

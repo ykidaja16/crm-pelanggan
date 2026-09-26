@@ -77,8 +77,8 @@
                     <i class="fas fa-percentage fa-2x text-primary opacity-75"></i>
                 </div>
                 <h6 class="text-muted fw-semibold text-uppercase mb-1" style="font-size:.75rem; letter-spacing:.05em">Retention Rate</h6>
-                <div class="display-5 fw-bold {{ is_null($retentionRate) ? 'text-muted' : ($retentionRate >= 70 ? 'text-success' : ($retentionRate >= 40 ? 'text-warning' : 'text-danger')) }}">
-                    @if(is_null($retentionRate))
+                <div class="display-5 fw-bold {{ (!isset($retentionRate) || is_null($retentionRate)) ? 'text-muted' : ($retentionRate >= 70 ? 'text-success' : ($retentionRate >= 40 ? 'text-warning' : 'text-danger')) }}">
+                    @if(!isset($retentionRate) || is_null($retentionRate))
                         <span class="text-muted" style="font-size:1.5rem">Belum ada data</span>
                     @else
                         {{ $retentionRate }}%
@@ -140,7 +140,7 @@
     <strong>Formula:</strong>
     Retained Customer &divide; Total Pelanggan &times; 100%
     &nbsp;=&nbsp; {{ number_format($pelangganRetained) }} &divide; {{ $totalPelanggan > 0 ? number_format($totalPelanggan) : '?' }} &times; 100%
-    @if($totalPelanggan > 0)
+    @if($totalPelanggan > 0 && isset($retentionRate))
     &nbsp;=&nbsp; <strong>{{ $retentionRate }}%</strong>
     @endif
 </div>
@@ -192,11 +192,11 @@
             @foreach($marketingStrategies as $strat)
             @php $pc = $priorityConfig[$strat['priority']] ?? $priorityConfig['low']; @endphp
             <div class="col-12 col-md-6">
-                <div class="card h-100 border-{{ $pc['color'] }} border-opacity-50" style="border-left: 4px solid {{ $pc['border'] }} !important;">
+                <div class="card h-100 border-{{ $pc['color'] }} border-opacity-50 border-start border-4">
                     <div class="card-body py-3 px-3">
                         <div class="d-flex align-items-start gap-3">
-                            <div class="rounded-circle d-flex align-items-center justify-content-center flex-shrink-0"
-                                 style="width:38px; height:38px; background:{{ $pc['border'] }}22;">
+                            <div class="rounded-circle d-flex align-items-center justify-content-center flex-shrink-0 bg-{{ $pc['color'] }} bg-opacity-10"
+                                 style="width:38px; height:38px;">
                                 <i class="fas fa-{{ $strat['icon'] }} text-{{ $pc['color'] }}"></i>
                             </div>
                             <div class="flex-grow-1">
@@ -585,10 +585,10 @@
         @endphp
         <p class="small text-muted mb-1 fw-semibold">Komposisi Revenue</p>
         <div class="progress" style="height:22px;border-radius:6px">
-            <div class="progress-bar bg-success" style="width:{{ $pctRetained }}%" title="Retained: {{ $pctRetained }}%">
+            <div class="progress-bar bg-success" role="progressbar" data-pct="{{ $pctRetained }}" title="Retained: {{ $pctRetained }}%">
                 <span class="small fw-semibold">Retained {{ $pctRetained }}%</span>
             </div>
-            <div class="progress-bar bg-info" style="width:{{ $pctBaru }}%" title="Baru: {{ $pctBaru }}%">
+            <div class="progress-bar bg-info" role="progressbar" data-pct="{{ $pctBaru }}" title="Baru: {{ $pctBaru }}%">
                 <span class="small fw-semibold">Baru {{ $pctBaru }}%</span>
             </div>
         </div>
@@ -640,7 +640,7 @@
                                     <div class="d-flex align-items-center gap-2">
                                         <div class="progress flex-grow-1" style="height:8px">
                                             <div class="progress-bar {{ $rk['rate'] >= 70 ? 'bg-success' : ($rk['rate'] >= 40 ? 'bg-warning' : 'bg-danger') }}"
-                                                 style="width:{{ $rk['rate'] }}%"></div>
+                                                 role="progressbar" data-pct="{{ $rk['rate'] }}"></div>
                                         </div>
                                         <span class="fw-semibold {{ $rk['rate'] >= 70 ? 'text-success' : ($rk['rate'] >= 40 ? 'text-warning' : 'text-danger') }}" style="min-width:42px">
                                             {{ $rk['rate'] }}%
@@ -760,6 +760,13 @@
 
 {{-- ============ C. COHORT ANALYSIS ============ --}}
 @if($isAdminOrAbove && $cohortData && count($cohortData['matrix']) > 0)
+<style>
+.cohort-c0   { background: #0d6efd !important; color: #ffffff !important; font-weight: 600; }
+.cohort-c60  { background: #198754 !important; color: #ffffff !important; font-weight: 600; }
+.cohort-c30  { background: #fd7e14 !important; color: #ffffff !important; font-weight: 600; }
+.cohort-c10  { background: #ffc107 !important; color: #ffffff !important; font-weight: 600; }
+.cohort-clow { background: #dee2e6 !important; color: #6c757d !important; font-weight: 600; }
+</style>
 <div class="card shadow-sm border-0 mb-4">
     <div class="card-header bg-white py-3">
         <h6 class="mb-0 fw-semibold"><i class="fas fa-th me-2 text-primary"></i>Cohort Analysis
@@ -790,10 +797,9 @@
                         @else
                         @php
                             $pct = $mData['pct'];
-                            $bg  = $mIdx === 0 ? '#0d6efd' : ($pct >= 60 ? '#198754' : ($pct >= 30 ? '#fd7e14' : ($pct >= 10 ? '#ffc107' : '#dee2e6')));
-                            $fg  = ($pct >= 10 || $mIdx === 0) ? '#fff' : '#6c757d';
+                            $cClass = $mIdx === 0 ? 'cohort-c0' : ($pct >= 60 ? 'cohort-c60' : ($pct >= 30 ? 'cohort-c30' : ($pct >= 10 ? 'cohort-c10' : 'cohort-clow')));
                         @endphp
-                        <td style="background:{{ $bg }};color:{{ $fg }};font-weight:600" title="{{ $mData['count'] }} pelanggan">
+                        <td class="{{ $cClass }}" title="{{ $mData['count'] }} pelanggan">
                             {{ $mIdx === 0 ? '100%' : $pct.'%' }}
                         </td>
                         @endif
@@ -815,12 +821,13 @@
 
 @section('scripts')
 <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
-<script>
-{{-- Chart Retention by Klasifikasi --}}
 @if($isAdminOrAbove && $retByKlasifikasi && count($retByKlasifikasi) > 0)
+<script id="retKlsLabels" type="application/json">{!! json_encode(collect($retByKlasifikasi)->pluck('kelas')) !!}</script>
+<script id="retKlsRates" type="application/json">{!! json_encode(collect($retByKlasifikasi)->pluck('rate')) !!}</script>
+<script>
 (function() {
-    const klsLabels = @json(collect($retByKlasifikasi)->pluck('kelas'));
-    const klsRates  = @json(collect($retByKlasifikasi)->pluck('rate'));
+    const klsLabels = JSON.parse(document.getElementById('retKlsLabels').textContent || '[]');
+    const klsRates  = JSON.parse(document.getElementById('retKlsRates').textContent || '[]');
     const klsColors = klsLabels.map(k => {
         if (k === 'Prioritas') return 'rgba(220,53,69,0.75)';
         if (k === 'Loyal')     return 'rgba(25,135,84,0.75)';
@@ -851,15 +858,20 @@
         }
     });
 })();
+</script>
 @endif
 
-{{-- Bar chart Analisis Cabang (Direktur only) --}}
 @if($isDirektur && $analisisCabang && count($analisisCabang) > 1)
+<script id="retCabangLabels" type="application/json">{!! json_encode(collect($analisisCabang)->pluck('nama')) !!}</script>
+<script id="retCabangRetention" type="application/json">{!! json_encode(collect($analisisCabang)->pluck('retRate')) !!}</script>
+<script id="retCabangBaru" type="application/json">{!! json_encode(collect($analisisCabang)->pluck('baru')) !!}</script>
+<script id="retCabangLost" type="application/json">{!! json_encode(collect($analisisCabang)->pluck('lost')) !!}</script>
+<script>
 (function() {
-    const cabangLabels  = @json(collect($analisisCabang)->pluck('nama'));
-    const retentionData = @json(collect($analisisCabang)->pluck('retRate'));
-    const baruData      = @json(collect($analisisCabang)->pluck('baru'));
-    const lostData      = @json(collect($analisisCabang)->pluck('lost'));
+    const cabangLabels  = JSON.parse(document.getElementById('retCabangLabels').textContent || '[]');
+    const retentionData = JSON.parse(document.getElementById('retCabangRetention').textContent || '[]');
+    const baruData      = JSON.parse(document.getElementById('retCabangBaru').textContent || '[]');
+    const lostData      = JSON.parse(document.getElementById('retCabangLost').textContent || '[]');
 
     function makeCabangChart(id, data, color, suffix) {
         return new Chart(document.getElementById(id).getContext('2d'), {
@@ -894,12 +906,17 @@
     makeCabangChart('chartCabangBaru',    baruData,                        'rgba(13,202,240,', '');
     makeCabangChart('chartCabangLost',    lostData,                        'rgba(220,53,69,',  '');
 })();
+</script>
 @endif
 
+<script id="retTrendLabels" type="application/json">{!! json_encode($trendLabels) !!}</script>
+<script id="retTrendPelanggan" type="application/json">{!! json_encode($trendPelanggan) !!}</script>
+<script id="retTrendKunjungan" type="application/json">{!! json_encode($trendKunjungan) !!}</script>
+<script>
 (function() {
-    const labels    = @json($trendLabels);
-    const pelanggan = @json($trendPelanggan);
-    const kunjungan = @json($trendKunjungan);
+    const labels    = JSON.parse(document.getElementById('retTrendLabels').textContent || '[]');
+    const pelanggan = JSON.parse(document.getElementById('retTrendPelanggan').textContent || '[]');
+    const kunjungan = JSON.parse(document.getElementById('retTrendKunjungan').textContent || '[]');
 
     new Chart(document.getElementById('retentionTrendChart').getContext('2d'), {
         type: 'bar',
@@ -937,7 +954,8 @@
                     callbacks: {
                         afterBody: function(items) {
                             const idx = items[0].dataIndex;
-                            return `Rata-rata kunjungan/pelanggan: ${pelanggan[idx] > 0 ? (kunjungan[idx]/pelanggan[idx]).toFixed(1) : 0}x`;
+                            const avg = pelanggan[idx] > 0 ? (kunjungan[idx] / pelanggan[idx]).toFixed(1) : 0;
+                            return 'Rata-rata kunjungan/pelanggan: ' + avg + 'x';
                         }
                     }
                 }
@@ -946,6 +964,14 @@
                 y:  { beginAtZero: true, title: { display: true, text: 'Pelanggan Aktif' } },
                 y2: { beginAtZero: true, position: 'right', title: { display: true, text: 'Total Kunjungan' }, grid: { drawOnChartArea: false } }
             }
+        }
+    });
+
+    // Inisialisasi lebar progress-bar dinamis
+    document.querySelectorAll('.progress-bar[data-pct]').forEach(function(el) {
+        var pct = el.getAttribute('data-pct');
+        if (pct !== null && pct !== '') {
+            el.style.width = pct + '%';
         }
     });
 })();

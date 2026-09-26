@@ -132,6 +132,11 @@
                             </div>
                             <small class="text-muted">Masukkan angka tanpa titik/koma</small>
                         </div>
+                        <div class="col-md-6">
+                            <label class="form-label">Pemeriksaan <span class="text-muted small">(Opsional)</span></label>
+                            <input type="text" name="pemeriksaan" class="form-control"
+                                placeholder="Contoh: Diabetes, Kolestrol, Urine Lengkap">
+                        </div>
 
                         {{-- Kategori Khusus --}}
                         <div class="col-12 mt-2">
@@ -251,6 +256,11 @@
                             </div>
                             <small class="text-muted">Masukkan angka tanpa titik/koma</small>
                         </div>
+                        <div class="col-md-6">
+                            <label class="form-label">Pemeriksaan <span class="text-muted small">(Opsional)</span></label>
+                            <input type="text" name="pemeriksaan" class="form-control"
+                                placeholder="Contoh: Diabetes, Kolestrol, Urine Lengkap">
+                        </div>
                         <div class="col-12">
                             <label class="form-label">Alasan Pengajuan <span class="text-danger">*</span></label>
                             <textarea name="request_note" class="form-control" rows="3" required maxlength="500"
@@ -353,8 +363,9 @@
 </div>{{-- end .row --}}
 
 @section('scripts')
+<script id="superadminsByCabangData" type="application/json">{!! json_encode($superadminsByCabang ?? []) !!}</script>
 <script>
-const superadminsByCabang = @json($superadminsByCabang ?? []);
+const superadminsByCabang = JSON.parse(document.getElementById('superadminsByCabangData').textContent || '{}');
 const searchPelangganUrl  = "{{ route('api.pelanggan.search') }}";
 
 // ── Superadmin dropdown (Pelanggan Baru) ──────────────────────────────────────

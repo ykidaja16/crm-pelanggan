@@ -106,29 +106,30 @@ class PelangganImportExportController extends Controller
 
             Log::info('Excel file read successfully', ['sheet_count' => count($rows), 'first_sheet_rows' => count($rows[0])]);
 
-            // ── Validasi format file: tolak jika format Pelanggan Khusus (13 kolom) ──
-            // Format pelanggan khusus memiliki 13 kolom, kolom ke-13 (index 12) adalah "Kategori Khusus"
-            // Format pelanggan biasa memiliki 12 kolom (index 0-11, dengan NIK di index 11)
+            // ── Validasi format file: tolak jika format Pelanggan Khusus (kolom "Kategori Khusus") ──
             $isKhususFormat = false;
             $firstSheet     = $rows[0] ?? [];
 
-            // Cek header row (baris pertama)
+            // Cek header row (baris pertama) untuk kolom yang mengandung kata 'kategori'
             $headerRow = $firstSheet[0] ?? [];
-            if (count($headerRow) >= 13) {
-                $col13Header = strtolower(trim((string) ($headerRow[12] ?? '')));
-                if (!empty($col13Header) && str_contains($col13Header, 'kategori')) {
+            foreach ($headerRow as $colHeader) {
+                $h = strtolower(trim((string) $colHeader));
+                if (!empty($h) && str_contains($h, 'kategori')) {
                     $isKhususFormat = true;
-                    Log::info('Detected khusus format from header', ['col13' => $col13Header]);
+                    Log::info('Detected khusus format from header', ['col_header' => $h]);
+                    break;
                 }
             }
 
-            // Cek data rows jika header tidak cukup jelas
-            if (!$isKhususFormat) {
+            // Jika header tidak eksplisit, cek nilai baris data apakah ada nilai kategori khusus
+            if (!$isKhususFormat && count($firstSheet) > 1) {
+                $knownKategori = ['kepala dinas', 'pic perusahaan', 'tokoh masyarakat', 'dokter', 'lainnya'];
                 foreach ($firstSheet as $rowIdx => $row) {
                     if ($rowIdx === 0) continue; // skip header
-                    if (count($row) >= 13 && trim((string) ($row[12] ?? '')) !== '') {
+                    $valCol13 = strtolower(trim((string) ($row[12] ?? '')));
+                    if (in_array($valCol13, $knownKategori, true)) {
                         $isKhususFormat = true;
-                        Log::info('Detected khusus format from data row', ['row' => $rowIdx + 1]);
+                        Log::info('Detected khusus format from data row value', ['row' => $rowIdx + 1, 'val' => $valCol13]);
                         break;
                     }
                 }
@@ -336,6 +337,7 @@ class PelangganImportExportController extends Controller
         $tipePelanggan   = $request->tipe_pelanggan;
         $tanggalMulai    = $request->tanggal_mulai;
         $tanggalSelesai  = $request->tanggal_selesai;
+        $pemeriksaan     = $request->pemeriksaan;
 
         // Build filename based on filters
         $filename = 'pelanggan';
@@ -362,6 +364,9 @@ class PelangganImportExportController extends Controller
             $cabang    = Cabang::find($cabangId);
             $filename .= '_' . ($cabang ? preg_replace('/[^a-zA-Z0-9]/', '_', $cabang->nama) : 'cabang');
         }
+        if ($pemeriksaan) {
+            $filename .= '_pemeriksaan_' . preg_replace('/[^a-zA-Z0-9]/', '_', substr($pemeriksaan, 0, 20));
+        }
         $filename .= '.xlsx';
 
         return Excel::download(
@@ -376,7 +381,8 @@ class PelangganImportExportController extends Controller
                 $kelas,
                 $tipePelanggan,
                 $tanggalMulai,
-                $tanggalSelesai
+                $tanggalSelesai,
+                $pemeriksaan
             ),
             $filename
         );
@@ -389,7 +395,7 @@ class PelangganImportExportController extends Controller
      */
     public function downloadTemplate()
     {
-        // Header kolom sesuai format import (12 kolom dengan NIK di kolom terakhir)
+        // Header kolom sesuai format import (13 kolom dengan NIK dan Pemeriksaan)
         $headers = [
             'No',
             'Nama Pasien',
@@ -402,16 +408,17 @@ class PelangganImportExportController extends Controller
             'Alamat',
             'Kota',
             'Kelompok Pelanggan (mandiri/klinisi)',
-            'NIK'
+            'NIK',
+            'Pemeriksaan'
         ];
 
-        // Data dummy sebagai contoh (12 kolom dengan NIK)
+        // Data dummy sebagai contoh (13 kolom dengan Pemeriksaan)
         $data = [
-            [1, 'Budi Santoso',  3, '2024-01-15', 2500000, '081234567890', '1990-05-20', 'JK00001', 'Jl. Sudirman No. 123',    'Jakarta',    'mandiri', '1234567890123456'],
-            [2, 'Siti Aminah',   5, '2024-02-10', 4500000, '082345678901', '1985-08-12', 'BD00002', 'Jl. Ahmad Yani No. 45',   'Bandung',    'klinisi', 'TIDAK ADA IDENTITAS'],
-            [3, 'Ahmad Wijaya',  2, '2024-03-05', 1200000, '083456789012', '1992-11-03', 'SB00003', 'Jl. Gatot Subroto No. 78','Surabaya',   'mandiri', ''],
-            [4, 'Dewi Kusuma',   4, '2024-01-28', 3800000, '084567890123', '1988-04-25', 'YK00004', 'Jl. Malioboro No. 12',    'Yogyakarta', 'klinisi', '6543210987654321'],
-            [5, 'Eko Prasetyo',  1, '2024-02-20',  850000, '085678901234', '1995-09-18', 'ML00005', 'Jl. Ijen No. 56',         'Malang',     'mandiri', ''],
+            [1, 'Budi Santoso',  3, '2024-01-15', 2500000, '081234567890', '1990-05-20', 'JK00001', 'Jl. Sudirman No. 123',    'Jakarta',    'mandiri', '1234567890123456', 'Diabetes, Kolestrol, Urine Lengkap'],
+            [2, 'Siti Aminah',   5, '2024-02-10', 4500000, '082345678901', '1985-08-12', 'BD00002', 'Jl. Ahmad Yani No. 45',   'Bandung',    'klinisi', 'TIDAK ADA IDENTITAS', 'Darah Lengkap, SGOT, SGPT'],
+            [3, 'Ahmad Wijaya',  2, '2024-03-05', 1200000, '083456789012', '1992-11-03', 'SB00003', 'Jl. Gatot Subroto No. 78','Surabaya',   'mandiri', '', 'Urine Lengkap'],
+            [4, 'Dewi Kusuma',   4, '2024-01-28', 3800000, '084567890123', '1988-04-25', 'YK00004', 'Jl. Malioboro No. 12',    'Yogyakarta', 'klinisi', '6543210987654321', 'Asam Urat, Kolestrol'],
+            [5, 'Eko Prasetyo',  1, '2024-02-20',  850000, '085678901234', '1995-09-18', 'ML00005', 'Jl. Ijen No. 56',         'Malang',     'mandiri', '', ''],
         ];
 
         $spreadsheet = new \PhpOffice\PhpSpreadsheet\Spreadsheet();
@@ -455,7 +462,7 @@ class PelangganImportExportController extends Controller
                 ]
             ]
         ];
-        $sheet->getStyle('A1:L1')->applyFromArray($headerStyle);
+        $sheet->getStyle('A1:M1')->applyFromArray($headerStyle);
 
         $writer   = new \PhpOffice\PhpSpreadsheet\Writer\Xlsx($spreadsheet);
         $filename = 'template_import_pelanggan.xlsx';
@@ -634,6 +641,12 @@ class PelangganImportExportController extends Controller
                 $nik = null;
             }
 
+            // Baca Pemeriksaan dari kolom ke-13 (index 12)
+            $pemeriksaan = isset($row[12]) ? trim((string) $row[12]) : null;
+            if ($pemeriksaan === '') {
+                $pemeriksaan = null;
+            }
+
             if (empty($pid) || empty($nama)) {
                 continue;
             }
@@ -651,7 +664,8 @@ class PelangganImportExportController extends Controller
                 $alamat,
                 $kota,
                 $kelompokPelanggan,
-                $nik
+                $nik,
+                $pemeriksaan
             ]));
 
             if (isset($seenRows[$dedupKey])) {
@@ -687,6 +701,7 @@ class PelangganImportExportController extends Controller
                 $kota,
                 $totalKedatangan,
                 $biayaValue,
+                $pemeriksaan,
                 $cabang,
                 $tanggal,
                 $no,
@@ -770,6 +785,7 @@ class PelangganImportExportController extends Controller
                     'cabang_id'             => $cabang->id,
                     'tanggal_kunjungan'     => $tanggal,
                     'biaya'                 => $biayaValue,
+                    'pemeriksaan'           => $pemeriksaan,
                     'total_kedatangan'      => $totalKedatangan,
                     'kelompok_pelanggan_id' => $kelompok?->id,
                     'import_batch_id'       => $batchId ?: null, // Tag kunjungan dengan batch_id

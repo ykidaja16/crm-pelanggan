@@ -222,13 +222,16 @@
         });
     });
 </script>
+<script id="growthChartLabels" type="application/json">{!! json_encode($chartLabels) !!}</script>
+<script id="growthChartData" type="application/json">{!! json_encode($chartData) !!}</script>
+<script id="growthFilterType" type="application/json">{!! json_encode($filterType) !!}</script>
 <script>
     const ctx = document.getElementById('growthChart').getContext('2d');
 
     // Data dari PHP
-    const labels = @json($chartLabels);
-    const data = @json($chartData);
-    const filterType = @json($filterType);
+    const labels = JSON.parse(document.getElementById('growthChartLabels').textContent || '[]');
+    const data = JSON.parse(document.getElementById('growthChartData').textContent || '[]');
+    const filterType = JSON.parse(document.getElementById('growthFilterType').textContent || '""');
 
     // Warna berdasarkan tipe filter
     let backgroundColors, borderColors;

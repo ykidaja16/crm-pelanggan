@@ -175,6 +175,44 @@
                             </select>
                         </div>
 
+                        {{-- Filter Pemeriksaan: Searchable Dropdown --}}
+                        <div class="col-md-3">
+                            <label class="form-label fw-medium small">Pemeriksaan</label>
+                            <div class="input-group">
+                                <input type="text" 
+                                       name="pemeriksaan" 
+                                       id="pemeriksaanInput" 
+                                       class="form-control" 
+                                       list="pemeriksaanDatalist" 
+                                       value="{{ $pemeriksaan ?? '' }}" 
+                                       placeholder="Pilih / cari pemeriksaan..."
+                                       title="Gunakan koma (,) untuk ATAU (salah satu), tanda plus (+) untuk DAN (harus keduanya)"
+                                       autocomplete="off">
+                                <button class="btn btn-outline-secondary dropdown-toggle" type="button" data-bs-toggle="dropdown" aria-expanded="false" title="Pilih dari daftar"></button>
+                                <ul class="dropdown-menu dropdown-menu-end shadow-sm" style="max-height: 250px; overflow-y: auto;">
+                                    <li><h6 class="dropdown-header">Pilihan Pemeriksaan</h6></li>
+                                    @if(isset($pemeriksaanOptions) && $pemeriksaanOptions->count() > 0)
+                                        @foreach($pemeriksaanOptions as $opt)
+                                            <li>
+                                                <a class="dropdown-item small" href="javascript:void(0)" onclick="selectPemeriksaan('{{ addslashes($opt) }}')">
+                                                    {{ $opt }}
+                                                </a>
+                                            </li>
+                                        @endforeach
+                                    @else
+                                        <li><span class="dropdown-item text-muted small">Belum ada data pemeriksaan</span></li>
+                                    @endif
+                                </ul>
+                                <datalist id="pemeriksaanDatalist">
+                                    @if(isset($pemeriksaanOptions))
+                                        @foreach($pemeriksaanOptions as $opt)
+                                            <option value="{{ $opt }}">
+                                        @endforeach
+                                    @endif
+                                </datalist>
+                            </div>
+                        </div>
+
                         <div class="col-12 d-flex gap-2 mt-1">
                             <button type="submit" class="btn btn-info px-3">
                                 <i class="fas fa-filter me-2"></i>Terapkan Filter
@@ -246,6 +284,7 @@
                             'kedatangan_range'   => $kedatangan_range ?? '',
                             'kelompok_pelanggan' => $kelompok_pelanggan ?? '',
                             'tipe_pelanggan'     => $tipe_pelanggan ?? '',
+                            'pemeriksaan'        => $pemeriksaan ?? '',
                             'tanggal_mulai'      => $tanggal_mulai ?? '',
                             'tanggal_selesai'    => $tanggal_selesai ?? '',
                         ]) }}" class="btn btn-success btn-sm" id="exportAllBtn">
@@ -711,6 +750,81 @@ function openNaikKelasModal() {
     if (checked.length === 0) { alert('Tidak ada pelanggan yang dipilih.'); return; }
     const modal = new bootstrap.Modal(document.getElementById('naikKelasModal'));
     modal.show();
+}
+
+// =============================================
+// PEMERIKSAAN AUTOCOMPLETE & FILTER LOGIC
+// =============================================
+</script>
+<script id="pemeriksaanOptionsData" type="application/json">{!! json_encode(isset($pemeriksaanOptions) ? $pemeriksaanOptions->values()->toArray() : []) !!}</script>
+<script>
+const allPemeriksaanOptions = JSON.parse(document.getElementById('pemeriksaanOptionsData')?.textContent || '[]');
+
+function updatePemeriksaanDatalist() {
+    const pemInput = document.getElementById('pemeriksaanInput');
+    const pemDatalist = document.getElementById('pemeriksaanDatalist');
+    if (!pemInput || !pemDatalist) return;
+
+    const val = pemInput.value;
+    const lastComma = val.lastIndexOf(',');
+    const lastPlus  = val.lastIndexOf('+');
+    const lastDelimIdx = Math.max(lastComma, lastPlus);
+
+    let prefix = '';
+    let currentToken = '';
+
+    if (lastDelimIdx !== -1) {
+        const delim = val[lastDelimIdx];
+        const beforeDelim = val.substring(0, lastDelimIdx).trim();
+        prefix = beforeDelim ? (beforeDelim + ' ' + delim + ' ') : (delim + ' ');
+        currentToken = val.substring(lastDelimIdx + 1).trim();
+    } else {
+        currentToken = val.trim();
+    }
+
+    const tokenLower = currentToken.toLowerCase();
+    const matched = tokenLower 
+        ? allPemeriksaanOptions.filter(function(opt) { return opt.toLowerCase().indexOf(tokenLower) !== -1; })
+        : allPemeriksaanOptions;
+
+    let html = '';
+    matched.slice(0, 50).forEach(function(opt) {
+        const fullVal = prefix ? (prefix + opt) : opt;
+        html += '<option value="' + fullVal.replace(/"/g, '&quot;') + '">';
+    });
+    pemDatalist.innerHTML = html;
+}
+
+document.addEventListener('DOMContentLoaded', function() {
+    const pemInput = document.getElementById('pemeriksaanInput');
+    if (pemInput) {
+        pemInput.addEventListener('input', updatePemeriksaanDatalist);
+        pemInput.addEventListener('focus', updatePemeriksaanDatalist);
+        updatePemeriksaanDatalist();
+    }
+});
+
+function selectPemeriksaan(val) {
+    const input = document.getElementById('pemeriksaanInput');
+    if (!input) return;
+    const current = input.value;
+    const lastComma = current.lastIndexOf(',');
+    const lastPlus  = current.lastIndexOf('+');
+    const lastDelimIdx = Math.max(lastComma, lastPlus);
+
+    if (lastDelimIdx === -1) {
+        if (!current.trim()) {
+            input.value = val;
+        } else {
+            input.value = current.trim() + ', ' + val;
+        }
+    } else {
+        const delim = current[lastDelimIdx];
+        const beforeDelim = current.substring(0, lastDelimIdx).trim();
+        input.value = (beforeDelim ? beforeDelim + ' ' + delim + ' ' : delim + ' ') + val;
+    }
+    input.focus();
+    updatePemeriksaanDatalist();
 }
 </script>
 @endsection

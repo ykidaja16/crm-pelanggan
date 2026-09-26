@@ -20,6 +20,7 @@ use App\Http\Controllers\RetentionController;
 use App\Http\Controllers\SearchByPhoneController;
 use App\Http\Controllers\SinkronisasiController;
 use App\Http\Controllers\PertumbuhanKelasController;
+use App\Http\Controllers\KunjunganPemeriksaanUpdateController;
 use App\Http\Middleware\EnsureUserIsAdmin;
 use App\Http\Middleware\EnsureUserIsSuperAdmin;
 use App\Http\Middleware\EnsureUserIsIT;
@@ -264,5 +265,10 @@ Route::middleware([Authenticate::class])->group(function () {
         // Import Batch Rollback (Riwayat Import)
         Route::get('/import-batches', [ImportBatchController::class, 'index'])->name('import-batch.index');
         Route::post('/import-batches/{batchId}/rollback', [ImportBatchController::class, 'rollback'])->name('import-batch.rollback');
+
+        // Update Pemeriksaan Kunjungan (Khusus Role IT)
+        Route::get('/update-pemeriksaan', [KunjunganPemeriksaanUpdateController::class, 'index'])->name('kunjungan.update-pemeriksaan.index');
+        Route::get('/update-pemeriksaan/download-template', [KunjunganPemeriksaanUpdateController::class, 'downloadTemplate'])->name('kunjungan.update-pemeriksaan.template');
+        Route::post('/update-pemeriksaan/import', [KunjunganPemeriksaanUpdateController::class, 'import'])->name('kunjungan.update-pemeriksaan.import');
     });
 });

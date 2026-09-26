@@ -812,6 +812,11 @@
                     <i class="fas fa-undo-alt"></i> Riwayat Import
                 </a>
             </li>
+            <li class="{{ request()->routeIs('kunjungan.update-pemeriksaan*') ? 'active' : '' }}">
+                <a href="{{ route('kunjungan.update-pemeriksaan.index') }}" title="Update Pemeriksaan">
+                    <i class="fas fa-notes-medical"></i> Update Pemeriksaan
+                </a>
+            </li>
             @endif
         </ul>
 

@@ -274,6 +274,7 @@
                             <th class="py-3 text-center">Kelas</th>
                             <th class="py-3">Biaya</th>
                             <th class="py-3 text-center">Kelompok Pelanggan</th>
+                            <th class="py-3">Pemeriksaan</th>
                             <th class="py-3 text-center">Status Perubahan Data</th>
                             @if($role !== 'Direktur')
                             <th class="py-3 text-center">Aksi</th>
@@ -313,6 +314,13 @@
                                     <span class="badge {{ $isKlinisi ? 'bg-primary bg-opacity-10 text-primary border border-primary' : 'bg-secondary bg-opacity-10 text-secondary border border-secondary' }}">
                                         {{ $isKlinisi ? 'Klinisi' : 'Mandiri' }}
                                     </span>
+                                </td>
+                                <td>
+                                    @if($k->pemeriksaan)
+                                        <span class="text-dark small">{{ $k->pemeriksaan }}</span>
+                                    @else
+                                        <span class="text-muted small">-</span>
+                                    @endif
                                 </td>
                                 <td class="text-center">
                                     @if($hasPending)
@@ -404,7 +412,7 @@
 
                         @empty
                             <tr>
-                                <td colspan="{{ $role === 'Direktur' ? 6 : 7 }}" class="text-center py-5 text-muted">
+                                <td colspan="{{ $role === 'Direktur' ? 7 : 8 }}" class="text-center py-5 text-muted">
                                     <i class="fas fa-inbox fa-2x mb-3 text-secondary opacity-50"></i>
                                     <p class="mb-0">Tidak ada riwayat kunjungan.</p>
                                 </td>
@@ -430,10 +438,12 @@
     {{-- Grafik Tren Script (dipindah ke bagian bawah agar canvas sudah ada) --}}
     @if(count($visitTrendLabels) > 0)
     <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+    <script id="visitTrendLabelsData" type="application/json">{!! json_encode($visitTrendLabels) !!}</script>
+    <script id="visitTrendValuesData" type="application/json">{!! json_encode($visitTrendData) !!}</script>
     <script>
     (function() {
-        const labels = @json($visitTrendLabels);
-        const data   = @json($visitTrendData);
+        const labels = JSON.parse(document.getElementById('visitTrendLabelsData').textContent || '[]');
+        const data   = JSON.parse(document.getElementById('visitTrendValuesData').textContent || '[]');
         new Chart(document.getElementById('visitTrendChart').getContext('2d'), {
             type: 'bar',
             data: {

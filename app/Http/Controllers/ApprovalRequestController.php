@@ -203,6 +203,7 @@ class ApprovalRequestController extends Controller
                     'kelompok_pelanggan' => $validated['kelompok_pelanggan'],
                     'tanggal_kunjungan'  => $validated['tanggal_kunjungan'],
                     'biaya_kunjungan'    => $biayaValue,
+                    'pemeriksaan'        => $request->input('pemeriksaan') ?: null,
                 ],
                 'request_note' => $validated['request_note'],
                 'status'       => 'pending',
@@ -302,6 +303,7 @@ class ApprovalRequestController extends Controller
                 'kategori_khusus'    => $validated['kategori_khusus'],
                 'tanggal_kunjungan'  => $validated['tanggal_kunjungan'],
                 'biaya_kunjungan'    => $biayaValue,
+                'pemeriksaan'        => $request->input('pemeriksaan') ?: null,
             ],
             'request_note' => $validated['request_note'],
             'status'       => 'pending',
@@ -367,7 +369,7 @@ class ApprovalRequestController extends Controller
                 $row = $rows[$i] ?? [];
                 $rowNum = $i + 1;
 
-                // Format: No | Nama | NIK | Total Kedatangan | Tanggal | Biaya | No Telp | DOB | PID | Alamat | Kota | Kelompok | Kategori Khusus
+                // Format: No | Nama | NIK | Total Kedatangan | Tanggal | Biaya | No Telp | DOB | PID | Alamat | Kota | Kelompok | Kategori Khusus | Pemeriksaan
                 $nama = trim((string) ($row[1] ?? ''));
                 $nik = trim((string) ($row[2] ?? ''));
                 $tanggal = trim((string) ($row[4] ?? ''));
@@ -380,6 +382,10 @@ class ApprovalRequestController extends Controller
                 $kelompokRaw       = strtolower(trim((string) ($row[11] ?? '')));
                 $kelompokPelanggan = str_contains($kelompokRaw, 'klinisi') ? 'klinisi' : 'mandiri';
                 $kategoriKhusus = trim((string) ($row[12] ?? ''));
+                $pemeriksaan = trim((string) ($row[13] ?? ''));
+                if ($pemeriksaan === '') {
+                    $pemeriksaan = null;
+                }
 
                 if ($pid === '' || $nama === '' || $kategoriKhusus === '') {
                     continue;
@@ -419,6 +425,7 @@ class ApprovalRequestController extends Controller
                                 'kelompok_pelanggan' => $kelompokPelanggan,
                                 'tanggal_kunjungan'  => $tanggal !== '' ? $tanggal : now()->format('Y-m-d'),
                                 'biaya_kunjungan'    => $biaya,
+                                'pemeriksaan'        => $pemeriksaan,
                             ],
                             'request_note' => $validated['request_note'],
                             'status'       => 'pending',
@@ -464,6 +471,7 @@ class ApprovalRequestController extends Controller
                         'kategori_khusus'    => $kategoriKhusus,
                         'tanggal_kunjungan'  => $tanggal !== '' ? $tanggal : now()->format('Y-m-d'),
                         'biaya_kunjungan'    => $biaya,
+                        'pemeriksaan'        => $pemeriksaan,
                     ],
                     'request_note' => $validated['request_note'],
                     'status'       => 'pending',
@@ -513,12 +521,13 @@ class ApprovalRequestController extends Controller
             'Kota',
             'Kelompok Pelanggan (mandiri/klinisi)',
             'Kategori Khusus',
+            'Pemeriksaan',
         ];
 
         $data = [
-            [1, 'Budi Santoso', '3175091234567890', 1, '2024-01-15', 2500000, '081234567890', '1990-05-20', 'LX00001', 'Jl. Sudirman No. 123', 'Jakarta', 'mandiri', 'Kepala Dinas'],
-            [2, 'Siti Aminah', '3175090987654321', 1, '2024-02-10', 4500000, '082345678901', '1985-08-12', 'LZ00002', 'Jl. Ahmad Yani No. 45', 'Bandung', 'klinisi', 'PIC Perusahaan'],
-            [3, 'Ahmad Wijaya', '3175091122334455', 1, '2024-03-05', 1200000, '083456789012', '1992-11-03', 'LX00003', 'Jl. Gatot Subroto No. 78', 'Surabaya', 'mandiri', 'Lainnya'],
+            [1, 'Budi Santoso', '3175091234567890', 1, '2024-01-15', 2500000, '081234567890', '1990-05-20', 'LX00001', 'Jl. Sudirman No. 123', 'Jakarta', 'mandiri', 'Kepala Dinas', 'Diabetes, Kolestrol, Urine Lengkap'],
+            [2, 'Siti Aminah', '3175090987654321', 1, '2024-02-10', 4500000, '082345678901', '1985-08-12', 'LZ00002', 'Jl. Ahmad Yani No. 45', 'Bandung', 'klinisi', 'PIC Perusahaan', 'Darah Lengkap, SGOT, SGPT'],
+            [3, 'Ahmad Wijaya', '3175091122334455', 1, '2024-03-05', 1200000, '083456789012', '1992-11-03', 'LX00003', 'Jl. Gatot Subroto No. 78', 'Surabaya', 'mandiri', 'Lainnya', 'Urine Lengkap'],
         ];
 
         $spreadsheet = new Spreadsheet();
@@ -550,7 +559,7 @@ class ApprovalRequestController extends Controller
                 ],
             ],
         ];
-        $sheet->getStyle('A1:M1')->applyFromArray($headerStyle);
+        $sheet->getStyle('A1:N1')->applyFromArray($headerStyle);
 
         $writer = new Xlsx($spreadsheet);
         $filename = 'template_import_pelanggan_khusus.xlsx';
@@ -571,6 +580,7 @@ class ApprovalRequestController extends Controller
             'tanggal_kunjungan'  => 'required|date',
             'biaya'              => 'required|numeric|min:0',
             'kelompok_pelanggan' => 'required|in:mandiri,klinisi',
+            'pemeriksaan'        => 'nullable|string|max:1000',
             'request_note'       => 'required|string|max:500',
             'assigned_to'        => 'nullable|exists:users,id',
         ]);
@@ -585,6 +595,7 @@ class ApprovalRequestController extends Controller
                 : null,
             'biaya'              => $kunjungan->biaya,
             'kelompok_pelanggan' => $kunjungan->kelompokPelanggan?->kode ?? null,
+            'pemeriksaan'        => $kunjungan->pemeriksaan,
         ];
 
         // Tentukan assigned_to: dari form (jika ada dropdown) atau auto-assign
@@ -603,6 +614,7 @@ class ApprovalRequestController extends Controller
                 'tanggal_kunjungan'  => $validated['tanggal_kunjungan'],
                 'biaya'              => $validated['biaya'],
                 'kelompok_pelanggan' => $validated['kelompok_pelanggan'],
+                'pemeriksaan'        => $validated['pemeriksaan'] ?? null,
             ],
             'request_note' => $validated['request_note'],
             'status'       => 'pending',
@@ -787,6 +799,7 @@ class ApprovalRequestController extends Controller
                     'cabang_id'             => $pelanggan->cabang_id,
                     'tanggal_kunjungan'     => $tanggal,
                     'biaya'                 => (float) ($payload['biaya_kunjungan'] ?? 0),
+                    'pemeriksaan'           => $payload['pemeriksaan'] ?? null,
                     'kelompok_pelanggan_id' => $kelompok?->id,
                     'total_kedatangan'      => 1,
                 ]);
@@ -824,6 +837,7 @@ class ApprovalRequestController extends Controller
                         'cabang_id' => $cabang->id,
                         'tanggal_kunjungan' => $payload['tanggal_kunjungan'] ?? now()->toDateString(),
                         'biaya' => (float) ($payload['biaya_kunjungan'] ?? 0),
+                        'pemeriksaan' => $payload['pemeriksaan'] ?? null,
                         'kelompok_pelanggan_id' => $kelompok?->id,
                         'total_kedatangan' => 1,
                     ]);
@@ -849,11 +863,16 @@ class ApprovalRequestController extends Controller
                         ? KelompokPelanggan::where('kode', $kelompokKode)->first()
                         : null;
 
-                    $kunjungan->update([
+                    $updateKunjunganData = [
                         'tanggal_kunjungan' => $payload['tanggal_kunjungan'] ?? $kunjungan->tanggal_kunjungan,
                         'biaya' => $newBiaya,
                         'kelompok_pelanggan_id' => $kelompok?->id ?? $kunjungan->kelompok_pelanggan_id,
-                    ]);
+                    ];
+                    if (array_key_exists('pemeriksaan', $payload)) {
+                        $updateKunjunganData['pemeriksaan'] = $payload['pemeriksaan'];
+                    }
+
+                    $kunjungan->update($updateKunjunganData);
 
                     $kunjungan->pelanggan->updateBiayaAndClass(
                         $biayaDiff,

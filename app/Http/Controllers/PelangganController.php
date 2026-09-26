@@ -11,6 +11,7 @@ use Maatwebsite\Excel\Facades\Excel;
 
 use App\Models\Kelas;
 use App\Models\Pelanggan;
+use App\Models\Kunjungan;
 use App\Models\Cabang;
 use App\Models\ActivityLog;
 use App\Models\ApprovalRequest;
@@ -83,6 +84,7 @@ class PelangganController extends Controller
                             'cabang_id'             => $input['existing_cabang_id'] ?? $pelanggan->cabang_id,
                             'tanggal_kunjungan'     => $input['tanggal_kunjungan'],
                             'biaya'                 => $input['biaya'],
+                            'pemeriksaan'           => !empty($input['pemeriksaan']) ? trim($input['pemeriksaan']) : null,
                             'kelompok_pelanggan_id' => $kelompok?->id,
                             'total_kedatangan'      => 1,
                         ]);
@@ -176,6 +178,7 @@ class PelangganController extends Controller
                         'cabang_id'             => $input['cabang_id'],
                         'tanggal_kunjungan'     => $input['tanggal_kunjungan'],
                         'biaya'                 => $input['biaya'],
+                        'pemeriksaan'           => !empty($input['pemeriksaan']) ? trim($input['pemeriksaan']) : null,
                         'kelompok_pelanggan_id' => $kelompok?->id,
                         'total_kedatangan'      => 1,
                     ]);
@@ -318,7 +321,25 @@ class PelangganController extends Controller
         $tanggal_selesai = $request->tanggal_selesai;
         $kelompokPelanggan = $request->kelompok_pelanggan;
         $tipePelanggan   = $request->tipe_pelanggan;
+        $pemeriksaan     = $request->pemeriksaan;
 
+        // Ambil opsi pemeriksaan unik dari database untuk searchable dropdown
+        $rawPemeriksaanList = Kunjungan::whereNotNull('pemeriksaan')
+            ->where('pemeriksaan', '!=', '')
+            ->select('pemeriksaan')
+            ->distinct()
+            ->pluck('pemeriksaan');
+
+        $pemeriksaanOptions = collect();
+        foreach ($rawPemeriksaanList as $item) {
+            $parts = array_map('trim', explode(',', $item));
+            foreach ($parts as $part) {
+                if ($part !== '') {
+                    $pemeriksaanOptions->push($part);
+                }
+            }
+        }
+        $pemeriksaanOptions = $pemeriksaanOptions->unique()->sort()->values();
 
         // Filter cabangs dropdown by accessible cabangs
         /** @var User $user */
@@ -332,7 +353,7 @@ class PelangganController extends Controller
 
         // Tampilkan data kosong saat pertama kali masuk (belum klik filter)
         if (!$type && !$search && !$kelompokPelanggan && !$tipePelanggan
-            && !$cabangId && !$kelas && !$omsetRange && !$kedatanganRange) {
+            && !$cabangId && !$kelas && !$omsetRange && !$kedatanganRange && !$pemeriksaan) {
             return view('pelanggan.index', [
                 'pelanggan'          => collect(),
                 'bulan'              => null,
@@ -345,6 +366,8 @@ class PelangganController extends Controller
                 'kelas'              => null,
                 'kelompok_pelanggan' => null,
                 'tipe_pelanggan'     => null,
+                'pemeriksaan'        => null,
+                'pemeriksaanOptions' => $pemeriksaanOptions,
                 'cabangs'            => $cabangs,
                 'kelasList'          => Kelas::orderedNames(),
                 'sort'               => $sort,
@@ -633,6 +656,47 @@ class PelangganController extends Controller
             });
         }
 
+        // Filter Pemeriksaan: '+' = AND (harus memiliki semua), ',' = OR (memiliki salah satu)
+        if ($pemeriksaan) {
+            if (str_contains($pemeriksaan, '+')) {
+                // Mode AND: Pasien harus memiliki SEMUA pemeriksaan yang dicari
+                $keywords = array_filter(array_map('trim', explode('+', $pemeriksaan)));
+                foreach ($keywords as $kw) {
+                    $query->whereHas('kunjungans', function ($q) use ($kw, $type, $bulan, $tahun, $tanggal_mulai, $tanggal_selesai) {
+                        if ($type === 'perbulan' && $bulan && $tahun) {
+                            $q->whereMonth('tanggal_kunjungan', $bulan)
+                              ->whereYear('tanggal_kunjungan', $tahun);
+                        } elseif ($type === 'pertahun' && $tahun) {
+                            $q->whereYear('tanggal_kunjungan', $tahun);
+                        } elseif ($type === 'range' && $tanggal_mulai && $tanggal_selesai) {
+                            $q->whereBetween('tanggal_kunjungan', [$tanggal_mulai, $tanggal_selesai]);
+                        }
+                        $q->where('pemeriksaan', 'like', '%' . $kw . '%');
+                    });
+                }
+            } else {
+                // Mode OR: Pasien memiliki SALAH SATU dari pemeriksaan yang dipisahkan koma
+                $keywords = array_filter(array_map('trim', explode(',', $pemeriksaan)));
+                if (!empty($keywords)) {
+                    $query->whereHas('kunjungans', function ($q) use ($keywords, $type, $bulan, $tahun, $tanggal_mulai, $tanggal_selesai) {
+                        if ($type === 'perbulan' && $bulan && $tahun) {
+                            $q->whereMonth('tanggal_kunjungan', $bulan)
+                              ->whereYear('tanggal_kunjungan', $tahun);
+                        } elseif ($type === 'pertahun' && $tahun) {
+                            $q->whereYear('tanggal_kunjungan', $tahun);
+                        } elseif ($type === 'range' && $tanggal_mulai && $tanggal_selesai) {
+                            $q->whereBetween('tanggal_kunjungan', [$tanggal_mulai, $tanggal_selesai]);
+                        }
+                        $q->where(function ($sub) use ($keywords) {
+                            foreach ($keywords as $kw) {
+                                $sub->orWhere('pemeriksaan', 'like', '%' . $kw . '%');
+                            }
+                        });
+                    });
+                }
+            }
+        }
+
         if ($sort === 'tgl_kunjungan') {
             $query->orderByRaw("(tgl_kunjungan IS NULL) ASC, tgl_kunjungan {$direction}");
         } elseif ($sort === 'class') {
@@ -705,6 +769,8 @@ class PelangganController extends Controller
             'tanggal_mulai'      => $tanggal_mulai,
             'tanggal_selesai'    => $tanggal_selesai,
             'tipe_pelanggan'     => $tipePelanggan,
+            'pemeriksaan'        => $pemeriksaan,
+            'pemeriksaanOptions' => $pemeriksaanOptions,
             'cabangs'            => $cabangs,
             'kelasList'          => Kelas::orderedNames(),
             'sort'               => $sort,

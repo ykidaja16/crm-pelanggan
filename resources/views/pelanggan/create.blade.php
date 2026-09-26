@@ -264,6 +264,13 @@
                                     </div>
                                 @endif
                             </div>
+
+                            <div class="col-12">
+                                <label class="form-label fw-medium">Pemeriksaan <span class="text-muted small fw-normal">(Opsional)</span></label>
+                                <textarea name="inputs[0][pemeriksaan]" id="pemeriksaan" class="form-control" rows="2"
+                                    placeholder="Contoh: Diabetes, Kolestrol, Urine Lengkap">{{ old('inputs.0.pemeriksaan', $oldInputs[0]['pemeriksaan'] ?? '') }}</textarea>
+                                <div class="form-text">Detail jenis pemeriksaan pasien pada kunjungan ini (boleh dikosongkan).</div>
+                            </div>
                         </div>
                     </div>
 

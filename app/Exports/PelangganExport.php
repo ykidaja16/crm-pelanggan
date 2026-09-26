@@ -28,6 +28,7 @@ class PelangganExport implements FromCollection, WithHeadings, WithStyles, WithC
     protected $tipePelanggan;
     protected $tanggalMulai;
     protected $tanggalSelesai;
+    protected $pemeriksaan;
 
     public function __construct(
         $bulan,
@@ -40,7 +41,8 @@ class PelangganExport implements FromCollection, WithHeadings, WithStyles, WithC
         $kelas           = null,
         $tipePelanggan   = null,
         $tanggalMulai    = null,
-        $tanggalSelesai  = null
+        $tanggalSelesai  = null,
+        $pemeriksaan     = null
     ) {
         $this->bulan           = $bulan;
         $this->tahun           = $tahun;
@@ -53,6 +55,7 @@ class PelangganExport implements FromCollection, WithHeadings, WithStyles, WithC
         $this->tipePelanggan   = $tipePelanggan;
         $this->tanggalMulai    = $tanggalMulai;
         $this->tanggalSelesai  = $tanggalSelesai;
+        $this->pemeriksaan     = $pemeriksaan;
     }
 
     /**
@@ -304,6 +307,71 @@ class PelangganExport implements FromCollection, WithHeadings, WithStyles, WithC
             });
         }
 
+        // Apply pemeriksaan filter: '+' = AND (harus memiliki semua), ',' = OR (memiliki salah satu)
+        if ($this->pemeriksaan) {
+            if (str_contains($this->pemeriksaan, '+')) {
+                // Mode AND: Pasien harus memiliki SEMUA pemeriksaan
+                $keywords = array_filter(array_map('trim', explode('+', $this->pemeriksaan)));
+                if (!empty($keywords)) {
+                    $pelanggan = $pelanggan->filter(function ($p) use ($keywords) {
+                        foreach ($keywords as $kw) {
+                            $matched = $p->kunjungans->contains(function ($k) use ($kw) {
+                                if ($this->type == 'perbulan') {
+                                    if ($k->tanggal_kunjungan->month != $this->bulan || $k->tanggal_kunjungan->year != $this->tahun) {
+                                        return false;
+                                    }
+                                } elseif ($this->type == 'pertahun') {
+                                    if ($k->tanggal_kunjungan->year != $this->tahun) {
+                                        return false;
+                                    }
+                                } elseif ($this->type == 'range' && $this->tanggalMulai && $this->tanggalSelesai) {
+                                    $tgl = $k->tanggal_kunjungan->format('Y-m-d');
+                                    if ($tgl < $this->tanggalMulai || $tgl > $this->tanggalSelesai) {
+                                        return false;
+                                    }
+                                }
+                                return stripos((string)($k->pemeriksaan ?? ''), $kw) !== false;
+                            });
+                            if (!$matched) {
+                                return false;
+                            }
+                        }
+                        return true;
+                    });
+                }
+            } else {
+                // Mode OR: Pasien memiliki SALAH SATU pemeriksaan yang dipisahkan koma
+                $keywords = array_filter(array_map('trim', explode(',', $this->pemeriksaan)));
+                if (!empty($keywords)) {
+                    $pelanggan = $pelanggan->filter(function ($p) use ($keywords) {
+                        return $p->kunjungans->contains(function ($k) use ($keywords) {
+                            if ($this->type == 'perbulan') {
+                                if ($k->tanggal_kunjungan->month != $this->bulan || $k->tanggal_kunjungan->year != $this->tahun) {
+                                    return false;
+                                }
+                            } elseif ($this->type == 'pertahun') {
+                                if ($k->tanggal_kunjungan->year != $this->tahun) {
+                                    return false;
+                                }
+                            } elseif ($this->type == 'range' && $this->tanggalMulai && $this->tanggalSelesai) {
+                                $tgl = $k->tanggal_kunjungan->format('Y-m-d');
+                                if ($tgl < $this->tanggalMulai || $tgl > $this->tanggalSelesai) {
+                                    return false;
+                                }
+                            }
+                            $pemText = (string)($k->pemeriksaan ?? '');
+                            foreach ($keywords as $kw) {
+                                if (stripos($pemText, $kw) !== false) {
+                                    return true;
+                                }
+                            }
+                            return false;
+                        });
+                    });
+                }
+            }
+        }
+
         // Kembalikan data pelanggan yang difilter.
         // Kolom total_biaya, total_kedatangan, class menggunakan nilai range (s/d endDate),
         // bukan nilai ALL-TIME dari database.
@@ -462,6 +530,7 @@ class PelangganExport implements FromCollection, WithHeadings, WithStyles, WithC
             $parts[] = 'Kunjungan: ' . (['1'=>'1 Kali','2'=>'> 1 Kali'][$this->kedatanganRange] ?? '-');
         }
         if ($this->tipePelanggan) $parts[] = 'Tipe: ' . ucfirst($this->tipePelanggan);
+        if ($this->pemeriksaan) $parts[] = 'Pemeriksaan: ' . $this->pemeriksaan;
         $parts[] = 'Dicetak: ' . now()->format('d-m-Y H:i');
         return implode('   |   ', $parts);
     }

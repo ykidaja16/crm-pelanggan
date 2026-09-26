@@ -110,12 +110,12 @@ class KunjunganImport implements ToCollection, WithStartRow
         $totalRows = max($rows->count(), 1);
         $current = 0;
 
-        // ── Defense in depth: tolak jika format Pelanggan Khusus (13 kolom) ──
-        // Format pelanggan khusus memiliki kolom ke-13 (Kategori Khusus) di index 12
-        // Import ini hanya untuk pelanggan biasa (12 kolom: index 0-11)
+        // ── Defense in depth: tolak jika format Pelanggan Khusus (memiliki kolom "Kategori Khusus") ──
+        $knownKategori = ['kepala dinas', 'pic perusahaan', 'tokoh masyarakat', 'dokter', 'lainnya'];
         foreach ($rows as $checkRow) {
             $checkArray = $checkRow->toArray();
-            if (count($checkArray) >= 13 && trim((string) ($checkArray[12] ?? '')) !== '') {
+            $valCol13 = strtolower(trim((string) ($checkArray[12] ?? '')));
+            if (in_array($valCol13, $knownKategori, true) || str_contains($valCol13, 'kategori')) {
                 throw new \Exception(
                     'Format file ini adalah format Pelanggan Khusus (memiliki kolom "Kategori Khusus"). '
                     . 'Import Pelanggan Khusus tidak diperbolehkan di menu Data Pelanggan. '
@@ -155,6 +155,12 @@ class KunjunganImport implements ToCollection, WithStartRow
                     $nik = null;
                 }
 
+                // Baca Pemeriksaan dari kolom ke-13 (index 12)
+                $pemeriksaan = isset($rowArray[12]) ? trim((string) $rowArray[12]) : null;
+                if ($pemeriksaan === '') {
+                    $pemeriksaan = null;
+                }
+
                 if (empty($pid) || empty($namaPasien)) {
                     continue;
                 }
@@ -170,7 +176,9 @@ class KunjunganImport implements ToCollection, WithStartRow
                     $pid,
                     $alamat,
                     $kota,
-                    $kelompokPelanggan
+                    $kelompokPelanggan,
+                    $nik,
+                    $pemeriksaan
                 ]));
 
                 if (isset($seenRows[$dedupKey])) {
@@ -208,7 +216,8 @@ class KunjunganImport implements ToCollection, WithStartRow
                     $kota,
                     $cabangs[$cabangKode],
                     $kelompokPelanggan,
-                    $nik
+                    $nik,
+                    $pemeriksaan
                 );
 
                 $processedCount++;
@@ -249,7 +258,7 @@ class KunjunganImport implements ToCollection, WithStartRow
      */
     private function processRow(
         $no, $pid, $namaPasien, $totalKedatangan, $tanggalKedatangan,
-        $biaya, $noTelp, $dob, $alamat, $kota, $cabang, string $kelompokPelangganKode = 'mandiri', ?string $nik = null
+        $biaya, $noTelp, $dob, $alamat, $kota, $cabang, string $kelompokPelangganKode = 'mandiri', ?string $nik = null, ?string $pemeriksaan = null
     ): void {
         // Cari pelanggan by PID, jika tidak ada buat baru
         $pelanggan = Pelanggan::firstOrNew(['pid' => $pid]);
@@ -347,6 +356,7 @@ class KunjunganImport implements ToCollection, WithStartRow
             'cabang_id' => $cabang->id,
             'tanggal_kunjungan' => $tanggalKedatangan,
             'biaya' => $biaya,
+            'pemeriksaan' => $pemeriksaan,
             'total_kedatangan' => $totalKedatangan,
             'kelompok_pelanggan_id' => $kelompok?->id,
         ]);
