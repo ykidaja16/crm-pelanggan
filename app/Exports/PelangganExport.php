@@ -307,15 +307,17 @@ class PelangganExport implements FromCollection, WithHeadings, WithStyles, WithC
             });
         }
 
-        // Apply pemeriksaan filter: '+' = AND (harus memiliki semua), ',' = OR (memiliki salah satu)
+        // Apply pemeriksaan filter: Minimal 3 kali pemeriksaan
+        // '+' = AND (setiap keyword minimal 3 kali), ',' = OR (salah satu keyword minimal 3 kali)
         if ($this->pemeriksaan) {
-            if (str_contains($this->pemeriksaan, '+')) {
-                // Mode AND: Pasien harus memiliki SEMUA pemeriksaan
-                $keywords = array_filter(array_map('trim', explode('+', $this->pemeriksaan)));
-                if (!empty($keywords)) {
-                    $pelanggan = $pelanggan->filter(function ($p) use ($keywords) {
+            $isAnd = str_contains($this->pemeriksaan, '+');
+            $keywords = array_values(array_filter(array_map('trim', explode($isAnd ? '+' : ',', $this->pemeriksaan))));
+
+            if (!empty($keywords)) {
+                $pelanggan = $pelanggan->filter(function ($p) use ($keywords, $isAnd) {
+                    if ($isAnd) {
                         foreach ($keywords as $kw) {
-                            $matched = $p->kunjungans->contains(function ($k) use ($kw) {
+                            $countKw = $p->kunjungans->filter(function ($k) use ($kw) {
                                 if ($this->type == 'perbulan') {
                                     if ($k->tanggal_kunjungan->month != $this->bulan || $k->tanggal_kunjungan->year != $this->tahun) {
                                         return false;
@@ -331,44 +333,89 @@ class PelangganExport implements FromCollection, WithHeadings, WithStyles, WithC
                                     }
                                 }
                                 return stripos((string)($k->pemeriksaan ?? ''), $kw) !== false;
-                            });
-                            if (!$matched) {
+                            })->count();
+
+                            if ($countKw < 3) {
                                 return false;
                             }
                         }
                         return true;
-                    });
-                }
-            } else {
-                // Mode OR: Pasien memiliki SALAH SATU pemeriksaan yang dipisahkan koma
-                $keywords = array_filter(array_map('trim', explode(',', $this->pemeriksaan)));
-                if (!empty($keywords)) {
-                    $pelanggan = $pelanggan->filter(function ($p) use ($keywords) {
-                        return $p->kunjungans->contains(function ($k) use ($keywords) {
-                            if ($this->type == 'perbulan') {
-                                if ($k->tanggal_kunjungan->month != $this->bulan || $k->tanggal_kunjungan->year != $this->tahun) {
-                                    return false;
+                    } else {
+                        foreach ($keywords as $kw) {
+                            $countKw = $p->kunjungans->filter(function ($k) use ($kw) {
+                                if ($this->type == 'perbulan') {
+                                    if ($k->tanggal_kunjungan->month != $this->bulan || $k->tanggal_kunjungan->year != $this->tahun) {
+                                        return false;
+                                    }
+                                } elseif ($this->type == 'pertahun') {
+                                    if ($k->tanggal_kunjungan->year != $this->tahun) {
+                                        return false;
+                                    }
+                                } elseif ($this->type == 'range' && $this->tanggalMulai && $this->tanggalSelesai) {
+                                    $tgl = $k->tanggal_kunjungan->format('Y-m-d');
+                                    if ($tgl < $this->tanggalMulai || $tgl > $this->tanggalSelesai) {
+                                        return false;
+                                    }
                                 }
-                            } elseif ($this->type == 'pertahun') {
-                                if ($k->tanggal_kunjungan->year != $this->tahun) {
-                                    return false;
-                                }
-                            } elseif ($this->type == 'range' && $this->tanggalMulai && $this->tanggalSelesai) {
-                                $tgl = $k->tanggal_kunjungan->format('Y-m-d');
-                                if ($tgl < $this->tanggalMulai || $tgl > $this->tanggalSelesai) {
-                                    return false;
-                                }
+                                return stripos((string)($k->pemeriksaan ?? ''), $kw) !== false;
+                            })->count();
+
+                            if ($countKw >= 3) {
+                                return true;
                             }
-                            $pemText = (string)($k->pemeriksaan ?? '');
+                        }
+                        return false;
+                    }
+                });
+
+                // Hitung kolom tambahan terkait pemeriksaan untuk setiap pelanggan
+                $pelanggan->each(function ($p) use ($keywords, $isAnd) {
+                    $userKunjungan = $p->kunjungans->filter(function ($k) {
+                        if ($this->type == 'perbulan') {
+                            if ($k->tanggal_kunjungan->month != $this->bulan || $k->tanggal_kunjungan->year != $this->tahun) return false;
+                        } elseif ($this->type == 'pertahun') {
+                            if ($k->tanggal_kunjungan->year != $this->tahun) return false;
+                        } elseif ($this->type == 'range' && $this->tanggalMulai && $this->tanggalSelesai) {
+                            $tgl = $k->tanggal_kunjungan->format('Y-m-d');
+                            if ($tgl < $this->tanggalMulai || $tgl > $this->tanggalSelesai) return false;
+                        }
+                        return !empty($k->pemeriksaan);
+                    })->sortByDesc('tanggal_kunjungan');
+
+                    if ($isAnd) {
+                        $matched = $userKunjungan->filter(function ($k) use ($keywords) {
+                            $pem = (string)($k->pemeriksaan ?? '');
                             foreach ($keywords as $kw) {
-                                if (stripos($pemText, $kw) !== false) {
-                                    return true;
+                                if (stripos($pem, $kw) === false) return false;
+                            }
+                            return true;
+                        });
+                        $p->total_terkait_pemeriksaan = $matched->count();
+                        $latestK = $matched->first();
+                        $p->pemeriksaan_terakhir_terkait = $latestK ? $latestK->pemeriksaan : '-';
+                        $p->tgl_kunjungan_terakhir_terkait = $latestK && $latestK->tanggal_kunjungan ? $latestK->tanggal_kunjungan->format('d-m-Y') : '-';
+                    } else {
+                        $totalCount = 0;
+                        $matched = collect();
+                        foreach ($userKunjungan as $k) {
+                            $pem = (string)($k->pemeriksaan ?? '');
+                            $hasMatch = false;
+                            foreach ($keywords as $kw) {
+                                if (stripos($pem, $kw) !== false) {
+                                    $totalCount++;
+                                    $hasMatch = true;
                                 }
                             }
-                            return false;
-                        });
-                    });
-                }
+                            if ($hasMatch) {
+                                $matched->push($k);
+                            }
+                        }
+                        $p->total_terkait_pemeriksaan = $totalCount;
+                        $latestK = $matched->first();
+                        $p->pemeriksaan_terakhir_terkait = $latestK ? $latestK->pemeriksaan : '-';
+                        $p->tgl_kunjungan_terakhir_terkait = $latestK && $latestK->tanggal_kunjungan ? $latestK->tanggal_kunjungan->format('d-m-Y') : '-';
+                    }
+                });
             }
         }
 
@@ -376,7 +423,7 @@ class PelangganExport implements FromCollection, WithHeadings, WithStyles, WithC
         // Kolom total_biaya, total_kedatangan, class menggunakan nilai range (s/d endDate),
         // bukan nilai ALL-TIME dari database.
         return $pelanggan->map(function ($p) {
-            return [
+            $row = [
                 'id'               => $p->id,
                 'pid'              => $p->pid,
                 'nama'             => $p->nama,
@@ -391,6 +438,14 @@ class PelangganExport implements FromCollection, WithHeadings, WithStyles, WithC
                 'total_biaya'      => $p->total_biaya_range,
                 'tgl_kunjungan'    => $p->tgl_kunjungan,
             ];
+
+            if ($this->pemeriksaan) {
+                $row['total_terkait_pemeriksaan']      = $p->total_terkait_pemeriksaan ?? 0;
+                $row['pemeriksaan_terakhir']           = $p->pemeriksaan_terakhir_terkait ?? '-';
+                $row['tgl_kunjungan_terakhir_terkait'] = $p->tgl_kunjungan_terakhir_terkait ?? '-';
+            }
+
+            return $row;
         });
     }
 
@@ -417,7 +472,7 @@ class PelangganExport implements FromCollection, WithHeadings, WithStyles, WithC
                 'Kelas',
             ];
         } else {
-            return [
+            $h = [
                 'ID',
                 'PID',
                 'Nama Pasien',
@@ -432,6 +487,12 @@ class PelangganExport implements FromCollection, WithHeadings, WithStyles, WithC
                 'Total Biaya',
                 'Tanggal Kunjungan Terakhir'
             ];
+            if ($this->pemeriksaan) {
+                $h[] = 'Total Terkait Pemeriksaan';
+                $h[] = 'Pemeriksaan Terakhir';
+                $h[] = 'Tanggal Kunjungan Terakhir Terkait Pemeriksaan';
+            }
+            return $h;
         }
     }
 
@@ -441,13 +502,19 @@ class PelangganExport implements FromCollection, WithHeadings, WithStyles, WithC
 
     public function columnWidths(): array
     {
-        return ['A'=>8,'B'=>16,'C'=>28,'D'=>20,'E'=>18,'F'=>16,'G'=>13,'H'=>35,'I'=>15,'J'=>18,'K'=>16,'L'=>18,'M'=>23];
+        $widths = ['A'=>8,'B'=>16,'C'=>28,'D'=>20,'E'=>18,'F'=>16,'G'=>13,'H'=>35,'I'=>15,'J'=>18,'K'=>16,'L'=>18,'M'=>23];
+        if ($this->pemeriksaan && !$this->search) {
+            $widths['N'] = 18;
+            $widths['O'] = 30;
+            $widths['P'] = 25;
+        }
+        return $widths;
     }
 
     public function styles(Worksheet $sheet): array
     {
         $last = $sheet->getHighestRow();
-        $lastCol = 'M'; // 13 kolom A-M
+        $lastCol = ($this->pemeriksaan && !$this->search) ? 'P' : 'M';
 
         // Baris 1: Judul
         $sheet->mergeCells("A1:{$lastCol}1");
@@ -490,7 +557,12 @@ class PelangganExport implements FromCollection, WithHeadings, WithStyles, WithC
                 }
             } else {
                 // Normal mode: A=ID,B=PID,D=NIK,G=DOB,J=TotalKedatangan,K=Kelas,M=TglTerakhir → center
-                foreach (['A','B','D','G','J','K','M'] as $col) {
+                $centerCols = ['A','B','D','G','J','K','M'];
+                if ($this->pemeriksaan) {
+                    $centerCols[] = 'N';
+                    $centerCols[] = 'P';
+                }
+                foreach ($centerCols as $col) {
                     $sheet->getStyle("{$col}4:{$col}{$last}")->getAlignment()->setHorizontal(Alignment::HORIZONTAL_CENTER);
                 }
                 $sheet->getStyle("L4:L{$last}")->getAlignment()->setHorizontal(Alignment::HORIZONTAL_RIGHT);

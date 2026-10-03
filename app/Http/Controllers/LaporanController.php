@@ -29,7 +29,25 @@ class LaporanController extends Controller
         $isMultiCabang = $cabangs->count() > 1;
         $kelasList = Kelas::orderedNames();
 
-        return view('laporan.index', compact('cabangs', 'kelasList', 'isMultiCabang'));
+        // Ambil opsi pemeriksaan unik dari database untuk searchable dropdown
+        $rawPemeriksaanList = Kunjungan::whereNotNull('pemeriksaan')
+            ->where('pemeriksaan', '!=', '')
+            ->select('pemeriksaan')
+            ->distinct()
+            ->pluck('pemeriksaan');
+
+        $pemeriksaanOptions = collect();
+        foreach ($rawPemeriksaanList as $item) {
+            $parts = array_map('trim', explode(',', $item));
+            foreach ($parts as $part) {
+                if ($part !== '') {
+                    $pemeriksaanOptions->push($part);
+                }
+            }
+        }
+        $pemeriksaanOptions = $pemeriksaanOptions->unique()->sort()->values();
+
+        return view('laporan.index', compact('cabangs', 'kelasList', 'isMultiCabang', 'pemeriksaanOptions'));
     }
 
     /**
@@ -77,6 +95,17 @@ class LaporanController extends Controller
                 $this->enrichWithClassAtPeriod($pelanggan->getCollection(), $endOfPeriod);
             }
 
+            // Hitung data pemeriksaan jika filter pemeriksaan aktif
+            $pemeriksaan = $request->filled('search_by_pemeriksaan') || $request->filled('pemeriksaan')
+                ? trim((string)$request->get('pemeriksaan'))
+                : null;
+            if ($pemeriksaan === '') {
+                $pemeriksaan = null;
+            }
+            if ($pemeriksaan) {
+                $this->enrichWithPemeriksaanData($pelanggan->getCollection(), $pemeriksaan, $request);
+            }
+
             // Tambahkan flag usePeriodeBiaya ke setiap item agar JS bisa memilih kolom
             $pelanggan->getCollection()->transform(function ($item) use ($usePeriodeBiaya) {
                 $item->use_periode_biaya = $usePeriodeBiaya;
@@ -84,9 +113,10 @@ class LaporanController extends Controller
             });
 
             return response()->json([
-                'data'            => $pelanggan,
-                'summary'         => $summary,
-                'usePeriodeBiaya' => $usePeriodeBiaya,
+                'data'                      => $pelanggan,
+                'summary'                   => $summary,
+                'usePeriodeBiaya'           => $usePeriodeBiaya,
+                'isFilterPemeriksaanActive' => !empty($pemeriksaan),
             ]);
 
         } catch (\Exception $e) {
@@ -115,13 +145,24 @@ class LaporanController extends Controller
             $this->enrichWithClassAtPeriod($pelanggan, $endOfPeriod);
         }
 
+        // Hitung data pemeriksaan jika filter pemeriksaan aktif
+        $pemeriksaan = $request->filled('search_by_pemeriksaan') || $request->filled('pemeriksaan')
+            ? trim((string)$request->get('pemeriksaan'))
+            : null;
+        if ($pemeriksaan === '') {
+            $pemeriksaan = null;
+        }
+        if ($pemeriksaan) {
+            $this->enrichWithPemeriksaanData($pelanggan, $pemeriksaan, $request);
+        }
+
         if ($format === 'print') {
-            return view('laporan.print', compact('pelanggan', 'filters', 'usePeriodeBiaya'));
+            return view('laporan.print', compact('pelanggan', 'filters', 'usePeriodeBiaya', 'pemeriksaan'));
         }
 
         // Excel
         return Excel::download(
-            new LaporanExport($pelanggan, $filters, $usePeriodeBiaya),
+            new LaporanExport($pelanggan, $filters, $usePeriodeBiaya, $pemeriksaan),
             'laporan-pelanggan-' . date('Y-m-d') . '.xlsx'
         );
     }
@@ -452,6 +493,56 @@ class LaporanController extends Controller
             }
         }
 
+        // ── Filter Pemeriksaan (Minimal 3 kali) ───────────────────────────────
+        $searchByPemeriksaan = $request->filled('search_by_pemeriksaan') || $request->filled('pemeriksaan');
+        $pemeriksaan = $searchByPemeriksaan ? trim((string)$request->get('pemeriksaan')) : null;
+        if ($pemeriksaan === '') {
+            $pemeriksaan = null;
+        }
+
+        if ($pemeriksaan) {
+            $pemDateSql = '';
+            if ($type === 'perbulan' && $bulan && $tahun) {
+                $pemDateSql = ' AND MONTH(k2.tanggal_kunjungan) = ' . (int)$bulan . ' AND YEAR(k2.tanggal_kunjungan) = ' . (int)$tahun;
+            } elseif ($type === 'pertahun' && $tahun) {
+                $pemDateSql = ' AND YEAR(k2.tanggal_kunjungan) = ' . (int)$tahun;
+            } elseif ($type === 'range' && $tanggalMulai && $tanggalSelesai) {
+                $quotedMulai = DB::getPdo()->quote($tanggalMulai);
+                $quotedSelesai = DB::getPdo()->quote($tanggalSelesai);
+                $pemDateSql = " AND k2.tanggal_kunjungan BETWEEN {$quotedMulai} AND {$quotedSelesai}";
+            }
+
+            if (str_contains($pemeriksaan, '+')) {
+                // Mode AND: semua keyword minimal 3 kali
+                $keywords = array_values(array_filter(array_map('trim', explode('+', $pemeriksaan))));
+                foreach ($keywords as $kw) {
+                    $quotedKw = DB::getPdo()->quote('%' . $kw . '%');
+                    $query->whereRaw("(
+                        SELECT COUNT(*) FROM kunjungans k2 
+                        WHERE k2.pelanggan_id = pelanggans.id 
+                        AND k2.pemeriksaan LIKE {$quotedKw}
+                        {$pemDateSql}
+                    ) >= 3");
+                }
+            } else {
+                // Mode OR: salah satu keyword minimal 3 kali
+                $keywords = array_values(array_filter(array_map('trim', explode(',', $pemeriksaan))));
+                if (!empty($keywords)) {
+                    $orConditions = [];
+                    foreach ($keywords as $kw) {
+                        $quotedKw = DB::getPdo()->quote('%' . $kw . '%');
+                        $orConditions[] = "(
+                            SELECT COUNT(*) FROM kunjungans k2 
+                            WHERE k2.pelanggan_id = pelanggans.id 
+                            AND k2.pemeriksaan LIKE {$quotedKw}
+                            {$pemDateSql}
+                        ) >= 3";
+                    }
+                    $query->whereRaw('(' . implode(' OR ', $orConditions) . ')');
+                }
+            }
+        }
+
         // ── Sorting ───────────────────────────────────────────────────────────
         $allowedSorts = [
             'nama'                  => 'pelanggans.nama',
@@ -581,6 +672,92 @@ class LaporanController extends Controller
             $labels['Tipe'] = $request->tipe_pelanggan === 'khusus' ? 'Pelanggan Khusus' : 'Pelanggan Biasa';
         }
 
+        // Pemeriksaan
+        if ($request->filled('pemeriksaan')) {
+            $labels['Pemeriksaan'] = $request->pemeriksaan;
+        }
+
         return $labels;
+    }
+
+    /**
+     * Hitung kolom informasi terkait pemeriksaan jika filter pemeriksaan aktif
+     */
+    private function enrichWithPemeriksaanData($collection, ?string $pemeriksaan, Request $request): void
+    {
+        if (!$pemeriksaan || $collection->isEmpty()) {
+            return;
+        }
+
+        $type           = $request->get('type', 'semua');
+        $bulan          = (int) $request->get('bulan', date('m'));
+        $tahun          = (int) $request->get('tahun', date('Y'));
+        $tanggalMulai   = $request->get('tanggal_mulai');
+        $tanggalSelesai = $request->get('tanggal_selesai');
+
+        $pelangganIds = $collection->pluck('id');
+        $isAndMode    = str_contains($pemeriksaan, '+');
+        $keywords     = array_values(array_filter(array_map('trim', explode($isAndMode ? '+' : ',', $pemeriksaan))));
+
+        $kunjunganPemQuery = Kunjungan::whereIn('pelanggan_id', $pelangganIds)
+            ->whereNotNull('pemeriksaan')
+            ->where('pemeriksaan', '!=', '');
+
+        if ($type === 'perbulan' && $bulan && $tahun) {
+            $kunjunganPemQuery->whereMonth('tanggal_kunjungan', $bulan)
+                              ->whereYear('tanggal_kunjungan', $tahun);
+        } elseif ($type === 'pertahun' && $tahun) {
+            $kunjunganPemQuery->whereYear('tanggal_kunjungan', $tahun);
+        } elseif ($type === 'range' && $tanggalMulai && $tanggalSelesai) {
+            $kunjunganPemQuery->whereBetween('tanggal_kunjungan', [$tanggalMulai, $tanggalSelesai]);
+        }
+
+        $userKunjungans = $kunjunganPemQuery->orderBy('tanggal_kunjungan', 'desc')
+            ->orderBy('id', 'desc')
+            ->get()
+            ->groupBy('pelanggan_id');
+
+        $collection->each(function ($p) use ($userKunjungans, $keywords, $isAndMode) {
+            $kList = $userKunjungans->get($p->id, collect());
+            if ($isAndMode) {
+                $matchedK = $kList->filter(function ($k) use ($keywords) {
+                    $pemeriksaanStr = (string)$k->pemeriksaan;
+                    foreach ($keywords as $kw) {
+                        if (stripos($pemeriksaanStr, $kw) === false) {
+                            return false;
+                        }
+                    }
+                    return true;
+                });
+                $p->total_terkait_pemeriksaan = $matchedK->count();
+                $latestK = $matchedK->first();
+                $p->tgl_kunjungan_terakhir_terkait = $latestK && $latestK->tanggal_kunjungan
+                    ? Carbon::parse($latestK->tanggal_kunjungan)->format('d-m-Y')
+                    : '-';
+                $p->pemeriksaan_terakhir_terkait = $latestK ? $latestK->pemeriksaan : '-';
+            } else {
+                $totalRelated = 0;
+                $matchedK = collect();
+                foreach ($kList as $k) {
+                    $pemeriksaanStr = (string)$k->pemeriksaan;
+                    $hasMatch = false;
+                    foreach ($keywords as $kw) {
+                        if (stripos($pemeriksaanStr, $kw) !== false) {
+                            $totalRelated++;
+                            $hasMatch = true;
+                        }
+                    }
+                    if ($hasMatch) {
+                        $matchedK->push($k);
+                    }
+                }
+                $p->total_terkait_pemeriksaan = $totalRelated;
+                $latestK = $matchedK->first();
+                $p->tgl_kunjungan_terakhir_terkait = $latestK && $latestK->tanggal_kunjungan
+                    ? Carbon::parse($latestK->tanggal_kunjungan)->format('d-m-Y')
+                    : '-';
+                $p->pemeriksaan_terakhir_terkait = $latestK ? $latestK->pemeriksaan : '-';
+            }
+        });
     }
 }

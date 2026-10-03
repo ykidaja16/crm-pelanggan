@@ -139,13 +139,92 @@
                     </select>
                 </div>
 
+                <!-- Section Search By Pemeriksaan -->
+                <div class="col-12 my-3">
+                    <div class="card border border-info border-opacity-50 shadow-sm" style="background: linear-gradient(135deg, rgba(13, 202, 240, 0.08) 0%, rgba(255, 255, 255, 0.9) 100%); border-left: 5px solid #0dcaf0 !important; border-radius: 8px;">
+                        <div class="card-body p-3">
+                            <div class="d-flex align-items-center justify-content-between flex-wrap gap-3">
+                                <div class="d-flex align-items-center gap-3">
+                                    <div class="form-check form-switch mb-0">
+                                        <input class="form-check-input" type="checkbox" id="checkSearchPemeriksaan" name="search_by_pemeriksaan" value="1" onchange="togglePemeriksaanFilter(this.checked)" style="cursor: pointer; width: 3em; height: 1.5em;">
+                                    </div>
+                                    <div>
+                                        <label class="form-check-label fw-bold text-dark fs-6 mb-0 d-flex align-items-center flex-wrap gap-2" for="checkSearchPemeriksaan" style="cursor: pointer;">
+                                            <span class="d-inline-flex align-items-center justify-content-center bg-info text-white rounded-circle" style="width: 28px; height: 28px; font-size: 13px;">
+                                                <i class="fas fa-stethoscope"></i>
+                                            </span>
+                                            <span>Search By Pemeriksaan</span>
+                                            <span class="badge bg-info text-white fw-normal px-2 py-1" style="font-size: 0.75rem;">
+                                                <i class="fas fa-check-circle me-1"></i>Syarat Min. 3x Kunjungan
+                                            </span>
+                                        </label>
+                                        <small class="text-muted d-block mt-1">Aktifkan opsi ini untuk memfilter data laporan pasien berdasarkan jenis pemeriksaan tertentu <strong>minimal 3 kali</strong>.</small>
+                                    </div>
+                                </div>
+                            </div>
+
+                            {{-- Filter Pemeriksaan: Searchable Dropdown (Muncul saat Search By Pemeriksaan aktif) --}}
+                            <div id="pemeriksaanBox" class="mt-3 pt-3 border-top border-info border-opacity-25" style="display: none;">
+                                <div class="row g-2 align-items-center">
+                                    <div class="col-md-6 col-lg-5">
+                                        <label class="form-label fw-bold text-dark small mb-1">
+                                            Pilih / Masukkan Nama Pemeriksaan:
+                                        </label>
+                                        <div class="input-group">
+                                            <span class="input-group-text bg-white text-info border-end-0">
+                                                <i class="fas fa-search"></i>
+                                            </span>
+                                            <input type="text" 
+                                                   name="pemeriksaan" 
+                                                   id="pemeriksaanInput" 
+                                                   class="form-control border-start-0 ps-0" 
+                                                   list="pemeriksaanDatalist" 
+                                                   value="" 
+                                                   placeholder="Ketik pemeriksaan (contoh: Asam Urat, Glukosa)..."
+                                                   autocomplete="off">
+                                            <button class="btn btn-outline-info dropdown-toggle" type="button" data-bs-toggle="dropdown" aria-expanded="false" title="Pilih dari daftar"></button>
+                                            <ul class="dropdown-menu dropdown-menu-end shadow-sm" style="max-height: 250px; overflow-y: auto;">
+                                                <li><h6 class="dropdown-header">Pilihan Pemeriksaan</h6></li>
+                                                @if(isset($pemeriksaanOptions) && $pemeriksaanOptions->count() > 0)
+                                                    @foreach($pemeriksaanOptions as $opt)
+                                                        <li>
+                                                            <a class="dropdown-item small" href="javascript:void(0)" onclick="selectPemeriksaan('{{ addslashes($opt) }}')">
+                                                                {{ $opt }}
+                                                            </a>
+                                                        </li>
+                                                    @endforeach
+                                                @else
+                                                    <li><span class="dropdown-item text-muted small">Belum ada data pemeriksaan</span></li>
+                                                @endif
+                                            </ul>
+                                            <datalist id="pemeriksaanDatalist">
+                                                @if(isset($pemeriksaanOptions))
+                                                    @foreach($pemeriksaanOptions as $opt)
+                                                        <option value="{{ $opt }}">
+                                                    @endforeach
+                                                @endif
+                                            </datalist>
+                                        </div>
+                                    </div>
+                                    <div class="col-md-6 col-lg-7">
+                                        <div class="p-2 rounded bg-white bg-opacity-75 border border-info border-opacity-25 small text-secondary">
+                                            <i class="fas fa-info-circle text-info me-1"></i>
+                                            Gunakan <strong>koma (,)</strong> untuk kondisi <strong>ATAU</strong> (salah satu min. 3x), atau tanda <strong>plus (+)</strong> untuk kondisi <strong>DAN</strong> (semuanya masing-masing min. 3x).
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
                 <!-- Buttons -->
-                <div class="col-12">
+                <div class="col-12 pt-3 border-top mt-2">
                     <div class="d-flex gap-2">
-                        <button type="button" id="btnPreview" class="btn btn-info">
+                        <button type="button" id="btnPreview" class="btn btn-info px-4 py-2 fw-semibold">
                             <i class="fas fa-eye me-2"></i>Preview Laporan
                         </button>
-                        <button type="button" id="btnReset" class="btn btn-outline-secondary">
+                        <button type="button" id="btnReset" class="btn btn-outline-secondary px-4 py-2">
                             <i class="fas fa-times me-2"></i>Reset Filter
                         </button>
                     </div>
@@ -209,8 +288,8 @@
         </div>
         <div class="card-body p-0">
             <div class="table-responsive">
-                <table class="table table-hover table-striped mb-0 align-middle small" style="min-width: 1200px;">
-                    <thead class="table-light">
+                <table id="previewTableElement" class="table table-hover table-striped mb-0 align-middle small" style="min-width: 1200px;">
+                    <thead id="previewTableHead" class="table-light">
                         <tr>
                             <th class="px-2 py-2 text-center fw-semibold" style="width: 35px;">No</th>
                             <th class="py-2 fw-semibold" style="width: 100px;">PID</th>
@@ -297,6 +376,9 @@ document.addEventListener('DOMContentLoaded', function() {
         document.getElementById('filterForm').reset();
         typeSelect.value = 'semua';
         typeSelect.dispatchEvent(new Event('change'));
+        if (typeof togglePemeriksaanFilter === 'function') {
+            togglePemeriksaanFilter(false);
+        }
         document.getElementById('summaryCard').style.display   = 'none';
         document.getElementById('exportButtons').style.display = 'none';
         document.getElementById('previewTable').style.display  = 'none';
@@ -367,6 +449,7 @@ document.addEventListener('DOMContentLoaded', function() {
             }
 
             var usePeriodeBiaya = data.usePeriodeBiaya || false;
+            var isFilterPemeriksaan = data.isFilterPemeriksaanActive || false;
 
             // ── Summary ───────────────────────────────────────────────────────
             document.getElementById('summaryCard').style.display = 'block';
@@ -381,7 +464,36 @@ document.addEventListener('DOMContentLoaded', function() {
             // ── Table ─────────────────────────────────────────────────────────
             document.getElementById('previewTable').style.display = 'block';
 
-            var tbody      = document.getElementById('previewTableBody');
+            var tableElem = document.getElementById('previewTableElement');
+            var thead = document.getElementById('previewTableHead');
+            if (tableElem) {
+                tableElem.style.minWidth = isFilterPemeriksaan ? '1500px' : '1200px';
+            }
+            if (thead) {
+                var theadHtml = '<tr>' +
+                    '<th class="px-2 py-2 text-center fw-semibold" style="width: 35px;">No</th>' +
+                    '<th class="py-2 fw-semibold" style="width: 100px;">PID</th>' +
+                    '<th class="py-2 fw-semibold" style="min-width: 200px;">Nama Pasien</th>' +
+                    '<th class="py-2 text-center fw-semibold" style="width: 100px;">Cabang</th>' +
+                    '<th class="py-2 fw-semibold" style="width: 110px;">No Telp</th>' +
+                    '<th class="py-2 text-center fw-semibold" style="width: 85px;">DOB</th>' +
+                    '<th class="py-2 fw-semibold" style="min-width: 120px;">Alamat</th>' +
+                    '<th class="py-2 text-center fw-semibold" style="width: 75px;">Kunjungan</th>' +
+                    '<th class="py-2 text-center fw-semibold" style="width: 110px;">Kunjungan Terakhir</th>';
+
+                if (isFilterPemeriksaan) {
+                    theadHtml += '<th class="py-2 text-center text-info fw-semibold" style="min-width: 110px;">Total Terkait Pemeriksaan</th>' +
+                                 '<th class="py-2 text-info fw-semibold" style="min-width: 180px;">Pemeriksaan Terakhir</th>' +
+                                 '<th class="py-2 text-center text-info fw-semibold" style="min-width: 130px;">Tanggal Kunjungan Terakhir Terkait Pemeriksaan</th>';
+                }
+
+                theadHtml += '<th class="py-2 text-end fw-semibold" style="width: 110px;">Total Biaya</th>' +
+                             '<th class="py-2 text-center fw-semibold" style="width: 80px;">Kelas</th>' +
+                             '</tr>';
+                thead.innerHTML = theadHtml;
+            }
+
+            var tbody       = document.getElementById('previewTableBody');
             tbody.innerHTML = '';
             var startNumber = (data.data.current_page - 1) * data.data.per_page + 1;
 
@@ -400,7 +512,7 @@ document.addEventListener('DOMContentLoaded', function() {
                     : (item.class || 'Umum');
 
                 var row = document.createElement('tr');
-                row.innerHTML =
+                var rowHtml =
                     '<td class="px-2 py-2 text-center">' + (startNumber + index) + '</td>' +
                     '<td class="py-2"><code class="bg-light px-1 py-1 rounded small text-nowrap">' + (item.pid || '-') + '</code></td>' +
                     '<td class="py-2 fw-medium">' + (item.nama || '-') + '</td>' +
@@ -409,9 +521,18 @@ document.addEventListener('DOMContentLoaded', function() {
                     '<td class="py-2 text-center text-nowrap small">' + (item.dob ? formatDate(item.dob) : '-') + '</td>' +
                     '<td class="py-2 small">' + (item.alamat ? item.alamat.substring(0, 25) : '-') + '</td>' +
                     '<td class="py-2 text-center"><span class="badge bg-secondary bg-opacity-10 text-secondary small">' + Math.round(kedatangan) + '</span></td>' +
-                    '<td class="py-2 text-center text-nowrap small">' + (item.tgl_kunjungan_terakhir ? formatDate(item.tgl_kunjungan_terakhir) : '-') + '</td>' +
-                    '<td class="py-2 text-end fw-semibold text-nowrap small">Rp ' + parseFloat(biaya).toLocaleString('id-ID') + '</td>' +
-                    '<td class="py-2 text-center">' + getKelasBadge(kelas) + '</td>';
+                    '<td class="py-2 text-center text-nowrap small">' + (item.tgl_kunjungan_terakhir ? formatDate(item.tgl_kunjungan_terakhir) : '-') + '</td>';
+
+                if (isFilterPemeriksaan) {
+                    rowHtml += '<td class="py-2 text-center"><span class="badge bg-info bg-opacity-10 text-info border border-info small">' + (item.total_terkait_pemeriksaan || 0) + '</span></td>' +
+                               '<td class="py-2 small text-wrap" style="max-width: 250px;">' + (item.pemeriksaan_terakhir_terkait || '-') + '</td>' +
+                               '<td class="py-2 text-center text-nowrap small">' + (item.tgl_kunjungan_terakhir_terkait || '-') + '</td>';
+                }
+
+                rowHtml += '<td class="py-2 text-end fw-semibold text-nowrap small">Rp ' + parseFloat(biaya).toLocaleString('id-ID') + '</td>' +
+                           '<td class="py-2 text-center">' + getKelasBadge(kelas) + '</td>';
+
+                row.innerHTML = rowHtml;
                 tbody.appendChild(row);
             });
 
@@ -542,5 +663,90 @@ document.addEventListener('DOMContentLoaded', function() {
         }
     }
 });
+
+// =============================================
+// PEMERIKSAAN AUTOCOMPLETE & TOGGLE HELPER
+// =============================================
+function togglePemeriksaanFilter(isChecked) {
+    const box = document.getElementById('pemeriksaanBox');
+    const input = document.getElementById('pemeriksaanInput');
+    if (box) {
+        box.style.display = isChecked ? '' : 'none';
+    }
+    if (!isChecked && input) {
+        input.value = '';
+    }
+}
+</script>
+<script id="pemeriksaanOptionsData" type="application/json">{!! json_encode(isset($pemeriksaanOptions) ? $pemeriksaanOptions->values()->toArray() : []) !!}</script>
+<script>
+const allPemeriksaanOptions = JSON.parse(document.getElementById('pemeriksaanOptionsData')?.textContent || '[]');
+
+function updatePemeriksaanDatalist() {
+    const pemInput = document.getElementById('pemeriksaanInput');
+    const pemDatalist = document.getElementById('pemeriksaanDatalist');
+    if (!pemInput || !pemDatalist) return;
+
+    const val = pemInput.value;
+    const lastComma = val.lastIndexOf(',');
+    const lastPlus  = val.lastIndexOf('+');
+    const lastDelimIdx = Math.max(lastComma, lastPlus);
+
+    let prefix = '';
+    let currentToken = '';
+
+    if (lastDelimIdx !== -1) {
+        const delim = val[lastDelimIdx];
+        const beforeDelim = val.substring(0, lastDelimIdx).trim();
+        prefix = beforeDelim ? (beforeDelim + ' ' + delim + ' ') : (delim + ' ');
+        currentToken = val.substring(lastDelimIdx + 1).trim();
+    } else {
+        currentToken = val.trim();
+    }
+
+    const tokenLower = currentToken.toLowerCase();
+    const matched = tokenLower 
+        ? allPemeriksaanOptions.filter(function(opt) { return opt.toLowerCase().indexOf(tokenLower) !== -1; })
+        : allPemeriksaanOptions;
+
+    let html = '';
+    matched.slice(0, 50).forEach(function(opt) {
+        const fullVal = prefix ? (prefix + opt) : opt;
+        html += '<option value="' + fullVal.replace(/"/g, '&quot;') + '">';
+    });
+    pemDatalist.innerHTML = html;
+}
+
+document.addEventListener('DOMContentLoaded', function() {
+    const pemInput = document.getElementById('pemeriksaanInput');
+    if (pemInput) {
+        pemInput.addEventListener('input', updatePemeriksaanDatalist);
+        pemInput.addEventListener('focus', updatePemeriksaanDatalist);
+        updatePemeriksaanDatalist();
+    }
+});
+
+function selectPemeriksaan(val) {
+    const input = document.getElementById('pemeriksaanInput');
+    if (!input) return;
+    const current = input.value;
+    const lastComma = current.lastIndexOf(',');
+    const lastPlus  = current.lastIndexOf('+');
+    const lastDelimIdx = Math.max(lastComma, lastPlus);
+
+    if (lastDelimIdx === -1) {
+        if (!current.trim()) {
+            input.value = val;
+        } else {
+            input.value = current.trim() + ', ' + val;
+        }
+    } else {
+        const delim = current[lastDelimIdx];
+        const beforeDelim = current.substring(0, lastDelimIdx).trim();
+        input.value = (beforeDelim ? beforeDelim + ' ' + delim + ' ' : delim + ' ') + val;
+    }
+    input.focus();
+    updatePemeriksaanDatalist();
+}
 </script>
 @endsection

@@ -228,15 +228,20 @@
         <thead>
             <tr>
                 <th style="width: 4%;">No</th>
-                <th style="width: 10%;">PID</th>
-                <th style="width: 18%;">Nama Pasien</th>
-                <th style="width: 10%;">Cabang</th>
-                <th style="width: 10%;">No Telp</th>
-                <th style="width: 8%;">DOB</th>
-                <th style="width: 8%;">Kunjungan</th>
-                <th style="width: 10%;">Kunjungan Terakhir</th>
-                <th style="width: 12%;">Total Biaya</th>
-                <th style="width: 10%;">Kelas</th>
+                <th style="width: 8%;">PID</th>
+                <th style="width: 15%;">Nama Pasien</th>
+                <th style="width: 9%;">Cabang</th>
+                <th style="width: 9%;">No Telp</th>
+                <th style="width: 7%;">DOB</th>
+                <th style="width: 6%;">Kunjungan</th>
+                <th style="width: 8%;">Kunjungan Terakhir</th>
+                @if(!empty($pemeriksaan))
+                <th style="width: 7%;">Total Terkait</th>
+                <th style="width: 13%;">Pemeriksaan Terakhir</th>
+                <th style="width: 8%;">Tgl Terkait</th>
+                @endif
+                <th style="width: 11%;">Total Biaya</th>
+                <th style="width: 7%;">Kelas</th>
             </tr>
         </thead>
         <tbody>
@@ -270,6 +275,11 @@
                         ? \Carbon\Carbon::parse($p->tgl_kunjungan_terakhir)->format('d-m-Y')
                         : '-' }}
                 </td>
+                @if(!empty($pemeriksaan))
+                <td class="text-center">{{ $p->total_terkait_pemeriksaan ?? 0 }}</td>
+                <td class="text-left">{{ $p->pemeriksaan_terakhir_terkait ?? '-' }}</td>
+                <td class="text-center">{{ $p->tgl_kunjungan_terakhir_terkait ?? '-' }}</td>
+                @endif
                 <td class="text-right">Rp {{ number_format((float)$biaya, 0, ',', '.') }}</td>
                 <td class="text-center">
                     <span class="badge {{ $badgeClass }}">{{ $kelas }}</span>
@@ -277,7 +287,7 @@
             </tr>
             @empty
             <tr>
-                <td colspan="10" class="text-center">Tidak ada data yang sesuai dengan filter.</td>
+                <td colspan="{{ !empty($pemeriksaan) ? '13' : '10' }}" class="text-center">Tidak ada data yang sesuai dengan filter.</td>
             </tr>
             @endforelse
         </tbody>
