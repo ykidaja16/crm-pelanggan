@@ -87,7 +87,11 @@ class PelangganImportExportController extends Controller
             if ($extension === 'csv' || $extension === 'txt') {
                 $rows = $this->readCsvFile($file);
             } else {
-                $rows = Excel::toArray(null, $file);
+                $reader = \PhpOffice\PhpSpreadsheet\IOFactory::createReaderForFile($file->getPathname());
+                $reader->setReadDataOnly(true);
+                $spreadsheet = $reader->load($file->getPathname());
+                $sheet = $spreadsheet->getActiveSheet();
+                $rows = [$sheet->toArray(null, true, false, false)];
             }
 
             $errors = [];
@@ -147,6 +151,19 @@ class PelangganImportExportController extends Controller
 
             $cabangs = Cabang::all()->keyBy('kode');
 
+            // Kumpulkan semua PID unik di file untuk batch query (optimasi: ribuan query menjadi 1 query)
+            $allPidsInFile = [];
+            foreach ($rows[0] as $rIdx => $r) {
+                if ($rIdx === 0 && count($r) > 0 && strtolower(trim($r[0] ?? '')) === 'no') continue;
+                $p = strtoupper(trim((string) ($r[7] ?? '')));
+                if (!empty($p)) {
+                    $allPidsInFile[] = $p;
+                }
+            }
+            $existingPelanggans = empty($allPidsInFile)
+                ? collect()
+                : Pelanggan::whereIn('pid', array_unique($allPidsInFile))->get()->keyBy('pid');
+
             // Array untuk tracking PID dan Nama dalam satu file (validasi duplikat)
             $pidNamaMap = [];
 
@@ -164,7 +181,14 @@ class PelangganImportExportController extends Controller
 
                 $no   = trim($row[0] ?? '');
                 $nama = trim($row[1] ?? '');
-                $pid  = trim($row[7] ?? '');
+                $pid  = strtoupper(trim($row[7] ?? ''));
+
+                $pelanggan = $existingPelanggans->get($pid);
+
+                // Auto-fallback: jika nama di Excel kosong tapi PID terdaftar di DB, gunakan nama dari database
+                if (empty($nama) && $pelanggan && !empty($pelanggan->nama)) {
+                    $nama = $pelanggan->nama;
+                }
 
                 // Tracking PID dan Nama untuk validasi duplikat dalam satu file
                 if (!empty($pid) && !empty($nama)) {
@@ -176,7 +200,6 @@ class PelangganImportExportController extends Controller
                         ];
                     } elseif (strtolower($pidNamaMap[$pid]['nama']) !== strtolower($nama)) {
                         // PID sudah ada dengan nama berbeda, catat konflik
-                        // Simpan informasi baris konflik (tapi jangan tambahkan error dulu, nanti dicek setelah loop)
                         if (!isset($pidNamaMap[$pid]['konflik'])) {
                             $pidNamaMap[$pid]['konflik'] = [];
                         }
@@ -205,8 +228,6 @@ class PelangganImportExportController extends Controller
                 }
 
                 $totalRows++;
-
-                $pelanggan = Pelanggan::where('pid', $pid)->first();
 
                 if ($pelanggan) {
                     // Blokir import jika PID adalah pelanggan khusus
@@ -395,7 +416,7 @@ class PelangganImportExportController extends Controller
      */
     public function downloadTemplate()
     {
-        // Header kolom sesuai format import (13 kolom dengan NIK dan Pemeriksaan)
+        // Header kolom sesuai format import (14 kolom dengan NIK, Pemeriksaan, dan MOU/Agreement)
         $headers = [
             'No',
             'Nama Pasien',
@@ -409,16 +430,17 @@ class PelangganImportExportController extends Controller
             'Kota',
             'Kelompok Pelanggan (mandiri/klinisi)',
             'NIK',
-            'Pemeriksaan'
+            'Pemeriksaan',
+            'MOU/Agreement'
         ];
 
-        // Data dummy sebagai contoh (13 kolom dengan Pemeriksaan)
+        // Data dummy sebagai contoh (14 kolom dengan Pemeriksaan dan MOU/Agreement, Total Kedatangan diisi 1)
         $data = [
-            [1, 'Budi Santoso',  3, '2024-01-15', 2500000, '081234567890', '1990-05-20', 'JK00001', 'Jl. Sudirman No. 123',    'Jakarta',    'mandiri', '1234567890123456', 'Diabetes, Kolestrol, Urine Lengkap'],
-            [2, 'Siti Aminah',   5, '2024-02-10', 4500000, '082345678901', '1985-08-12', 'BD00002', 'Jl. Ahmad Yani No. 45',   'Bandung',    'klinisi', 'TIDAK ADA IDENTITAS', 'Darah Lengkap, SGOT, SGPT'],
-            [3, 'Ahmad Wijaya',  2, '2024-03-05', 1200000, '083456789012', '1992-11-03', 'SB00003', 'Jl. Gatot Subroto No. 78','Surabaya',   'mandiri', '', 'Urine Lengkap'],
-            [4, 'Dewi Kusuma',   4, '2024-01-28', 3800000, '084567890123', '1988-04-25', 'YK00004', 'Jl. Malioboro No. 12',    'Yogyakarta', 'klinisi', '6543210987654321', 'Asam Urat, Kolestrol'],
-            [5, 'Eko Prasetyo',  1, '2024-02-20',  850000, '085678901234', '1995-09-18', 'ML00005', 'Jl. Ijen No. 56',         'Malang',     'mandiri', '', ''],
+            [1, 'Budi Santoso',  1, '2024-01-15', 2500000, '081234567890', '1990-05-20', 'JK00001', 'Jl. Sudirman No. 123',    'Jakarta',    'mandiri', '1234567890123456', 'Diabetes, Kolestrol, Urine Lengkap', 'Promo Kemerdekaan'],
+            [2, 'Siti Aminah',   1, '2024-02-10', 4500000, '082345678901', '1985-08-12', 'BD00002', 'Jl. Ahmad Yani No. 45',   'Bandung',    'klinisi', 'TIDAK ADA IDENTITAS', 'Darah Lengkap, SGOT, SGPT', 'MOU Perusahaan ABC'],
+            [3, 'Ahmad Wijaya',  1, '2024-03-05', 1200000, '083456789012', '1992-11-03', 'SB00003', 'Jl. Gatot Subroto No. 78','Surabaya',   'mandiri', '', 'Urine Lengkap', ''],
+            [4, 'Dewi Kusuma',   1, '2024-01-28', 3800000, '084567890123', '1988-04-25', 'YK00004', 'Jl. Malioboro No. 12',    'Yogyakarta', 'klinisi', '6543210987654321', 'Asam Urat, Kolestrol', 'Promo Akhir Tahun'],
+            [5, 'Eko Prasetyo',  1, '2024-02-20',  850000, '085678901234', '1995-09-18', 'ML00005', 'Jl. Ijen No. 56',         'Malang',     'mandiri', '', '', ''],
         ];
 
         $spreadsheet = new \PhpOffice\PhpSpreadsheet\Spreadsheet();
@@ -435,10 +457,13 @@ class PelangganImportExportController extends Controller
         // Set data
         foreach ($data as $row => $rowData) {
             foreach ($rowData as $col => $value) {
-                $sheet->setCellValue(
-                    \PhpOffice\PhpSpreadsheet\Cell\Coordinate::stringFromColumnIndex($col + 1) . ($row + 2),
-                    $value
-                );
+                $cellCoord = \PhpOffice\PhpSpreadsheet\Cell\Coordinate::stringFromColumnIndex($col + 1) . ($row + 2);
+                // Kolom NIK (index 11) diset sebagai text/string agar tidak jadi format scientific/eksponen (1.23E+15)
+                if ($col === 11 && !empty($value)) {
+                    $sheet->setCellValueExplicit($cellCoord, (string) $value, \PhpOffice\PhpSpreadsheet\Cell\DataType::TYPE_STRING);
+                } else {
+                    $sheet->setCellValue($cellCoord, $value);
+                }
             }
         }
 
@@ -462,7 +487,8 @@ class PelangganImportExportController extends Controller
                 ]
             ]
         ];
-        $sheet->getStyle('A1:M1')->applyFromArray($headerStyle);
+        $lastHeaderCol = \PhpOffice\PhpSpreadsheet\Cell\Coordinate::stringFromColumnIndex(count($headers));
+        $sheet->getStyle("A1:{$lastHeaderCol}1")->applyFromArray($headerStyle);
 
         $writer   = new \PhpOffice\PhpSpreadsheet\Writer\Xlsx($spreadsheet);
         $filename = 'template_import_pelanggan.xlsx';
@@ -609,6 +635,19 @@ class PelangganImportExportController extends Controller
         // Load semua cabang ke memory untuk lookup cepat (hindari query berulang)
         $cabangs = Cabang::all()->keyBy('kode');
 
+        // Preload pelanggan di file untuk optimasi query
+        $allPidsInFile = [];
+        foreach ($rows as $rIdx => $r) {
+            if ($rIdx === 0 && count($r) > 0 && strtolower(trim($r[0] ?? '')) === 'no') continue;
+            $p = strtoupper(trim((string) ($r[7] ?? '')));
+            if (!empty($p)) {
+                $allPidsInFile[] = $p;
+            }
+        }
+        $existingPelanggans = empty($allPidsInFile)
+            ? collect()
+            : Pelanggan::whereIn('pid', array_unique($allPidsInFile))->get()->keyBy('pid');
+
         foreach ($rows as $index => $row) {
             $rowNumber = $index + 2;
             $currentRow++;
@@ -628,7 +667,7 @@ class PelangganImportExportController extends Controller
             $biaya            = $row[4] ?? null;
             $noTelp           = trim($row[5] ?? '');
             $dob              = $row[6] ?? null;
-            $pid              = trim($row[7] ?? '');
+            $pid              = strtoupper(trim($row[7] ?? ''));
             $alamat           = trim($row[8] ?? '');
             $kota             = trim($row[9] ?? '');
             $kelompokRaw       = isset($row[10]) ? strtolower(trim((string) $row[10])) : '';
@@ -641,10 +680,22 @@ class PelangganImportExportController extends Controller
                 $nik = null;
             }
 
-            // Baca Pemeriksaan dari kolom ke-13 (index 12)
+            // Baca Pemeriksaan dari kolom ke-13 (index 12) - Boleh Kosong
             $pemeriksaan = isset($row[12]) ? trim((string) $row[12]) : null;
             if ($pemeriksaan === '') {
                 $pemeriksaan = null;
+            }
+
+            // Baca MOU/Agreement dari kolom ke-14 (index 13) - Boleh Kosong
+            $mou = isset($row[13]) ? trim((string) $row[13]) : null;
+            if ($mou === '') {
+                $mou = null;
+            }
+
+            // Auto-fallback: jika nama di Excel kosong tapi PID terdaftar di DB, gunakan nama dari database
+            $pelangganExisting = $existingPelanggans->get($pid);
+            if (empty($nama) && $pelangganExisting && !empty($pelangganExisting->nama)) {
+                $nama = $pelangganExisting->nama;
             }
 
             if (empty($pid) || empty($nama)) {
@@ -665,7 +716,8 @@ class PelangganImportExportController extends Controller
                 $kota,
                 $kelompokPelanggan,
                 $nik,
-                $pemeriksaan
+                $pemeriksaan,
+                $mou
             ]));
 
             if (isset($seenRows[$dedupKey])) {
@@ -702,6 +754,7 @@ class PelangganImportExportController extends Controller
                 $totalKedatangan,
                 $biayaValue,
                 $pemeriksaan,
+                $mou,
                 $cabang,
                 $tanggal,
                 $no,
@@ -786,6 +839,7 @@ class PelangganImportExportController extends Controller
                     'tanggal_kunjungan'     => $tanggal,
                     'biaya'                 => $biayaValue,
                     'pemeriksaan'           => $pemeriksaan,
+                    'mou'                   => $mou,
                     'total_kedatangan'      => $totalKedatangan,
                     'kelompok_pelanggan_id' => $kelompok?->id,
                     'import_batch_id'       => $batchId ?: null, // Tag kunjungan dengan batch_id

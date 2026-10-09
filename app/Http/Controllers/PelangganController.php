@@ -85,6 +85,7 @@ class PelangganController extends Controller
                             'tanggal_kunjungan'     => $input['tanggal_kunjungan'],
                             'biaya'                 => $input['biaya'],
                             'pemeriksaan'           => !empty($input['pemeriksaan']) ? trim($input['pemeriksaan']) : null,
+                            'mou'                   => !empty($input['mou']) ? trim($input['mou']) : null,
                             'kelompok_pelanggan_id' => $kelompok?->id,
                             'total_kedatangan'      => 1,
                         ]);
@@ -179,6 +180,7 @@ class PelangganController extends Controller
                         'tanggal_kunjungan'     => $input['tanggal_kunjungan'],
                         'biaya'                 => $input['biaya'],
                         'pemeriksaan'           => !empty($input['pemeriksaan']) ? trim($input['pemeriksaan']) : null,
+                        'mou'                   => !empty($input['mou']) ? trim($input['mou']) : null,
                         'kelompok_pelanggan_id' => $kelompok?->id,
                         'total_kedatangan'      => 1,
                     ]);

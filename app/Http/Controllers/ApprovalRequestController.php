@@ -581,6 +581,7 @@ class ApprovalRequestController extends Controller
             'biaya'              => 'required|numeric|min:0',
             'kelompok_pelanggan' => 'required|in:mandiri,klinisi',
             'pemeriksaan'        => 'nullable|string|max:1000',
+            'mou'                => 'nullable|string|max:1000',
             'request_note'       => 'required|string|max:500',
             'assigned_to'        => 'nullable|exists:users,id',
         ]);
@@ -596,6 +597,7 @@ class ApprovalRequestController extends Controller
             'biaya'              => $kunjungan->biaya,
             'kelompok_pelanggan' => $kunjungan->kelompokPelanggan?->kode ?? null,
             'pemeriksaan'        => $kunjungan->pemeriksaan,
+            'mou'                => $kunjungan->mou,
         ];
 
         // Tentukan assigned_to: dari form (jika ada dropdown) atau auto-assign
@@ -615,6 +617,7 @@ class ApprovalRequestController extends Controller
                 'biaya'              => $validated['biaya'],
                 'kelompok_pelanggan' => $validated['kelompok_pelanggan'],
                 'pemeriksaan'        => $validated['pemeriksaan'] ?? null,
+                'mou'                => $validated['mou'] ?? null,
             ],
             'request_note' => $validated['request_note'],
             'status'       => 'pending',
@@ -870,6 +873,9 @@ class ApprovalRequestController extends Controller
                     ];
                     if (array_key_exists('pemeriksaan', $payload)) {
                         $updateKunjunganData['pemeriksaan'] = $payload['pemeriksaan'];
+                    }
+                    if (array_key_exists('mou', $payload)) {
+                        $updateKunjunganData['mou'] = $payload['mou'];
                     }
 
                     $kunjungan->update($updateKunjunganData);

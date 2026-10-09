@@ -713,6 +713,11 @@
                     <i class="fas fa-chart-line"></i> Pertumbuhan Kelas
                 </a>
             </li>
+            <li class="{{ request()->routeIs('evaluasi-promo.*') ? 'active' : '' }}">
+                <a href="{{ route('evaluasi-promo.index') }}" title="Evaluasi Event/Promo">
+                    <i class="fas fa-bullhorn"></i> Evaluasi Event/Promo
+                </a>
+            </li>
             @endif
             @if(Auth::user()->role?->name === 'Direktur')
             <li class="{{ request()->routeIs('retention.*') ? 'active' : '' }}">
@@ -815,6 +820,11 @@
             <li class="{{ request()->routeIs('kunjungan.update-pemeriksaan*') ? 'active' : '' }}">
                 <a href="{{ route('kunjungan.update-pemeriksaan.index') }}" title="Update Pemeriksaan">
                     <i class="fas fa-notes-medical"></i> Update Pemeriksaan
+                </a>
+            </li>
+            <li class="{{ request()->routeIs('kunjungan.update-mou*') ? 'active' : '' }}">
+                <a href="{{ route('kunjungan.update-mou.index') }}" title="Update MOU / Agreement">
+                    <i class="fas fa-file-contract"></i> Update MOU / Agreement
                 </a>
             </li>
             @endif

@@ -161,6 +161,12 @@ class KunjunganImport implements ToCollection, WithStartRow
                     $pemeriksaan = null;
                 }
 
+                // Baca MOU/Agreement dari kolom ke-14 (index 13)
+                $mou = isset($rowArray[13]) ? trim((string) $rowArray[13]) : null;
+                if ($mou === '') {
+                    $mou = null;
+                }
+
                 if (empty($pid) || empty($namaPasien)) {
                     continue;
                 }
@@ -178,7 +184,8 @@ class KunjunganImport implements ToCollection, WithStartRow
                     $kota,
                     $kelompokPelanggan,
                     $nik,
-                    $pemeriksaan
+                    $pemeriksaan,
+                    $mou
                 ]));
 
                 if (isset($seenRows[$dedupKey])) {
@@ -217,7 +224,8 @@ class KunjunganImport implements ToCollection, WithStartRow
                     $cabangs[$cabangKode],
                     $kelompokPelanggan,
                     $nik,
-                    $pemeriksaan
+                    $pemeriksaan,
+                    $mou
                 );
 
                 $processedCount++;
@@ -258,7 +266,7 @@ class KunjunganImport implements ToCollection, WithStartRow
      */
     private function processRow(
         $no, $pid, $namaPasien, $totalKedatangan, $tanggalKedatangan,
-        $biaya, $noTelp, $dob, $alamat, $kota, $cabang, string $kelompokPelangganKode = 'mandiri', ?string $nik = null, ?string $pemeriksaan = null
+        $biaya, $noTelp, $dob, $alamat, $kota, $cabang, string $kelompokPelangganKode = 'mandiri', ?string $nik = null, ?string $pemeriksaan = null, ?string $mou = null
     ): void {
         // Cari pelanggan by PID, jika tidak ada buat baru
         $pelanggan = Pelanggan::firstOrNew(['pid' => $pid]);
@@ -357,6 +365,7 @@ class KunjunganImport implements ToCollection, WithStartRow
             'tanggal_kunjungan' => $tanggalKedatangan,
             'biaya' => $biaya,
             'pemeriksaan' => $pemeriksaan,
+            'mou' => $mou,
             'total_kedatangan' => $totalKedatangan,
             'kelompok_pelanggan_id' => $kelompok?->id,
         ]);

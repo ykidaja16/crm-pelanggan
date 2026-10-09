@@ -265,11 +265,18 @@
                                 @endif
                             </div>
 
-                            <div class="col-12">
+                            <div class="col-md-6">
                                 <label class="form-label fw-medium">Pemeriksaan <span class="text-muted small fw-normal">(Opsional)</span></label>
                                 <textarea name="inputs[0][pemeriksaan]" id="pemeriksaan" class="form-control" rows="2"
                                     placeholder="Contoh: Diabetes, Kolestrol, Urine Lengkap">{{ old('inputs.0.pemeriksaan', $oldInputs[0]['pemeriksaan'] ?? '') }}</textarea>
                                 <div class="form-text">Detail jenis pemeriksaan pasien pada kunjungan ini (boleh dikosongkan).</div>
+                            </div>
+
+                            <div class="col-md-6">
+                                <label class="form-label fw-medium">MOU / Agreement <span class="text-muted small fw-normal">(Opsional)</span></label>
+                                <textarea name="inputs[0][mou]" id="mou" class="form-control" rows="2"
+                                    placeholder="Contoh: Promo Kemerdekaan, MOU Perusahaan ABC">{{ old('inputs.0.mou', $oldInputs[0]['mou'] ?? '') }}</textarea>
+                                <div class="form-text">Keterangan MOU atau Promo/Event yang diikuti pasien (boleh dikosongkan).</div>
                             </div>
                         </div>
                     </div>

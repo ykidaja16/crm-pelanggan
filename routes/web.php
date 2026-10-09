@@ -21,6 +21,8 @@ use App\Http\Controllers\SearchByPhoneController;
 use App\Http\Controllers\SinkronisasiController;
 use App\Http\Controllers\PertumbuhanKelasController;
 use App\Http\Controllers\KunjunganPemeriksaanUpdateController;
+use App\Http\Controllers\KunjunganMouUpdateController;
+use App\Http\Controllers\EvaluasiPromoController;
 use App\Http\Middleware\EnsureUserIsAdmin;
 use App\Http\Middleware\EnsureUserIsSuperAdmin;
 use App\Http\Middleware\EnsureUserIsIT;
@@ -153,6 +155,10 @@ Route::middleware([Authenticate::class])->group(function () {
     Route::get('/laporan/preview', [\App\Http\Controllers\LaporanController::class, 'preview'])->name('laporan.preview');
     Route::get('/laporan/export', [\App\Http\Controllers\LaporanController::class, 'export'])->name('laporan.export');
 
+    // ─── Evaluasi Event / Promo ──────────────────────────────────────────────
+    Route::get('/evaluasi-promo', [\App\Http\Controllers\EvaluasiPromoController::class, 'index'])->name('evaluasi-promo.index');
+    Route::get('/evaluasi-promo/export', [\App\Http\Controllers\EvaluasiPromoController::class, 'export'])->name('evaluasi-promo.export');
+
     // ─── Retention Customer (Direktur only) ──────────────────────────────────
     Route::middleware(['direktur'])->group(function () {
         Route::get('/retention', [RetentionController::class, 'index'])->name('retention.index');
@@ -270,5 +276,10 @@ Route::middleware([Authenticate::class])->group(function () {
         Route::get('/update-pemeriksaan', [KunjunganPemeriksaanUpdateController::class, 'index'])->name('kunjungan.update-pemeriksaan.index');
         Route::get('/update-pemeriksaan/download-template', [KunjunganPemeriksaanUpdateController::class, 'downloadTemplate'])->name('kunjungan.update-pemeriksaan.template');
         Route::post('/update-pemeriksaan/import', [KunjunganPemeriksaanUpdateController::class, 'import'])->name('kunjungan.update-pemeriksaan.import');
+
+        // Update MOU / Agreement Kunjungan (Khusus Role IT)
+        Route::get('/update-mou', [KunjunganMouUpdateController::class, 'index'])->name('kunjungan.update-mou.index');
+        Route::get('/update-mou/download-template', [KunjunganMouUpdateController::class, 'downloadTemplate'])->name('kunjungan.update-mou.template');
+        Route::post('/update-mou/import', [KunjunganMouUpdateController::class, 'import'])->name('kunjungan.update-mou.import');
     });
 });

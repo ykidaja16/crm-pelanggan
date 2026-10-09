@@ -17,6 +17,7 @@ class Kunjungan extends Model
         'tanggal_kunjungan',
         'biaya',
         'pemeriksaan',
+        'mou',
         'kelompok_pelanggan_id',
         'import_batch_id',
     ];

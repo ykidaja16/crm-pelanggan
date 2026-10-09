@@ -121,6 +121,25 @@
                         </div>
                     </div>
 
+                    <!-- MOU / Agreement -->
+                    <div class="col-md-6">
+                        <label for="mou" class="form-label fw-semibold">
+                            <i class="fas fa-file-contract me-1 text-primary"></i> MOU / Agreement <span class="text-muted small fw-normal">(Opsional)</span>
+                        </label>
+                        <input type="text"
+                               class="form-control form-control-lg @error('mou') is-invalid @enderror"
+                               id="mou"
+                               name="mou"
+                               value="{{ old('mou', $kunjungan->mou) }}"
+                               placeholder="Contoh: Promo Kemerdekaan, MOU Perusahaan ABC">
+                        @error('mou')
+                            <div class="invalid-feedback">{{ $message }}</div>
+                        @enderror
+                        <div class="form-text text-muted">
+                            Keterangan MOU atau Promo/Event yang diikuti pasien.
+                        </div>
+                    </div>
+
                 </div>
 
                 <!-- Alasan Perubahan -->

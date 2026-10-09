@@ -120,6 +120,7 @@ class KunjunganExport implements FromCollection, WithHeadings, WithStyles, WithC
                 'Biaya'              => $k->biaya ?? 0,
                 'Kelompok Pelanggan' => $k->kelompokPelanggan?->nama ?? '-',
                 'Pemeriksaan'        => $k->pemeriksaan ?? '-',
+                'MOU/Agreement'      => $k->mou ?? '-',
                 'Kelas'              => $classAtTime,
             ];
         });
@@ -140,6 +141,7 @@ class KunjunganExport implements FromCollection, WithHeadings, WithStyles, WithC
             'Biaya',
             'Kelompok Pelanggan',
             'Pemeriksaan',
+            'MOU/Agreement',
             'Kelas',
         ];
     }
@@ -149,7 +151,7 @@ class KunjunganExport implements FromCollection, WithHeadings, WithStyles, WithC
         $lastRow = $sheet->getHighestRow();
 
         // Header style
-        $sheet->getStyle('A1:M1')->applyFromArray([
+        $sheet->getStyle('A1:N1')->applyFromArray([
             'font' => [
                 'bold'  => true,
                 'color' => ['rgb' => 'FFFFFF'],
@@ -165,7 +167,7 @@ class KunjunganExport implements FromCollection, WithHeadings, WithStyles, WithC
         ]);
 
         // Border for all cells
-        $sheet->getStyle('A1:M' . $lastRow)->applyFromArray([
+        $sheet->getStyle('A1:N' . $lastRow)->applyFromArray([
             'borders' => [
                 'allBorders' => [
                     'borderStyle' => 'thin',
@@ -180,7 +182,7 @@ class KunjunganExport implements FromCollection, WithHeadings, WithStyles, WithC
         $sheet->getStyle('F2:F' . $lastRow)->getAlignment()->setHorizontal('center'); // DOB
         $sheet->getStyle('I2:I' . $lastRow)->getAlignment()->setHorizontal('center'); // Tgl Kunjungan
         $sheet->getStyle('K2:K' . $lastRow)->getAlignment()->setHorizontal('center'); // Kelompok
-        $sheet->getStyle('M2:M' . $lastRow)->getAlignment()->setHorizontal('center'); // Kelas
+        $sheet->getStyle('N2:N' . $lastRow)->getAlignment()->setHorizontal('center'); // Kelas
 
         // Right alignment + currency format for Biaya
         $sheet->getStyle('J2:J' . $lastRow)->getAlignment()->setHorizontal('right');
@@ -209,7 +211,8 @@ class KunjunganExport implements FromCollection, WithHeadings, WithStyles, WithC
             'J' => 15,  // Biaya
             'K' => 20,  // Kelompok Pelanggan
             'L' => 30,  // Pemeriksaan
-            'M' => 12,  // Kelas
+            'M' => 25,  // MOU/Agreement
+            'N' => 12,  // Kelas
         ];
     }
 

@@ -275,6 +275,7 @@
                             <th class="py-3">Biaya</th>
                             <th class="py-3 text-center">Kelompok Pelanggan</th>
                             <th class="py-3">Pemeriksaan</th>
+                            <th class="py-3">MOU / Agreement</th>
                             <th class="py-3 text-center">Status Perubahan Data</th>
                             @if($role !== 'Direktur')
                             <th class="py-3 text-center">Aksi</th>
@@ -318,6 +319,13 @@
                                 <td>
                                     @if($k->pemeriksaan)
                                         <span class="text-dark small">{{ $k->pemeriksaan }}</span>
+                                    @else
+                                        <span class="text-muted small">-</span>
+                                    @endif
+                                </td>
+                                <td>
+                                    @if($k->mou)
+                                        <span class="badge bg-info bg-opacity-10 text-info border border-info small">{{ $k->mou }}</span>
                                     @else
                                         <span class="text-muted small">-</span>
                                     @endif
