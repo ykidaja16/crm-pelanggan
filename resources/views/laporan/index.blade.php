@@ -96,11 +96,11 @@
                     </select>
                 </div>
 
-                <!-- Range Omset -->
+                <!-- Range Nilai Transaksi -->
                 <div class="col-md-3">
-                    <label class="form-label fw-medium small">Range Omset</label>
+                    <label class="form-label fw-medium small">Range Nilai Transaksi</label>
                     <select name="omset_range" class="form-select">
-                        <option value="">Semua Omset</option>
+                        <option value="">Semua Nilai Transaksi</option>
                         <option value="0">0 - &lt; 1 Juta</option>
                         <option value="1">1 Juta - &lt; 4 Juta</option>
                         <option value="2">4 Juta - Lebih</option>

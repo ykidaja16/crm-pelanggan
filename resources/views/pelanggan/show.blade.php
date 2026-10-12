@@ -52,6 +52,19 @@
                         <div class="fs-5 fw-semibold">{{ $pelanggan->nama }}</div>
                     </div>
                     <div class="mb-3">
+                        <label class="text-muted small fw-medium text-uppercase">Jenis Kelamin (JK)</label>
+                        <div class="fs-6">
+                            @if($pelanggan->jenis_kelamin)
+                                <span class="badge {{ in_array($pelanggan->jenis_kelamin, ['L', 'Laki-Laki']) ? 'bg-primary bg-opacity-10 text-primary border border-primary' : 'bg-danger bg-opacity-10 text-danger border border-danger' }} px-2 py-1">
+                                    <i class="fas {{ in_array($pelanggan->jenis_kelamin, ['L', 'Laki-Laki']) ? 'fa-mars' : 'fa-venus' }} me-1"></i>
+                                    {{ $pelanggan->jenis_kelamin }}
+                                </span>
+                            @else
+                                <span class="text-muted">-</span>
+                            @endif
+                        </div>
+                    </div>
+                    <div class="mb-3">
                         <label class="text-muted small fw-medium text-uppercase">No Telepon</label>
                         <div class="fs-6">
                             @if($pelanggan->no_telp)

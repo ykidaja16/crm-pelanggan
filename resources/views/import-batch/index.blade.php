@@ -47,18 +47,44 @@
                         </select>
                     </div>
 
-                    {{-- Filter Cabang --}}
+                    {{-- Filter Cabang: Searchable Dropdown (Persis Pemeriksaan) --}}
                     <div class="col-md-3">
-                        <label class="form-label fw-semibold">Cabang</label>
-                        <select name="cabang_id" class="form-select">
-                            <option value="">-- Semua Cabang --</option>
-                            @foreach($cabangs as $cabang)
-                                <option value="{{ $cabang->id }}"
-                                    {{ request('cabang_id') == $cabang->id ? 'selected' : '' }}>
-                                    {{ $cabang->nama }}
-                                </option>
-                            @endforeach
-                        </select>
+                        <label class="form-label fw-semibold small">Cabang</label>
+                        <div class="input-group">
+                            <span class="input-group-text bg-white text-info border-end-0">
+                                <i class="fas fa-building"></i>
+                            </span>
+                            <input type="hidden" name="cabang_id" id="importCabangId" value="{{ $cabangId ?? '' }}">
+                            <input type="text"
+                                   name="cabang"
+                                   id="importCabangInput"
+                                   class="form-control border-start-0 ps-0"
+                                   list="importCabangDatalist"
+                                   value="{{ $selectedCabangNama ?? '' }}"
+                                   placeholder="Pilih / ketik nama cabang..."
+                                   autocomplete="off">
+                            <button class="btn btn-outline-info dropdown-toggle" type="button" data-bs-toggle="dropdown" aria-expanded="false" title="Pilih Cabang"></button>
+                            <ul class="dropdown-menu dropdown-menu-end shadow-sm" style="max-height: 250px; overflow-y: auto;" id="importCabangDropdown">
+                                <li><a class="dropdown-item small text-muted" href="javascript:void(0)" onclick="selectImportCabang('', '')">-- Semua Cabang --</a></li>
+                                <li><hr class="dropdown-divider"></li>
+                                @if(isset($cabangs) && count($cabangs) > 0)
+                                    @foreach($cabangs as $cabang)
+                                        <li>
+                                            <a class="dropdown-item small" href="javascript:void(0)" onclick="selectImportCabang('{{ $cabang->id }}', '{{ addslashes($cabang->nama) }}')">
+                                                {{ $cabang->nama }}
+                                            </a>
+                                        </li>
+                                    @endforeach
+                                @endif
+                            </ul>
+                            <datalist id="importCabangDatalist">
+                                @if(isset($cabangs))
+                                    @foreach($cabangs as $cabang)
+                                        <option value="{{ $cabang->nama }}">
+                                    @endforeach
+                                @endif
+                            </datalist>
+                        </div>
                     </div>
 
                     {{-- Filter Tanggal Mulai --}}
@@ -254,7 +280,55 @@
 @endsection
 
 @section('scripts')
+<script id="cabangsDataImport" type="application/json">{!! json_encode(isset($cabangs) ? $cabangs->map(fn($c) => ['id' => $c->id, 'nama' => $c->nama])->values()->toArray() : []) !!}</script>
 <script>
+    const allImportCabangs = JSON.parse(document.getElementById('cabangsDataImport')?.textContent || '[]');
+
+    function selectImportCabang(id, nama) {
+        const inputId = document.getElementById('importCabangId');
+        const inputNama = document.getElementById('importCabangInput');
+        if (inputId) inputId.value = id;
+        if (inputNama) inputNama.value = nama;
+    }
+
+    function updateImportCabangDropdown() {
+        const input = document.getElementById('importCabangInput');
+        const dropdown = document.getElementById('importCabangDropdown');
+        const hiddenId = document.getElementById('importCabangId');
+        if (!input || !dropdown) return;
+
+        const val = input.value.trim().toLowerCase();
+        const matched = val 
+            ? allImportCabangs.filter(c => c.nama.toLowerCase().includes(val))
+            : allImportCabangs;
+
+        const exactMatch = allImportCabangs.find(c => c.nama.toLowerCase() === val);
+        if (exactMatch && hiddenId) {
+            hiddenId.value = exactMatch.id;
+        } else if (!val && hiddenId) {
+            hiddenId.value = '';
+        }
+
+        let menuHtml = '<li><a class="dropdown-item small text-muted" href="javascript:void(0)" onclick="selectImportCabang(\'\', \'\')">-- Semua Cabang --</a></li><li><hr class="dropdown-divider"></li>';
+        if (matched.length > 0) {
+            matched.forEach(c => {
+                const safeNama = c.nama.replace(/'/g, "\\'");
+                menuHtml += `<li><a class="dropdown-item small" href="javascript:void(0)" onclick="selectImportCabang('${c.id}', '${safeNama}')">${c.nama}</a></li>`;
+            });
+        } else {
+            menuHtml += '<li><span class="dropdown-item text-muted small">Tidak ada cabang cocok</span></li>';
+        }
+        dropdown.innerHTML = menuHtml;
+    }
+
+    document.addEventListener('DOMContentLoaded', function() {
+        const input = document.getElementById('importCabangInput');
+        if (input) {
+            input.addEventListener('input', updateImportCabangDropdown);
+            input.addEventListener('focus', updateImportCabangDropdown);
+        }
+    });
+
     function confirmRollback(batchId, filename, totalRows) {
         // Isi data ke modal
         document.getElementById('modalFilename').textContent  = filename;

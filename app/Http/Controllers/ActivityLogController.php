@@ -8,15 +8,31 @@ use App\Models\User;
 use App\Exports\ActivityLogExport;
 use Maatwebsite\Excel\Facades\Excel;
 
+use App\Models\Cabang;
+
 class ActivityLogController extends Controller
 {
     public function index(Request $request)
     {
-        $query = ActivityLog::query()->orderBy('created_at', 'desc');
+        $query = ActivityLog::with('user.cabangs')->orderBy('created_at', 'desc');
 
         // Filter by user
         if ($request->filled('user_id')) {
             $query->where('user_id', $request->user_id);
+        }
+
+        // Filter by cabang
+        $cabangId = $request->cabang_id;
+        if (!$cabangId && $request->filled('cabang')) {
+            $foundCabang = Cabang::where('nama', 'LIKE', '%' . trim($request->cabang) . '%')->first();
+            if ($foundCabang) {
+                $cabangId = $foundCabang->id;
+            }
+        }
+        if (!empty($cabangId)) {
+            $query->whereHas('user.cabangs', function ($q) use ($cabangId) {
+                $q->where('cabangs.id', $cabangId);
+            });
         }
 
         // Filter by action
@@ -44,6 +60,17 @@ class ActivityLogController extends Controller
         // Daftar user untuk dropdown filter
         $users = User::select('id', 'name', 'username')->orderBy('name')->get();
 
+        // Daftar cabang untuk dropdown filter
+        $cabangs = Cabang::orderBy('nama')->get();
+
+        // Selected cabang nama for input
+        $selectedCabangNama = '';
+        if (!empty($cabangId)) {
+            $selectedCabangNama = Cabang::find($cabangId)?->nama ?? '';
+        } elseif ($request->filled('cabang')) {
+            $selectedCabangNama = $request->cabang;
+        }
+
         // Daftar action untuk dropdown
         $actions = [
             'login'   => 'Login',
@@ -62,16 +89,30 @@ class ActivityLogController extends Controller
             'user'      => 'User',
         ];
 
-        return view('activity-log.index', compact('logs', 'users', 'actions', 'modules'));
+        return view('activity-log.index', compact('logs', 'users', 'cabangs', 'cabangId', 'selectedCabangNama', 'actions', 'modules'));
     }
 
     public function export(Request $request)
     {
-        $query = ActivityLog::query()->orderBy('created_at', 'desc');
+        $query = ActivityLog::with('user.cabangs')->orderBy('created_at', 'desc');
 
         if ($request->filled('user_id')) {
             $query->where('user_id', $request->user_id);
         }
+
+        $cabangId = $request->cabang_id;
+        if (!$cabangId && $request->filled('cabang')) {
+            $foundCabang = Cabang::where('nama', 'LIKE', '%' . trim($request->cabang) . '%')->first();
+            if ($foundCabang) {
+                $cabangId = $foundCabang->id;
+            }
+        }
+        if (!empty($cabangId)) {
+            $query->whereHas('user.cabangs', function ($q) use ($cabangId) {
+                $q->where('cabangs.id', $cabangId);
+            });
+        }
+
         if ($request->filled('action')) {
             $query->where('action', $request->action);
         }

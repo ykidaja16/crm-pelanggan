@@ -8,6 +8,9 @@ use Illuminate\Support\Facades\DB;
 use App\Models\Cabang;
 use App\Models\Kelas;
 use App\Models\Pelanggan;
+use App\Models\User;
+use App\Models\ActivityLog;
+use App\Models\ImportBatch;
 use App\Exports\DashboardDetailExport;
 use Maatwebsite\Excel\Facades\Excel;
 use Carbon\Carbon;
@@ -187,6 +190,50 @@ class DashboardController extends Controller
         // Single cabang: extract values for view
         $singleStats = !$isMultiCabang && !empty($perCabangStats) ? reset($perCabangStats) : [];
 
+        // Deteksi role IT
+        $isIT = $user->role?->name === 'IT';
+        $itData = null;
+
+        if ($isIT) {
+            $dbDriver = DB::connection()->getDriverName();
+            $itData = [
+                'system' => [
+                    'php_version'         => PHP_VERSION,
+                    'laravel_version'     => app()->version(),
+                    'server_os'           => PHP_OS_FAMILY . ' (' . php_uname('s') . ')',
+                    'server_time'         => Carbon::now()->isoFormat('dddd, D MMMM Y HH:mm:ss'),
+                    'memory_limit'        => ini_get('memory_limit'),
+                    'memory_usage'        => round(memory_get_usage(true) / 1024 / 1024, 2) . ' MB',
+                    'max_execution_time'  => ini_get('max_execution_time') . 's',
+                    'upload_max_filesize' => ini_get('upload_max_filesize'),
+                    'environment'         => config('app.env'),
+                    'database_driver'     => strtoupper($dbDriver),
+                ],
+                'counts' => [
+                    'total_pelanggan'      => Pelanggan::count(),
+                    'total_kunjungan'      => DB::table('kunjungans')->count(),
+                    'total_users'          => User::count(),
+                    'active_users'         => User::where('is_active', 1)->count(),
+                    'total_cabang'         => Cabang::count(),
+                    'total_activity_logs'  => ActivityLog::count(),
+                    'logs_24h'             => ActivityLog::where('created_at', '>=', Carbon::now()->subHours(24))->count(),
+                    'total_import_batches' => ImportBatch::count(),
+                    'completed_batches'    => ImportBatch::where('status', 'completed')->count(),
+                    'rolled_back_batches'  => ImportBatch::where('status', 'rolled_back')->count(),
+                ],
+                'recent_imports' => ImportBatch::with(['user', 'cabang'])->orderBy('imported_at', 'desc')->take(5)->get(),
+                'recent_logs'    => ActivityLog::with('user')->orderBy('created_at', 'desc')->take(6)->get(),
+            ];
+        }
+
+        // Hitung reminder ulang tahun hari ini untuk Non-IT
+        $todayMonth = (int) date('m');
+        $todayDay   = (int) date('d');
+        $todayBirthdayCount = Pelanggan::query()
+            ->when(!empty($filterCabangIds), fn($q) => $q->whereIn('cabang_id', $filterCabangIds))
+            ->whereRaw('MONTH(dob) = ? AND DAY(dob) = ?', [$todayMonth, $todayDay])
+            ->count();
+
         return view('dashboard.index', [
             'chartData'      => $chartData,
             'chartLabels'    => $chartLabels,
@@ -197,6 +244,9 @@ class DashboardController extends Controller
             'isMultiCabang'  => $isMultiCabang,
             'perCabangStats' => $perCabangStats,
             'activeCabang'   => $activeCabangId,
+            'isIT'           => $isIT,
+            'itData'         => $itData,
+            'todayBirthdayCount' => $todayBirthdayCount,
             // Single-cabang fallback (tetap backward compatible)
             'cabangNama'                  => $singleStats['nama'] ?? '',
             'totalPelanggan'              => $singleStats['totalPelanggan'] ?? 0,

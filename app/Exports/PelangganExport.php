@@ -125,6 +125,7 @@ class PelangganExport implements FromCollection, WithHeadings, WithStyles, WithC
                     'id'                => $pelanggan->id,
                     'pid'               => $pelanggan->pid,
                     'nama'              => $pelanggan->nama,
+                    'jk'                => $pelanggan->jenis_kelamin ?? '-',
                     'nik'               => $pelanggan->nik ?? '-',
                     'cabang'            => $pelanggan->cabang?->nama ?? '-',
                     'no_telp'           => $pelanggan->no_telp ?? '-',
@@ -427,6 +428,7 @@ class PelangganExport implements FromCollection, WithHeadings, WithStyles, WithC
                 'id'               => $p->id,
                 'pid'              => $p->pid,
                 'nama'             => $p->nama,
+                'jk'               => $p->jenis_kelamin ?? '-',
                 'nik'              => $p->nik ?? '-',
                 'cabang'           => $p->cabang?->nama ?? '-',
                 'no_telp'          => $p->no_telp ?? '-',
@@ -460,6 +462,7 @@ class PelangganExport implements FromCollection, WithHeadings, WithStyles, WithC
                 'ID',
                 'PID',
                 'Nama Pasien',
+                'JK',
                 'NIK',
                 'Cabang',
                 'No Telp',
@@ -476,6 +479,7 @@ class PelangganExport implements FromCollection, WithHeadings, WithStyles, WithC
                 'ID',
                 'PID',
                 'Nama Pasien',
+                'JK',
                 'NIK',
                 'Cabang',
                 'No Telp',
@@ -502,11 +506,11 @@ class PelangganExport implements FromCollection, WithHeadings, WithStyles, WithC
 
     public function columnWidths(): array
     {
-        $widths = ['A'=>8,'B'=>16,'C'=>28,'D'=>20,'E'=>18,'F'=>16,'G'=>13,'H'=>35,'I'=>15,'J'=>18,'K'=>16,'L'=>18,'M'=>23];
+        $widths = ['A'=>8,'B'=>16,'C'=>28,'D'=>12,'E'=>20,'F'=>18,'G'=>16,'H'=>13,'I'=>35,'J'=>15,'K'=>18,'L'=>16,'M'=>18,'N'=>23];
         if ($this->pemeriksaan && !$this->search) {
-            $widths['N'] = 18;
-            $widths['O'] = 30;
-            $widths['P'] = 25;
+            $widths['O'] = 18;
+            $widths['P'] = 30;
+            $widths['Q'] = 25;
         }
         return $widths;
     }
@@ -514,7 +518,7 @@ class PelangganExport implements FromCollection, WithHeadings, WithStyles, WithC
     public function styles(Worksheet $sheet): array
     {
         $last = $sheet->getHighestRow();
-        $lastCol = ($this->pemeriksaan && !$this->search) ? 'P' : 'M';
+        $lastCol = ($this->pemeriksaan && !$this->search) ? 'Q' : 'N';
 
         // Baris 1: Judul
         $sheet->mergeCells("A1:{$lastCol}1");
@@ -547,26 +551,26 @@ class PelangganExport implements FromCollection, WithHeadings, WithStyles, WithC
         // Alignment per-kolom (bukan per-baris — hemat memory)
         if ($last >= 4) {
             if ($this->search) {
-                // Search mode: A=ID,B=PID,D=NIK,G=DOB,J=TglKunjungan,M=Kelas → center
-                foreach (['A','B','D','G','J','M'] as $col) {
+                // Search mode: A=ID,B=PID,D=JK,E=NIK,H=DOB,K=TglKunjungan,N=Kelas → center
+                foreach (['A','B','D','E','H','K','N'] as $col) {
                     $sheet->getStyle("{$col}4:{$col}{$last}")->getAlignment()->setHorizontal(Alignment::HORIZONTAL_CENTER);
                 }
-                foreach (['K','L'] as $col) {
+                foreach (['L','M'] as $col) {
                     $sheet->getStyle("{$col}4:{$col}{$last}")->getAlignment()->setHorizontal(Alignment::HORIZONTAL_RIGHT);
                     $sheet->getStyle("{$col}4:{$col}{$last}")->getNumberFormat()->setFormatCode('#,##0');
                 }
             } else {
-                // Normal mode: A=ID,B=PID,D=NIK,G=DOB,J=TotalKedatangan,K=Kelas,M=TglTerakhir → center
-                $centerCols = ['A','B','D','G','J','K','M'];
+                // Normal mode: A=ID,B=PID,D=JK,E=NIK,H=DOB,K=TotalKedatangan,L=Kelas,N=TglTerakhir → center
+                $centerCols = ['A','B','D','E','H','K','L','N'];
                 if ($this->pemeriksaan) {
-                    $centerCols[] = 'N';
-                    $centerCols[] = 'P';
+                    $centerCols[] = 'O';
+                    $centerCols[] = 'Q';
                 }
                 foreach ($centerCols as $col) {
                     $sheet->getStyle("{$col}4:{$col}{$last}")->getAlignment()->setHorizontal(Alignment::HORIZONTAL_CENTER);
                 }
-                $sheet->getStyle("L4:L{$last}")->getAlignment()->setHorizontal(Alignment::HORIZONTAL_RIGHT);
-                $sheet->getStyle("L4:L{$last}")->getNumberFormat()->setFormatCode('#,##0');
+                $sheet->getStyle("M4:M{$last}")->getAlignment()->setHorizontal(Alignment::HORIZONTAL_RIGHT);
+                $sheet->getStyle("M4:M{$last}")->getNumberFormat()->setFormatCode('#,##0');
             }
         }
 

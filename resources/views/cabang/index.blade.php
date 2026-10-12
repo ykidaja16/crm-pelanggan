@@ -68,6 +68,44 @@
                     </div>
 
                     <div class="col-12">
+                        <label class="form-label fw-medium">Alamat</label>
+                        <textarea name="alamat"
+                                  class="form-control @error('alamat') is-invalid @enderror"
+                                  rows="2"
+                                  placeholder="Alamat lengkap cabang">{{ old('alamat') }}</textarea>
+                        @error('alamat')
+                            <div class="invalid-feedback">{{ $message }}</div>
+                        @enderror
+                    </div>
+
+                    <div class="col-md-4">
+                        <label class="form-label fw-medium">Kecamatan</label>
+                        <input type="text"
+                               name="kecamatan"
+                               class="form-control @error('kecamatan') is-invalid @enderror"
+                               placeholder="Kecamatan"
+                               value="{{ old('kecamatan') }}">
+                    </div>
+
+                    <div class="col-md-4">
+                        <label class="form-label fw-medium">Kota/Kabupaten</label>
+                        <input type="text"
+                               name="kota"
+                               class="form-control @error('kota') is-invalid @enderror"
+                               placeholder="Kota"
+                               value="{{ old('kota') }}">
+                    </div>
+
+                    <div class="col-md-4">
+                        <label class="form-label fw-medium">Provinsi</label>
+                        <input type="text"
+                               name="provinsi"
+                               class="form-control @error('provinsi') is-invalid @enderror"
+                               placeholder="Provinsi"
+                               value="{{ old('provinsi') }}">
+                    </div>
+
+                    <div class="col-12">
                         <label class="form-label fw-medium">Keterangan</label>
                         <textarea name="keterangan"
                                   class="form-control @error('keterangan') is-invalid @enderror"
@@ -130,7 +168,15 @@
                                         {{ $cabang->kode }}
                                     </span>
                                 </td>
-                                <td class="fw-semibold">{{ $cabang->nama }}</td>
+                                <td class="fw-semibold">
+                                    {{ $cabang->nama }}
+                                    @if($cabang->kota || $cabang->provinsi || $cabang->alamat)
+                                        <div class="small text-muted fw-normal">
+                                            <i class="fas fa-map-marker-alt text-danger me-1"></i>
+                                            {{ implode(', ', array_filter([$cabang->kecamatan, $cabang->kota, $cabang->provinsi])) ?: $cabang->alamat }}
+                                        </div>
+                                    @endif
+                                </td>
                                 <td class="text-center">
                                     <span class="badge bg-{{ $cabang->tipe === 'regional' ? 'info' : 'secondary' }} bg-opacity-10 text-{{ $cabang->tipe === 'regional' ? 'info' : 'secondary' }} border border-{{ $cabang->tipe === 'regional' ? 'info' : 'secondary' }}">
                                         {{ ucfirst($cabang->tipe) }}
@@ -195,6 +241,24 @@
                                                         <option value="cabang" {{ $cabang->tipe === 'cabang' ? 'selected' : '' }}>Cabang</option>
                                                         <option value="regional" {{ $cabang->tipe === 'regional' ? 'selected' : '' }}>Regional</option>
                                                     </select>
+                                                </div>
+                                                <div class="mb-3">
+                                                    <label class="form-label fw-medium">Alamat</label>
+                                                    <textarea name="alamat" class="form-control" rows="2" placeholder="Alamat lengkap cabang">{{ $cabang->alamat }}</textarea>
+                                                </div>
+                                                <div class="row g-2 mb-3">
+                                                    <div class="col-md-4">
+                                                        <label class="form-label fw-medium">Kecamatan</label>
+                                                        <input type="text" name="kecamatan" class="form-control" value="{{ $cabang->kecamatan }}" placeholder="Kecamatan">
+                                                    </div>
+                                                    <div class="col-md-4">
+                                                        <label class="form-label fw-medium">Kota</label>
+                                                        <input type="text" name="kota" class="form-control" value="{{ $cabang->kota }}" placeholder="Kota">
+                                                    </div>
+                                                    <div class="col-md-4">
+                                                        <label class="form-label fw-medium">Provinsi</label>
+                                                        <input type="text" name="provinsi" class="form-control" value="{{ $cabang->provinsi }}" placeholder="Provinsi">
+                                                    </div>
                                                 </div>
                                                 <div class="mb-3">
                                                     <label class="form-label fw-medium">Keterangan</label>

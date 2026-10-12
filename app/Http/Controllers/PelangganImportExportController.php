@@ -12,6 +12,8 @@ use App\Models\Pelanggan;
 use App\Models\Kunjungan;
 use App\Models\Cabang;
 use App\Models\KelompokPelanggan;
+use App\Models\Dokter;
+use App\Models\Marketing;
 use App\Models\ImportBatch;
 use App\Models\ImportBatchPelangganSnapshot;
 use App\Imports\KunjunganImport;
@@ -127,14 +129,26 @@ class PelangganImportExportController extends Controller
 
             // Jika header tidak eksplisit, cek nilai baris data apakah ada nilai kategori khusus
             if (!$isKhususFormat && count($firstSheet) > 1) {
-                $knownKategori = ['kepala dinas', 'pic perusahaan', 'tokoh masyarakat', 'dokter', 'lainnya'];
-                foreach ($firstSheet as $rowIdx => $row) {
-                    if ($rowIdx === 0) continue; // skip header
-                    $valCol13 = strtolower(trim((string) ($row[12] ?? '')));
-                    if (in_array($valCol13, $knownKategori, true)) {
-                        $isKhususFormat = true;
-                        Log::info('Detected khusus format from data row value', ['row' => $rowIdx + 1, 'val' => $valCol13]);
+                // Hindari cek jika ini adalah format omset (punya NOREG / KODE DOKTER / TIPE OMSET)
+                $hasNewFormatHeader = false;
+                foreach ($headerRow as $colHeader) {
+                    $ch = strtoupper(trim((string) $colHeader));
+                    if (in_array($ch, ['NOREG', 'KODE DOKTER', 'TIPE OMSET', 'BRUTO'], true)) {
+                        $hasNewFormatHeader = true;
                         break;
+                    }
+                }
+
+                if (!$hasNewFormatHeader) {
+                    $knownKategori = ['kepala dinas', 'pic perusahaan', 'tokoh masyarakat', 'dokter', 'lainnya'];
+                    foreach ($firstSheet as $rowIdx => $row) {
+                        if ($rowIdx === 0) continue; // skip header
+                        $valCol13 = strtolower(trim((string) ($row[12] ?? '')));
+                        if (in_array($valCol13, $knownKategori, true)) {
+                            $isKhususFormat = true;
+                            Log::info('Detected khusus format from data row value', ['row' => $rowIdx + 1, 'val' => $valCol13]);
+                            break;
+                        }
                     }
                 }
             }
@@ -149,13 +163,20 @@ class PelangganImportExportController extends Controller
             }
             // ─────────────────────────────────────────────────────────────────────────
 
-            $cabangs = Cabang::all()->keyBy('kode');
+            $cabangs   = Cabang::all()->keyBy('kode');
+            $headerMap = $this->buildHeaderMap($headerRow);
+            $pidColIdx  = $headerMap['pid'] ?? 7;
+            $namaColIdx = $headerMap['nama'] ?? 1;
 
             // Kumpulkan semua PID unik di file untuk batch query (optimasi: ribuan query menjadi 1 query)
             $allPidsInFile = [];
             foreach ($rows[0] as $rIdx => $r) {
-                if ($rIdx === 0 && count($r) > 0 && strtolower(trim($r[0] ?? '')) === 'no') continue;
-                $p = strtoupper(trim((string) ($r[7] ?? '')));
+                if ($rIdx === 0 && count($r) > 0) {
+                    $firstVal = strtolower(trim((string) ($r[0] ?? '')));
+                    $pidVal   = strtolower(trim((string) ($r[$pidColIdx] ?? '')));
+                    if ($firstVal === 'no' || $pidVal === 'noreg' || $pidVal === 'pid') continue;
+                }
+                $p = strtoupper(trim((string) ($r[$pidColIdx] ?? '')));
                 if (!empty($p)) {
                     $allPidsInFile[] = $p;
                 }
@@ -170,18 +191,22 @@ class PelangganImportExportController extends Controller
             foreach ($rows[0] as $row) {
                 $rowNumber++;
 
-                if ($rowNumber == 1 && count($row) > 0 && strtolower(trim($row[0] ?? '')) == 'no') {
-                    continue;
+                if ($rowNumber == 1 && count($row) > 0) {
+                    $firstVal = strtolower(trim((string) ($row[0] ?? '')));
+                    $pidVal   = strtolower(trim((string) ($row[$pidColIdx] ?? '')));
+                    if ($firstVal === 'no' || $pidVal === 'noreg' || $pidVal === 'pid') {
+                        continue;
+                    }
                 }
 
-                if (count($row) < 10) {
+                if (count($row) < 3) {
                     Log::debug("Row $rowNumber skipped: insufficient columns", ['column_count' => count($row)]);
                     continue;
                 }
 
-                $no   = trim($row[0] ?? '');
-                $nama = trim($row[1] ?? '');
-                $pid  = strtoupper(trim($row[7] ?? ''));
+                $no   = trim((string) ($row[$headerMap['no'] ?? 0] ?? ''));
+                $nama = trim((string) ($row[$namaColIdx] ?? ''));
+                $pid  = strtoupper(trim((string) ($row[$pidColIdx] ?? '')));
 
                 $pelanggan = $existingPelanggans->get($pid);
 
@@ -416,31 +441,126 @@ class PelangganImportExportController extends Controller
      */
     public function downloadTemplate()
     {
-        // Header kolom sesuai format import (14 kolom dengan NIK, Pemeriksaan, dan MOU/Agreement)
+        // Header kolom sesuai format import Excel baru (27 kolom, tanpa kolom Total Kedatangan)
         $headers = [
-            'No',
-            'Nama Pasien',
-            'Total Kedatangan',
-            'Tanggal Kedatangan Terakhir',
-            'Total (Biaya)',
-            'No Telpon',
+            'NO',
+            'TANGGAL',
+            'NOREG',
+            'PASIEN',
+            'JK',
+            'HP',
+            'ALAMAT',
+            'KOTA',
+            'KECAMATAN',
+            'TIPE OMSET',
             'DOB',
-            'PID',
-            'Alamat',
-            'Kota',
-            'Kelompok Pelanggan (mandiri/klinisi)',
+            'KODE KEL.PELANGGAN',
+            'KEL.PELANGGAN',
+            'KODE DOKTER',
+            'DOKTER',
+            'MOU',
+            'MARKETING',
+            'BRUTO',
+            'DISC',
+            'TOTAL',
+            'PAY',
+            'JML TEST',
+            'PEMERIKSAAN',
+            'NIP',
             'NIK',
-            'Pemeriksaan',
-            'MOU/Agreement'
+            'JABATAN',
+            'LOCATION',
         ];
 
-        // Data dummy sebagai contoh (14 kolom dengan Pemeriksaan dan MOU/Agreement, Total Kedatangan diisi 1)
+        // Data dummy sebagai contoh sesuai format Excel baru
         $data = [
-            [1, 'Budi Santoso',  1, '2024-01-15', 2500000, '081234567890', '1990-05-20', 'JK00001', 'Jl. Sudirman No. 123',    'Jakarta',    'mandiri', '1234567890123456', 'Diabetes, Kolestrol, Urine Lengkap', 'Promo Kemerdekaan'],
-            [2, 'Siti Aminah',   1, '2024-02-10', 4500000, '082345678901', '1985-08-12', 'BD00002', 'Jl. Ahmad Yani No. 45',   'Bandung',    'klinisi', 'TIDAK ADA IDENTITAS', 'Darah Lengkap, SGOT, SGPT', 'MOU Perusahaan ABC'],
-            [3, 'Ahmad Wijaya',  1, '2024-03-05', 1200000, '083456789012', '1992-11-03', 'SB00003', 'Jl. Gatot Subroto No. 78','Surabaya',   'mandiri', '', 'Urine Lengkap', ''],
-            [4, 'Dewi Kusuma',   1, '2024-01-28', 3800000, '084567890123', '1988-04-25', 'YK00004', 'Jl. Malioboro No. 12',    'Yogyakarta', 'klinisi', '6543210987654321', 'Asam Urat, Kolestrol', 'Promo Akhir Tahun'],
-            [5, 'Eko Prasetyo',  1, '2024-02-20',  850000, '085678901234', '1995-09-18', 'ML00005', 'Jl. Ijen No. 56',         'Malang',     'mandiri', '', '', ''],
+            [
+                1,
+                '2026-10-06',
+                'LXG0045028',
+                'An. (Pr). AULIA AZ ZAHRA',
+                'P',
+                '082245326855',
+                'JL PLAGSAN BARAT NO 58',
+                'Malang',
+                'Blimbing',
+                'Rujukan',
+                '2009-12-21',
+                '3411-2100614',
+                'MUTIARA BUNDA, RSB',
+                '3411210577',
+                'LUCIA FLORA WATI',
+                'RUJUKAN 2023',
+                'GILANG MAHARDIKA',
+                192000,
+                0,
+                192000,
+                192000,
+                3,
+                'Thorax PA,Cetak Film Sedang 26 x 36 (Thorax PA), Jasa Ekspertisi Thorax PA',
+                '',
+                '3573016112090002',
+                '',
+                '',
+            ],
+            [
+                2,
+                '2026-10-06',
+                'LXG0045092',
+                'An. (Pr). DIANDRA BAFANA ANSORI',
+                'Perempuan',
+                '08179611574',
+                'PBI 01 NO 4',
+                'Malang',
+                'Blimbing',
+                'Dokter',
+                '2012-07-16',
+                'PRAMITA00013',
+                'PASIEN KLINISI',
+                '3411260416',
+                'NANDITYA IKA PARAMITA',
+                'PASIEN UMUM 2026',
+                'Septian Nugroho',
+                839000,
+                0,
+                839000,
+                839000,
+                2,
+                'Thorax PA/Lat,,Jasa Ekspertisi Thorax PA/Lat',
+                '',
+                '',
+                '',
+                '',
+            ],
+            [
+                3,
+                '2026-10-06',
+                'LXG0045441',
+                'An. (Lk). MUHAMMAD ARRASYA ATHARRAZKA',
+                'L',
+                '089628982211',
+                'JL PANDOWO 204',
+                'Malang',
+                'Lawang',
+                'Dokter',
+                '2023-01-05',
+                'PRAMITA00013',
+                'PASIEN KLINISI',
+                '3411260416',
+                'NANDITYA IKA PARAMITA',
+                'PASIEN UMUM 2026',
+                'Septian Nugroho',
+                350000,
+                0,
+                350000,
+                350000,
+                1,
+                'Hematologi Lengkap',
+                '',
+                '',
+                '',
+                '',
+            ],
         ];
 
         $spreadsheet = new \PhpOffice\PhpSpreadsheet\Spreadsheet();
@@ -454,12 +574,15 @@ class PelangganImportExportController extends Controller
             );
         }
 
+        // Kolom text yang wajib disimpan sebagai explicit string agar tidak terformat scientific (1.23E+15)
+        // 2: NOREG, 4: JK, 5: HP, 11: KODE KEL.PELANGGAN, 13: KODE DOKTER, 23: NIP, 24: NIK
+        $textCols = [2, 4, 5, 11, 13, 23, 24];
+
         // Set data
         foreach ($data as $row => $rowData) {
             foreach ($rowData as $col => $value) {
                 $cellCoord = \PhpOffice\PhpSpreadsheet\Cell\Coordinate::stringFromColumnIndex($col + 1) . ($row + 2);
-                // Kolom NIK (index 11) diset sebagai text/string agar tidak jadi format scientific/eksponen (1.23E+15)
-                if ($col === 11 && !empty($value)) {
+                if (in_array($col, $textCols, true) && $value !== '' && $value !== null) {
                     $sheet->setCellValueExplicit($cellCoord, (string) $value, \PhpOffice\PhpSpreadsheet\Cell\DataType::TYPE_STRING);
                 } else {
                     $sheet->setCellValue($cellCoord, $value);
@@ -624,6 +747,124 @@ class PelangganImportExportController extends Controller
      * 2. STEP 2 - PROCESS: Loop data yang sudah di-aggregate, simpan ke database
      * 3. Setiap pelanggan baru dicatat riwayat kelas awalnya
      */
+    /**
+     * Membangun peta indeks kolom berdasarkan nama header baris pertama
+     * Mendukung format Excel baru maupun format lama (backward compatible)
+     */
+    private function buildHeaderMap(array $headerRow): array
+    {
+        $normalized = [];
+        foreach ($headerRow as $idx => $colName) {
+            $cleaned = strtoupper(trim((string) $colName));
+            $cleaned = preg_replace('/\s+/', ' ', $cleaned);
+            if ($cleaned !== '') {
+                $normalized[$cleaned] = $idx;
+            }
+        }
+
+        // Helper untuk mencari index kolom pertama yang cocok dari daftar alias
+        $findCol = function (array $aliases) use ($normalized): ?int {
+            foreach ($aliases as $alias) {
+                $aliasUpper = strtoupper($alias);
+                if (isset($normalized[$aliasUpper])) {
+                    return $normalized[$aliasUpper];
+                }
+            }
+            // Partial match fallback
+            foreach ($aliases as $alias) {
+                $aliasUpper = strtoupper($alias);
+                foreach ($normalized as $header => $idx) {
+                    if (str_contains($header, $aliasUpper)) {
+                        return $idx;
+                    }
+                }
+            }
+            return null;
+        };
+
+        $map = [
+            'no'             => $findCol(['NO', 'NOMOR']),
+            'tanggal'        => $findCol(['TANGGAL KEDATANGAN TERAKHIR', 'TANGGAL KEDATANGAN', 'TANGGAL']),
+            'pid'            => $findCol(['NOREG', 'NO REG', 'NO. REG', 'NO.REG', 'PID']),
+            'nama'           => $findCol(['PASIEN', 'NAMA PASIEN', 'NAMA']),
+            'jk'             => $findCol(['JK', 'JENIS KELAMIN', 'JENIS_KELAMIN', 'GENDER', 'SEX']),
+            'hp'             => $findCol(['HP', 'NO TELPON', 'NO TELEPON', 'NO TELP', 'NO. TELP', 'NO. HP', 'TELEPON']),
+            'alamat'         => $findCol(['ALAMAT']),
+            'kota'           => $findCol(['KOTA']),
+            'kecamatan'      => $findCol(['KECAMATAN']),
+            'tipe_omset'     => $findCol(['TIPE OMSET', 'TIPE_OMSET', 'OMSET TIPE']),
+            'dob'            => $findCol(['DOB', 'TGL LAHIR', 'TANGGAL LAHIR']),
+            'kode_kelompok'  => $findCol(['KODE KEL.PELANGGAN', 'KODE KEL PELANGGAN', 'KODE KELOMPOK PELANGGAN', 'KODE KELOMPOK']),
+            'kelompok'       => $findCol(['KEL.PELANGGAN', 'KEL PELANGGAN', 'KELOMPOK PELANGGAN (MANDIRI/KLINISI)', 'KELOMPOK PELANGGAN', 'KELOMPOK']),
+            'kode_dokter'    => $findCol(['KODE DOKTER', 'KODE_DOKTER']),
+            'dokter'         => $findCol(['DOKTER', 'NAMA DOKTER']),
+            'mou'            => $findCol(['MOU/AGREEMENT', 'AGREEMENT', 'MOU']),
+            'marketing'      => $findCol(['MARKETING', 'NAMA MARKETING']),
+            'bruto'          => $findCol(['BRUTO']),
+            'disc'           => $findCol(['DISC', 'DISKON', 'DISCOUNT']),
+            'total'          => $findCol(['TOTAL (BIAYA)', 'TOTAL', 'BIAYA']),
+            'pay'            => $findCol(['PAY', 'BAYAR']),
+            'jml_test'       => $findCol(['JML TEST', 'JUMLAH TEST', 'JML_TEST', 'TEST']),
+            'pemeriksaan'    => $findCol(['PEMERIKSAAN']),
+            'nip'            => $findCol(['NIP']),
+            'nik'            => $findCol(['NIK']),
+            'jabatan'        => $findCol(['JABATAN']),
+            'location'       => $findCol(['LOCATION', 'LOKASI']),
+            'kedatangan'     => $findCol(['KEDATANGAN', 'TOTAL KEDATANGAN']),
+        ];
+
+        // Jika file tidak memiliki header sama sekali, gunakan fallback indeks legacy (14 kolom)
+        if ($map['pid'] === null && $map['nama'] === null) {
+            $map = [
+                'no'             => 0,
+                'nama'           => 1,
+                'kedatangan'     => 2,
+                'tanggal'        => 3,
+                'total'          => 4,
+                'hp'             => 5,
+                'dob'            => 6,
+                'pid'            => 7,
+                'alamat'         => 8,
+                'kota'           => 9,
+                'kelompok'       => 10,
+                'nik'            => 11,
+                'pemeriksaan'    => 12,
+                'mou'            => 13,
+                'jk'             => null,
+                'kecamatan'      => null,
+                'tipe_omset'     => null,
+                'kode_kelompok'  => null,
+                'kode_dokter'    => null,
+                'dokter'         => null,
+                'marketing'      => null,
+                'bruto'          => null,
+                'disc'           => null,
+                'pay'            => null,
+                'jml_test'       => null,
+                'nip'            => null,
+                'jabatan'        => null,
+                'location'       => null,
+            ];
+        }
+
+        return $map;
+    }
+
+    /**
+     * Memproses import data dari file CSV/Excel
+     *
+     * DUPLICATE HANDLING (Penanganan Data Duplikat):
+     * Jika dalam 1 file ada multiple baris dengan PID yang sama:
+     * - Total Kedatangan: dijumlahkan dari semua baris (contoh: 2 + 3 = 5)
+     * - Total Biaya: dijumlahkan dari semua baris (contoh: 500000 + 700000 = 1200000)
+     * - Tanggal Kedatangan: diambil yang paling terbaru
+     * - No: diambil dari baris yang tanggalnya terbaru
+     *
+     * Cara kerja:
+     * 1. STEP 1 - AGGREGATE: Loop semua baris, kelompokkan by PID, jumlahkan data
+     * 2. STEP 2 - PROCESS: Loop data yang sudah di-aggregate, simpan ke database
+     * 3. Setiap pelanggan baru dicatat riwayat kelas awalnya
+     */
     private function processCsvImport(array $rows, int $importUserId = 0, string $batchId = ''): int
     {
         $processedCount   = 0;
@@ -635,11 +876,28 @@ class PelangganImportExportController extends Controller
         // Load semua cabang ke memory untuk lookup cepat (hindari query berulang)
         $cabangs = Cabang::all()->keyBy('kode');
 
+        // Preload default kelompok pelanggan mandiri
+        $defaultMandiriId = KelompokPelanggan::where('kode', 'mandiri')->value('id');
+
+        // Memory cache untuk master data selama batch import
+        $kelompokCache  = [];
+        $dokterCache    = [];
+        $marketingCache = [];
+
+        // Build header map
+        $headerRow = $rows[0] ?? [];
+        $headerMap = $this->buildHeaderMap($headerRow);
+        $pidColIdx = $headerMap['pid'] ?? 7;
+
         // Preload pelanggan di file untuk optimasi query
         $allPidsInFile = [];
         foreach ($rows as $rIdx => $r) {
-            if ($rIdx === 0 && count($r) > 0 && strtolower(trim($r[0] ?? '')) === 'no') continue;
-            $p = strtoupper(trim((string) ($r[7] ?? '')));
+            if ($rIdx === 0 && count($r) > 0) {
+                $firstVal = strtolower(trim((string) ($r[0] ?? '')));
+                $pidVal   = strtolower(trim((string) ($r[$pidColIdx] ?? '')));
+                if ($firstVal === 'no' || $pidVal === 'noreg' || $pidVal === 'pid') continue;
+            }
+            $p = strtoupper(trim((string) ($r[$pidColIdx] ?? '')));
             if (!empty($p)) {
                 $allPidsInFile[] = $p;
             }
@@ -652,44 +910,65 @@ class PelangganImportExportController extends Controller
             $rowNumber = $index + 2;
             $currentRow++;
 
-            if ($index === 0 && count($row) > 0 && strtolower(trim($row[0] ?? '')) === 'no') {
+            if ($index === 0 && count($row) > 0) {
+                $firstVal = strtolower(trim((string) ($row[0] ?? '')));
+                $pidVal   = strtolower(trim((string) ($row[$pidColIdx] ?? '')));
+                if ($firstVal === 'no' || $pidVal === 'noreg' || $pidVal === 'pid') {
+                    continue;
+                }
+            }
+
+            if (count($row) < 3) {
                 continue;
             }
 
-            if (count($row) < 10) {
-                continue;
+            // Ambil data per kolom berdasarkan headerMap
+            $no                = ($headerMap['no'] !== null && isset($row[$headerMap['no']])) ? (int) $row[$headerMap['no']] : null;
+            $pid               = ($headerMap['pid'] !== null && isset($row[$headerMap['pid']])) ? strtoupper(trim((string) $row[$headerMap['pid']])) : '';
+            $nama              = ($headerMap['nama'] !== null && isset($row[$headerMap['nama']])) ? trim((string) $row[$headerMap['nama']]) : '';
+            $jkRaw             = ($headerMap['jk'] !== null && isset($row[$headerMap['jk']])) ? trim((string) $row[$headerMap['jk']]) : null;
+            $jenisKelamin      = $this->normalizeJenisKelamin($jkRaw);
+            $noTelp            = ($headerMap['hp'] !== null && isset($row[$headerMap['hp']])) ? trim((string) $row[$headerMap['hp']]) : '';
+            $tanggalKedatangan = ($headerMap['tanggal'] !== null && isset($row[$headerMap['tanggal']])) ? $row[$headerMap['tanggal']] : null;
+            $dob               = ($headerMap['dob'] !== null && isset($row[$headerMap['dob']])) ? $row[$headerMap['dob']] : null;
+            $alamat            = ($headerMap['alamat'] !== null && isset($row[$headerMap['alamat']])) ? trim((string) $row[$headerMap['alamat']]) : '';
+            $kota              = ($headerMap['kota'] !== null && isset($row[$headerMap['kota']])) ? trim((string) $row[$headerMap['kota']]) : '';
+            $kecamatan         = ($headerMap['kecamatan'] !== null && isset($row[$headerMap['kecamatan']])) ? trim((string) $row[$headerMap['kecamatan']]) : null;
+            $tipeOmset         = ($headerMap['tipe_omset'] !== null && isset($row[$headerMap['tipe_omset']])) ? trim((string) $row[$headerMap['tipe_omset']]) : null;
+            $kodeKelompokRaw   = ($headerMap['kode_kelompok'] !== null && isset($row[$headerMap['kode_kelompok']])) ? trim((string) $row[$headerMap['kode_kelompok']]) : null;
+            $kelompokRaw       = ($headerMap['kelompok'] !== null && isset($row[$headerMap['kelompok']])) ? trim((string) $row[$headerMap['kelompok']]) : '';
+            $kodeDokterRaw     = ($headerMap['kode_dokter'] !== null && isset($row[$headerMap['kode_dokter']])) ? trim((string) $row[$headerMap['kode_dokter']]) : null;
+            $dokterRaw         = ($headerMap['dokter'] !== null && isset($row[$headerMap['dokter']]) && trim((string) $row[$headerMap['dokter']]) !== '') ? trim((string) $row[$headerMap['dokter']]) : null;
+            $mou               = ($headerMap['mou'] !== null && isset($row[$headerMap['mou']]) && trim((string) $row[$headerMap['mou']]) !== '') ? trim((string) $row[$headerMap['mou']]) : null;
+            $marketingRaw      = ($headerMap['marketing'] !== null && isset($row[$headerMap['marketing']]) && trim((string) $row[$headerMap['marketing']]) !== '') ? trim((string) $row[$headerMap['marketing']]) : null;
+            $brutoRaw          = ($headerMap['bruto'] !== null && isset($row[$headerMap['bruto']])) ? $row[$headerMap['bruto']] : null;
+            $discRaw           = ($headerMap['disc'] !== null && isset($row[$headerMap['disc']])) ? $row[$headerMap['disc']] : null;
+            $biayaRaw          = ($headerMap['total'] !== null && isset($row[$headerMap['total']])) ? $row[$headerMap['total']] : null;
+            $payRaw            = ($headerMap['pay'] !== null && isset($row[$headerMap['pay']])) ? $row[$headerMap['pay']] : null;
+            $jmlTestRaw        = ($headerMap['jml_test'] !== null && isset($row[$headerMap['jml_test']])) ? $row[$headerMap['jml_test']] : null;
+            $pemeriksaan       = ($headerMap['pemeriksaan'] !== null && isset($row[$headerMap['pemeriksaan']]) && trim((string) $row[$headerMap['pemeriksaan']]) !== '') ? trim((string) $row[$headerMap['pemeriksaan']]) : null;
+            $nipRaw            = ($headerMap['nip'] !== null && isset($row[$headerMap['nip']])) ? trim((string) $row[$headerMap['nip']]) : null;
+            $nikRaw            = ($headerMap['nik'] !== null && isset($row[$headerMap['nik']])) ? trim((string) $row[$headerMap['nik']]) : null;
+            $jabatan           = ($headerMap['jabatan'] !== null && isset($row[$headerMap['jabatan']]) && trim((string) $row[$headerMap['jabatan']]) !== '') ? trim((string) $row[$headerMap['jabatan']]) : null;
+            $location          = ($headerMap['location'] !== null && isset($row[$headerMap['location']]) && trim((string) $row[$headerMap['location']]) !== '') ? trim((string) $row[$headerMap['location']]) : null;
+
+            // Total Kedatangan: jika ada kolom KEDATANGAN dan > 0, gunakan nilainya; jika tidak, default 1
+            $totalKedatangan = 1;
+            if ($headerMap['kedatangan'] !== null && isset($row[$headerMap['kedatangan']]) && is_numeric($row[$headerMap['kedatangan']])) {
+                $valK = (int) $row[$headerMap['kedatangan']];
+                if ($valK > 0) {
+                    $totalKedatangan = $valK;
+                }
             }
 
-            $no               = isset($row[0]) ? (int) $row[0] : null;
-            $nama             = trim($row[1] ?? '');
-            $totalKedatangan  = 1; // Selalu 1 per baris — abaikan nilai kolom Excel agar tidak salah input
-            $tanggalKedatangan = $row[3] ?? null;
-            $biaya            = $row[4] ?? null;
-            $noTelp           = trim($row[5] ?? '');
-            $dob              = $row[6] ?? null;
-            $pid              = strtoupper(trim($row[7] ?? ''));
-            $alamat           = trim($row[8] ?? '');
-            $kota             = trim($row[9] ?? '');
-            $kelompokRaw       = isset($row[10]) ? strtolower(trim((string) $row[10])) : '';
-            $kelompokPelanggan = str_contains($kelompokRaw, 'klinisi') ? 'klinisi' : 'mandiri';
-            
-            // Baca NIK dari kolom ke-12 (index 11)
-            $nik = isset($row[11]) ? trim((string) $row[11]) : null;
-            // Jika NIK kosong atau "TIDAK ADA IDENTITAS", set null
-            if ($nik === '' || strtolower($nik) === 'tidak ada identitas') {
+            // Sanitasi NIK dan NIP
+            $nik = $nikRaw;
+            if (empty($nik) || strtolower($nik) === 'tidak ada identitas' || $nik === '-') {
                 $nik = null;
             }
-
-            // Baca Pemeriksaan dari kolom ke-13 (index 12) - Boleh Kosong
-            $pemeriksaan = isset($row[12]) ? trim((string) $row[12]) : null;
-            if ($pemeriksaan === '') {
-                $pemeriksaan = null;
-            }
-
-            // Baca MOU/Agreement dari kolom ke-14 (index 13) - Boleh Kosong
-            $mou = isset($row[13]) ? trim((string) $row[13]) : null;
-            if ($mou === '') {
-                $mou = null;
+            $nip = $nipRaw;
+            if (empty($nip) || strtolower($nip) === 'tidak ada identitas' || $nip === '-') {
+                $nip = null;
             }
 
             // Auto-fallback: jika nama di Excel kosong tapi PID terdaftar di DB, gunakan nama dari database
@@ -702,24 +981,8 @@ class PelangganImportExportController extends Controller
                 continue;
             }
 
-            // Dedup strict by full row content (semua kolom sama)
-            $dedupKey = md5(json_encode([
-                $no,
-                $nama,
-                $totalKedatangan,
-                (string) $tanggalKedatangan,
-                (string) $biaya,
-                $noTelp,
-                (string) $dob,
-                $pid,
-                $alamat,
-                $kota,
-                $kelompokPelanggan,
-                $nik,
-                $pemeriksaan,
-                $mou
-            ]));
-
+            // Dedup strict by full row content
+            $dedupKey = md5(json_encode($row));
             if (isset($seenRows[$dedupKey])) {
                 $duplicateSkipped++;
                 continue;
@@ -737,29 +1000,150 @@ class PelangganImportExportController extends Controller
             }
 
             $dobDate    = $this->parseCsvDate($dob);
-            $biayaValue = $this->parseCsvBiaya($biaya);
+            $biayaValue = $this->parseCsvBiaya($biayaRaw);
             if ($biayaValue === null) {
-                continue;
+                $biayaValue = $this->parseCsvBiaya($payRaw) ?? 0.0;
             }
+            $brutoValue = $this->parseCsvBiaya($brutoRaw);
+            $discValue  = $this->parseCsvBiaya($discRaw);
+            $payValue   = $this->parseCsvBiaya($payRaw);
+            $jmlTest    = (is_numeric($jmlTestRaw)) ? (int) $jmlTestRaw : null;
 
             $cabang = $cabangs[$cabangKode];
+
+            // Kelompok Pelanggan Master Handling
+            $kodeKel = !empty($kodeKelompokRaw) ? $kodeKelompokRaw : null;
+            $namaKel = !empty($kelompokRaw) ? $kelompokRaw : null;
+            $kelompokId = null;
+
+            if ($kodeKel || $namaKel) {
+                $cacheKey = ($kodeKel ?? '') . '|' . ($namaKel ?? '');
+                if (isset($kelompokCache[$cacheKey])) {
+                    $kelompokId = $kelompokCache[$cacheKey];
+                } else {
+                    $kp = null;
+                    if ($kodeKel) {
+                        $kp = KelompokPelanggan::where('kode', $kodeKel)->first();
+                    }
+                    if (!$kp && $namaKel) {
+                        $kp = KelompokPelanggan::where('nama', $namaKel)->first();
+                        if (!$kp) {
+                            $kp = KelompokPelanggan::whereRaw('LOWER(nama) = ?', [strtolower($namaKel)])->first();
+                        }
+                    }
+
+                    if ($kp) {
+                        if ($kodeKel && $kp->kode !== $kodeKel) {
+                            $existsOther = KelompokPelanggan::where('kode', $kodeKel)->where('id', '!=', $kp->id)->exists();
+                            if (!$existsOther) {
+                                $kp->kode = $kodeKel;
+                            }
+                        }
+                        if ($namaKel && (empty($kp->nama) || strtolower($kp->nama) === 'mandiri' || strtolower($kp->nama) === 'klinisi')) {
+                            $kp->nama = $namaKel;
+                        }
+                        $kp->save();
+                    } else {
+                        $baseKode = $kodeKel ?: Str::slug($namaKel ?? 'kelompok');
+                        $kodeToUse = $baseKode;
+                        $counter = 1;
+                        while (KelompokPelanggan::where('kode', $kodeToUse)->exists()) {
+                            $kodeToUse = $baseKode . '-' . $counter++;
+                        }
+                        $baseNama = $namaKel ?: $kodeToUse;
+                        $namaToUse = $baseNama;
+                        $counterNama = 1;
+                        while (KelompokPelanggan::where('nama', $namaToUse)->exists()) {
+                            $namaToUse = $baseNama . ' (' . $counterNama++ . ')';
+                        }
+                        $kp = KelompokPelanggan::create([
+                            'kode'      => $kodeToUse,
+                            'nama'      => $namaToUse,
+                            'is_active' => true,
+                        ]);
+                    }
+                    $kelompokId = $kp->id;
+                    $kelompokCache[$cacheKey] = $kelompokId;
+                }
+            } else {
+                $kelompokId = $defaultMandiriId;
+            }
+
+            // Dokter Master Handling
+            $kodeDokter = !empty($kodeDokterRaw) ? $kodeDokterRaw : null;
+            $namaDokter = !empty($dokterRaw) ? $dokterRaw : null;
+            $dokterId   = null;
+
+            if ($kodeDokter || $namaDokter) {
+                $docKey = ($kodeDokter ?? '') . '|' . ($namaDokter ?? '');
+                if (isset($dokterCache[$docKey])) {
+                    $dokterId = $dokterCache[$docKey];
+                } else {
+                    $doc = null;
+                    if ($kodeDokter) {
+                        $doc = Dokter::where('kode_dokter', $kodeDokter)->first();
+                    }
+                    if (!$doc && $namaDokter) {
+                        $doc = Dokter::where('nama_dokter', $namaDokter)->first();
+                    }
+                    if ($doc) {
+                        if ($kodeDokter && empty($doc->kode_dokter)) {
+                            $doc->kode_dokter = $kodeDokter;
+                            $doc->save();
+                        }
+                    } else {
+                        $doc = Dokter::create([
+                            'kode_dokter' => $kodeDokter,
+                            'nama_dokter' => $namaDokter ?: ($kodeDokter ?? 'Dokter'),
+                        ]);
+                    }
+                    $dokterId = $doc->id;
+                    $dokterCache[$docKey] = $dokterId;
+                }
+            }
+
+            // Marketing Master Handling
+            $namaMarketing = !empty($marketingRaw) ? $marketingRaw : null;
+            $marketingId   = null;
+
+            if ($namaMarketing) {
+                if (isset($marketingCache[$namaMarketing])) {
+                    $marketingId = $marketingCache[$namaMarketing];
+                } else {
+                    $mkt = Marketing::firstOrCreate(['nama_marketing' => $namaMarketing]);
+                    $marketingId = $mkt->id;
+                    $marketingCache[$namaMarketing] = $marketingId;
+                }
+            }
 
             DB::transaction(function () use (
                 $pid,
                 $nama,
+                $jenisKelamin,
                 $noTelp,
                 $dobDate,
                 $alamat,
                 $kota,
+                $kecamatan,
+                $nip,
+                $nik,
+                $jabatan,
+                $location,
                 $totalKedatangan,
                 $biayaValue,
+                $brutoValue,
+                $discValue,
+                $payValue,
+                $jmlTest,
+                $tipeOmset,
+                $dokterId,
+                $marketingId,
+                $kelompokId,
                 $pemeriksaan,
                 $mou,
                 $cabang,
                 $tanggal,
                 $no,
-                $kelompokPelanggan,
-                $nik,
                 $batchId,
                 &$processedCount
             ) {
@@ -768,14 +1152,11 @@ class PelangganImportExportController extends Controller
 
                 // ── Simpan snapshot data pelanggan SEBELUM diubah (untuk rollback) ──
                 if (!empty($batchId)) {
-                    // Cek apakah snapshot untuk pelanggan ini di batch ini sudah ada
-                    // (bisa terjadi jika PID muncul lebih dari 1x dalam file)
                     $snapshotExists = ImportBatchPelangganSnapshot::where('import_batch_id', $batchId)
                         ->where('pelanggan_id', $pelanggan->id ?? 0)
                         ->exists();
 
                     if (!$snapshotExists && !$isNewPelanggan) {
-                        // Pelanggan lama: simpan nilai sebelum diubah
                         ImportBatchPelangganSnapshot::create([
                             'import_batch_id'         => $batchId,
                             'pelanggan_id'            => $pelanggan->id,
@@ -786,18 +1167,21 @@ class PelangganImportExportController extends Controller
                         ]);
                     }
                 }
-                // ─────────────────────────────────────────────────────────────────
 
                 $pelanggan->cabang_id = $cabang->id;
                 $pelanggan->nama      = $nama;
                 $pelanggan->nik       = $nik;
+                $pelanggan->nip       = $nip;
                 $pelanggan->no_telp   = $noTelp;
                 $pelanggan->dob       = $dobDate;
                 $pelanggan->alamat    = $alamat;
                 $pelanggan->kota      = $kota;
+                if (!empty($kecamatan))    $pelanggan->kecamatan    = $kecamatan;
+                if (!empty($jabatan))      $pelanggan->jabatan      = $jabatan;
+                if (!empty($location))     $pelanggan->location     = $location;
+                if (!empty($jenisKelamin)) $pelanggan->jenis_kelamin = $jenisKelamin;
 
                 if ($isNewPelanggan) {
-                    // Pelanggan baru: set nilai awal dan hitung kelas
                     $pelanggan->total_kedatangan = $totalKedatangan;
                     $pelanggan->total_biaya      = $biayaValue;
 
@@ -810,14 +1194,9 @@ class PelangganImportExportController extends Controller
                         (bool) $pelanggan->is_pelanggan_khusus
                     );
                 }
-                // Untuk pelanggan existing: JANGAN update total_kedatangan, total_biaya,
-                // atau class di sini. updateStats() akan menghitung ulang dari semua
-                // kunjungan setelah kunjungan baru dibuat, dan mencatat perubahan kelas
-                // ke class_histories jika ada perubahan.
 
                 $pelanggan->save();
 
-                // ── Simpan snapshot untuk pelanggan BARU (setelah save agar ada ID) ──
                 if (!empty($batchId) && $isNewPelanggan) {
                     ImportBatchPelangganSnapshot::create([
                         'import_batch_id'         => $batchId,
@@ -828,9 +1207,6 @@ class PelangganImportExportController extends Controller
                         'class_before'            => null,
                     ]);
                 }
-                // ─────────────────────────────────────────────────────────────────
-
-                $kelompok = KelompokPelanggan::where('kode', $kelompokPelanggan)->first();
 
                 Kunjungan::create([
                     'no'                    => $no,
@@ -840,9 +1216,16 @@ class PelangganImportExportController extends Controller
                     'biaya'                 => $biayaValue,
                     'pemeriksaan'           => $pemeriksaan,
                     'mou'                   => $mou,
+                    'tipe_omset'            => $tipeOmset,
+                    'dokter_id'             => $dokterId,
+                    'marketing_id'          => $marketingId,
+                    'bruto'                 => $brutoValue,
+                    'disc'                  => $discValue,
+                    'pay'                   => $payValue,
+                    'jml_test'              => $jmlTest,
                     'total_kedatangan'      => $totalKedatangan,
-                    'kelompok_pelanggan_id' => $kelompok?->id,
-                    'import_batch_id'       => $batchId ?: null, // Tag kunjungan dengan batch_id
+                    'kelompok_pelanggan_id' => $kelompokId,
+                    'import_batch_id'       => $batchId ?: null,
                 ]);
 
                 if ($isNewPelanggan) {
@@ -867,6 +1250,35 @@ class PelangganImportExportController extends Controller
         ]);
 
         return $processedCount;
+    }
+
+    /**
+     * Normalisasi nilai jenis kelamin dari import Excel
+     * Menerima L / P maupun teks kepanjangannya: Laki-Laki / Perempuan (atau LK, PR, Pria, Wanita)
+     */
+    private function normalizeJenisKelamin(?string $raw): ?string
+    {
+        if ($raw === null) {
+            return null;
+        }
+
+        $trimmed = trim((string) $raw);
+        if ($trimmed === '' || $trimmed === '-') {
+            return null;
+        }
+
+        // Bersihkan tanda baca / pemisah untuk fleksibilitas (misal: "Laki-Laki", "Laki Laki")
+        $clean = strtoupper(preg_replace('/[^A-Za-z]/', '', $trimmed));
+
+        if (in_array($clean, ['L', 'LK', 'LAKILAKI', 'LAKI', 'PRIA', 'M', 'MALE'], true)) {
+            return 'Laki-Laki';
+        }
+
+        if (in_array($clean, ['P', 'PR', 'PEREMPUAN', 'WANITA', 'F', 'FEMALE'], true)) {
+            return 'Perempuan';
+        }
+
+        return substr($trimmed, 0, 20);
     }
 
     /**

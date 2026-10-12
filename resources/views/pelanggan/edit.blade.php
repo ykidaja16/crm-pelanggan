@@ -43,6 +43,16 @@
                         </div>
 
                         <div class="col-md-6">
+                            <label class="form-label fw-medium">Jenis Kelamin (JK)</label>
+                            <select name="jenis_kelamin" class="form-select form-select-lg @error('jenis_kelamin') is-invalid @enderror">
+                                <option value="">Pilih Jenis Kelamin</option>
+                                <option value="Laki-Laki" {{ in_array(old('jenis_kelamin', $pelanggan->jenis_kelamin), ['Laki-Laki', 'L']) ? 'selected' : '' }}>Laki-Laki (L)</option>
+                                <option value="Perempuan" {{ in_array(old('jenis_kelamin', $pelanggan->jenis_kelamin), ['Perempuan', 'P']) ? 'selected' : '' }}>Perempuan (P)</option>
+                            </select>
+                            @error('jenis_kelamin')<div class="invalid-feedback">{{ $message }}</div>@enderror
+                        </div>
+
+                        <div class="col-md-6">
                             <label class="form-label fw-medium">No. Telepon</label>
                             <input type="text" name="no_telp" class="form-control form-control-lg @error('no_telp') is-invalid @enderror" value="{{ old('no_telp', $pelanggan->no_telp) }}" placeholder="Contoh: 08123456789">
                             @error('no_telp')<div class="invalid-feedback">{{ $message }}</div>@enderror

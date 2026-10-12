@@ -90,6 +90,52 @@ class EvaluasiPromoController extends Controller
             $summary = $evaluasiData['summary'];
         }
 
+        // Parameter Komparasi Antar Promo
+        $activeTab          = $request->get('tab', 'single');
+        $mouA               = trim((string) $request->get('mou_a'));
+        $tglPromoMulaiA     = $request->get('tgl_promo_mulai_a');
+        $tglPromoSelesaiA   = $request->get('tgl_promo_selesai_a');
+        $tglEvaluasiMulaiA  = $request->get('tgl_evaluasi_mulai_a');
+        $tglEvaluasiSelesaiA= $request->get('tgl_evaluasi_selesai_a');
+
+        $mouB               = trim((string) $request->get('mou_b'));
+        $tglPromoMulaiB     = $request->get('tgl_promo_mulai_b');
+        $tglPromoSelesaiB   = $request->get('tgl_promo_selesai_b');
+        $tglEvaluasiMulaiB  = $request->get('tgl_evaluasi_mulai_b');
+        $tglEvaluasiSelesaiB= $request->get('tgl_evaluasi_selesai_b');
+
+        $compareData = null;
+        if (!empty($mouA) && !empty($mouB)) {
+            $activeTab = 'compare';
+            $evalA = $this->calculateEvaluasi(
+                $mouA,
+                $tglPromoMulaiA,
+                $tglPromoSelesaiA,
+                $tglEvaluasiMulaiA ?: '2000-01-01',
+                $tglEvaluasiSelesaiA ?: '2099-12-31',
+                $jenisPelanggan,
+                $effectiveCabangIds
+            );
+
+            $evalB = $this->calculateEvaluasi(
+                $mouB,
+                $tglPromoMulaiB,
+                $tglPromoSelesaiB,
+                $tglEvaluasiMulaiB ?: '2000-01-01',
+                $tglEvaluasiSelesaiB ?: '2099-12-31',
+                $jenisPelanggan,
+                $effectiveCabangIds
+            );
+
+            $omsetA = $this->calculatePromoOmset($mouA, $tglPromoMulaiA, $tglPromoSelesaiA, $effectiveCabangIds);
+            $omsetB = $this->calculatePromoOmset($mouB, $tglPromoMulaiB, $tglPromoSelesaiB, $effectiveCabangIds);
+
+            $compareData = [
+                'promo_a' => array_merge($evalA['summary'], ['omset' => $omsetA, 'mou' => $mouA]),
+                'promo_b' => array_merge($evalB['summary'], ['omset' => $omsetB, 'mou' => $mouB]),
+            ];
+        }
+
         return view('evaluasi-promo.index', compact(
             'cabangs',
             'cabangId',
@@ -103,7 +149,19 @@ class EvaluasiPromoController extends Controller
             'jenisPelanggan',
             'isFiltered',
             'results',
-            'summary'
+            'summary',
+            'activeTab',
+            'mouA',
+            'tglPromoMulaiA',
+            'tglPromoSelesaiA',
+            'tglEvaluasiMulaiA',
+            'tglEvaluasiSelesaiA',
+            'mouB',
+            'tglPromoMulaiB',
+            'tglPromoSelesaiB',
+            'tglEvaluasiMulaiB',
+            'tglEvaluasiSelesaiB',
+            'compareData'
         ));
     }
 
@@ -173,6 +231,37 @@ class EvaluasiPromoController extends Controller
     }
 
     /**
+     * Hitung total omset biaya kunjungan untuk suatu promo
+     */
+    private function calculatePromoOmset(string $mou, ?string $start, ?string $end, array $effectiveCabangIds = []): float
+    {
+        $q = Kunjungan::query()->whereNotNull('mou')->where('mou', '!=', '');
+        if (!empty($effectiveCabangIds)) {
+            $q->whereIn('cabang_id', $effectiveCabangIds);
+        }
+        if (!empty($start) && !empty($end)) {
+            $q->whereBetween('tanggal_kunjungan', [$start, $end]);
+        }
+        if (str_contains($mou, '+')) {
+            $kws = array_values(array_filter(array_map('trim', explode('+', $mou))));
+            foreach ($kws as $kw) {
+                $q->where('mou', 'LIKE', '%' . $kw . '%');
+            }
+        } elseif (str_contains($mou, ',')) {
+            $kws = array_values(array_filter(array_map('trim', explode(',', $mou))));
+            $q->where(function ($sub) use ($kws) {
+                foreach ($kws as $i => $kw) {
+                    if ($i === 0) $sub->where('mou', 'LIKE', '%' . $kw . '%');
+                    else $sub->orWhere('mou', 'LIKE', '%' . $kw . '%');
+                }
+            });
+        } else {
+            $q->where('mou', 'LIKE', '%' . $mou . '%');
+        }
+        return (float) $q->sum('biaya');
+    }
+
+    /**
      * Logika inti penghitungan evaluasi event/promo
      */
     private function calculateEvaluasi(
@@ -187,8 +276,28 @@ class EvaluasiPromoController extends Controller
         // 1. Query Kunjungan Promo yang sesuai kriteria (dibatasi cabang yang efektif)
         $promoQuery = Kunjungan::query()
             ->whereNotNull('mou')
-            ->where('mou', '!=', '')
-            ->where('mou', 'LIKE', '%' . $mou . '%');
+            ->where('mou', '!=', '');
+
+        // Dukungan pemisah '+' untuk DAN, ',' untuk ATAU
+        if (str_contains($mou, '+')) {
+            $keywords = array_values(array_filter(array_map('trim', explode('+', $mou))));
+            foreach ($keywords as $kw) {
+                $promoQuery->where('mou', 'LIKE', '%' . $kw . '%');
+            }
+        } elseif (str_contains($mou, ',')) {
+            $keywords = array_values(array_filter(array_map('trim', explode(',', $mou))));
+            $promoQuery->where(function ($q) use ($keywords) {
+                foreach ($keywords as $idx => $kw) {
+                    if ($idx === 0) {
+                        $q->where('mou', 'LIKE', '%' . $kw . '%');
+                    } else {
+                        $q->orWhere('mou', 'LIKE', '%' . $kw . '%');
+                    }
+                }
+            });
+        } else {
+            $promoQuery->where('mou', 'LIKE', '%' . $mou . '%');
+        }
 
         if (!empty($effectiveCabangIds)) {
             $promoQuery->whereIn('cabang_id', $effectiveCabangIds);

@@ -18,6 +18,13 @@ class Kunjungan extends Model
         'biaya',
         'pemeriksaan',
         'mou',
+        'tipe_omset',
+        'dokter_id',
+        'marketing_id',
+        'bruto',
+        'disc',
+        'pay',
+        'jml_test',
         'kelompok_pelanggan_id',
         'import_batch_id',
     ];
@@ -26,6 +33,11 @@ class Kunjungan extends Model
         'tanggal_kunjungan' => 'date',
         'no' => 'integer',
         'total_kedatangan' => 'integer',
+        'biaya' => 'double',
+        'bruto' => 'double',
+        'disc' => 'double',
+        'pay' => 'double',
+        'jml_test' => 'integer',
     ];
 
     public function pelanggan()
@@ -41,6 +53,16 @@ class Kunjungan extends Model
     public function kelompokPelanggan()
     {
         return $this->belongsTo(KelompokPelanggan::class, 'kelompok_pelanggan_id');
+    }
+
+    public function dokter()
+    {
+        return $this->belongsTo(Dokter::class);
+    }
+
+    public function marketing()
+    {
+        return $this->belongsTo(Marketing::class);
     }
 
     public function importBatch()

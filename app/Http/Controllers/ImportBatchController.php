@@ -34,8 +34,15 @@ class ImportBatchController extends Controller
         }
 
         // Filter by cabang
-        if ($request->filled('cabang_id')) {
-            $query->where('cabang_id', $request->cabang_id);
+        $cabangId = $request->cabang_id;
+        if (!$cabangId && $request->filled('cabang')) {
+            $foundCabang = \App\Models\Cabang::where('nama', 'LIKE', '%' . trim($request->cabang) . '%')->first();
+            if ($foundCabang) {
+                $cabangId = $foundCabang->id;
+            }
+        }
+        if (!empty($cabangId)) {
+            $query->where('cabang_id', $cabangId);
         }
 
         // Filter by tanggal
@@ -50,7 +57,14 @@ class ImportBatchController extends Controller
 
         $cabangs = \App\Models\Cabang::orderBy('nama')->get();
 
-        return view('import-batch.index', compact('batches', 'cabangs'));
+        $selectedCabangNama = '';
+        if (!empty($cabangId)) {
+            $selectedCabangNama = \App\Models\Cabang::find($cabangId)?->nama ?? '';
+        } elseif ($request->filled('cabang')) {
+            $selectedCabangNama = $request->cabang;
+        }
+
+        return view('import-batch.index', compact('batches', 'cabangs', 'cabangId', 'selectedCabangNama'));
     }
 
     /**

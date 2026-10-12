@@ -87,9 +87,9 @@
                         </div>
 
                         <div class="col-md-3">
-                            <label class="form-label fw-medium small">Range Omset</label>
+                            <label class="form-label fw-medium small">Range Nilai Transaksi</label>
                             <select name="omset_range" class="form-select">
-                                <option value="">Semua Omset</option>
+                                <option value="">Semua Nilai Transaksi</option>
                                 <option value="0" {{ ($omset_range ?? '') === '0' ? 'selected' : '' }}>0 - &lt; 1 Juta</option>
                                 <option value="1" {{ ($omset_range ?? '') === '1' ? 'selected' : '' }}>1 Juta - &lt; 4 Juta</option>
                                 <option value="2" {{ ($omset_range ?? '') === '2' ? 'selected' : '' }}>4 Juta - Lebih</option>
@@ -175,6 +175,24 @@
                             </select>
                         </div>
 
+                        {{-- Filter Kategori Usia (DOB) --}}
+                        <div class="col-md-3">
+                            <label class="form-label fw-medium small">Kategori Usia (DOB)</label>
+                            <select name="kategori_usia" class="form-select">
+                                <option value="">Semua Kategori Usia</option>
+                                <option value="pre_balita" {{ ($kategori_usia ?? '') == 'pre_balita' ? 'selected' : '' }}>Masa Pre Balita (0 – 12 Bulan)</option>
+                                <option value="balita" {{ ($kategori_usia ?? '') == 'balita' ? 'selected' : '' }}>Masa Balita (13 – 59 Bulan)</option>
+                                <option value="kanak2" {{ ($kategori_usia ?? '') == 'kanak2' ? 'selected' : '' }}>Masa Kanak2 (5 – 11 Tahun)</option>
+                                <option value="remaja_awal" {{ ($kategori_usia ?? '') == 'remaja_awal' ? 'selected' : '' }}>Masa Remaja Awal (12 – 16 Tahun)</option>
+                                <option value="remaja_akhir" {{ ($kategori_usia ?? '') == 'remaja_akhir' ? 'selected' : '' }}>Masa Remaja Akhir (17 – 25 Tahun)</option>
+                                <option value="dewasa_awal" {{ ($kategori_usia ?? '') == 'dewasa_awal' ? 'selected' : '' }}>Masa Dewasa Awal (26 – 35 Tahun)</option>
+                                <option value="dewasa_akhir" {{ ($kategori_usia ?? '') == 'dewasa_akhir' ? 'selected' : '' }}>Masa Dewasa Akhir (36 – 45 Tahun)</option>
+                                <option value="lansia_awal" {{ ($kategori_usia ?? '') == 'lansia_awal' ? 'selected' : '' }}>Masa Lansia Awal (46 – 55 Tahun)</option>
+                                <option value="lansia_akhir" {{ ($kategori_usia ?? '') == 'lansia_akhir' ? 'selected' : '' }}>Masa Lansia Akhir (56 – 65 Tahun)</option>
+                                <option value="manula" {{ ($kategori_usia ?? '') == 'manula' ? 'selected' : '' }}>Masa Manula (&gt; 65 Tahun)</option>
+                            </select>
+                        </div>
+
                         <!-- Section Search By Pemeriksaan -->
                         <div class="col-12 my-3">
                             <div class="card border border-info border-opacity-50 shadow-sm" style="background: linear-gradient(135deg, rgba(13, 202, 240, 0.08) 0%, rgba(255, 255, 255, 0.9) 100%); border-left: 5px solid #0dcaf0 !important; border-radius: 8px;">
@@ -191,18 +209,18 @@
                                                     </span>
                                                     <span>Search By Pemeriksaan</span>
                                                     <span class="badge bg-info text-white fw-normal px-2 py-1" style="font-size: 0.75rem;">
-                                                        <i class="fas fa-check-circle me-1"></i>Syarat Min. 3x Kunjungan
+                                                        <i class="fas fa-sliders-h me-1"></i>Filter Frekuensi Kunjungan Fleksibel
                                                     </span>
                                                 </label>
-                                                <small class="text-muted d-block mt-1">Aktifkan opsi ini untuk memfilter data pasien yang melakukan jenis pemeriksaan tertentu <strong>minimal 3 kali</strong>.</small>
+                                                <small class="text-muted d-block mt-1">Aktifkan opsi ini untuk memfilter data pasien yang melakukan pemeriksaan tertentu dengan kriteria jumlah kunjungan yang bisa disesuaikan.</small>
                                             </div>
                                         </div>
                                     </div>
 
-                                    {{-- Filter Pemeriksaan: Searchable Dropdown (Muncul saat Search By Pemeriksaan aktif) --}}
+                                    {{-- Filter Pemeriksaan: Searchable Dropdown & Operator --}}
                                     <div id="pemeriksaanBox" class="mt-3 pt-3 border-top border-info border-opacity-25"@if(!($search_by_pemeriksaan ?? false) && empty($pemeriksaan)) style="display: none;"@endif>
                                         <div class="row g-2 align-items-center">
-                                            <div class="col-md-6 col-lg-5">
+                                            <div class="col-md-5 col-lg-5">
                                                 <label class="form-label fw-bold text-dark small mb-1">
                                                     Pilih / Masukkan Nama Pemeriksaan:
                                                 </label>
@@ -242,10 +260,31 @@
                                                     </datalist>
                                                 </div>
                                             </div>
-                                            <div class="col-md-6 col-lg-7">
+                                            <div class="col-md-3 col-lg-3">
+                                                <label class="form-label fw-bold text-dark small mb-1">
+                                                    Kriteria Frekuensi Kedatangan:
+                                                </label>
+                                                <div class="input-group">
+                                                    <select name="pemeriksaan_operator" class="form-select text-center fw-bold bg-white" style="max-width: 80px;" title="Pilih operator pembanding">
+                                                        <option value=">" {{ ($pemeriksaan_operator ?? '>=') === '>' ? 'selected' : '' }}>&gt;</option>
+                                                        <option value=">=" {{ ($pemeriksaan_operator ?? '>=') === '>=' ? 'selected' : '' }}>&ge;</option>
+                                                        <option value="=" {{ ($pemeriksaan_operator ?? '>=') === '=' ? 'selected' : '' }}>=</option>
+                                                        <option value="<" {{ ($pemeriksaan_operator ?? '>=') === '<' ? 'selected' : '' }}>&lt;</option>
+                                                        <option value="<=" {{ ($pemeriksaan_operator ?? '>=') === '<=' ? 'selected' : '' }}>&le;</option>
+                                                    </select>
+                                                    <input type="number" 
+                                                           name="pemeriksaan_count" 
+                                                           class="form-control text-center fw-semibold" 
+                                                           min="0" 
+                                                           value="{{ $pemeriksaan_count ?? 3 }}" 
+                                                           placeholder="3">
+                                                    <span class="input-group-text small bg-white text-muted">Kali</span>
+                                                </div>
+                                            </div>
+                                            <div class="col-md-4 col-lg-4">
                                                 <div class="p-2 rounded bg-white bg-opacity-75 border border-info border-opacity-25 small text-secondary">
                                                     <i class="fas fa-info-circle text-info me-1"></i>
-                                                    Gunakan <strong>koma (,)</strong> untuk kondisi <strong>ATAU</strong> (salah satu min. 3x), atau tanda <strong>plus (+)</strong> untuk kondisi <strong>DAN</strong> (semuanya masing-masing min. 3x).
+                                                    Koma (<strong>,</strong>) untuk <strong>ATAU</strong>, plus (<strong>+</strong>) untuk <strong>DAN</strong>. Atur operator &amp; angka sesuai kebutuhan (mis: &gt; 2, = 5).
                                                 </div>
                                             </div>
                                         </div>
@@ -369,6 +408,7 @@
                                             Nama Pasien <i class="fas fa-sort{{ ($sort ?? '') == 'nama' ? (($direction ?? '') == 'asc' ? '-up' : '-down') : '' }} text-muted ms-1"></i>
                                         </a>
                                     </th>
+                                    <th class="py-2 text-center" style="width: 55px;">JK</th>
                                     <th class="py-2 text-center" style="width: 120px;">NIK</th>
                                     <th class="py-2 text-center" style="width: 100px;">
                                         <a href="{{ route('pelanggan.index', array_merge(request()->all(), ['sort' => 'cabang_id', 'direction' => ($sort ?? '') == 'cabang_id' && ($direction ?? '') == 'asc' ? 'desc' : 'asc'])) }}" class="text-decoration-none text-dark fw-semibold">
@@ -431,6 +471,15 @@
                                     <td class="px-2 py-2 text-center">{{ $pelanggan->firstItem() + $index }}</td>
                                     <td class="py-2"><a href="{{ route('pelanggan.show', $p->id) }}" class="text-decoration-none" title="Lihat Detail"><code class="bg-light px-1 py-1 rounded small text-nowrap">{{ $p->pid }}</code></a></td>
                                     <td class="py-2 fw-medium">{{ $p->nama }}</td>
+                                    <td class="py-2 text-center small">
+                                        @if($p->jenis_kelamin)
+                                            <span class="badge {{ in_array($p->jenis_kelamin, ['L', 'Laki-Laki']) ? 'bg-primary bg-opacity-10 text-primary border border-primary' : 'bg-danger bg-opacity-10 text-danger border border-danger' }}" style="font-size: 0.72rem; padding: 2px 6px;">
+                                                {{ in_array($p->jenis_kelamin, ['L', 'Laki-Laki']) ? 'L' : (in_array($p->jenis_kelamin, ['P', 'Perempuan']) ? 'P' : $p->jenis_kelamin) }}
+                                            </span>
+                                        @else
+                                            <span class="text-secondary fst-italic">-</span>
+                                        @endif
+                                    </td>
                                     <td class="py-2 text-center small">
                                         @if($p->nik)
                                             <span class="text-muted">{{ $p->nik }}</span>

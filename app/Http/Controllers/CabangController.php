@@ -35,6 +35,10 @@ class CabangController extends Controller
             'nama'       => 'required|string|max:100',
             'tipe'       => 'required|in:cabang,regional',
             'keterangan' => 'nullable|string|max:500',
+            'alamat'     => 'nullable|string|max:500',
+            'kecamatan'  => 'nullable|string|max:100',
+            'kota'       => 'nullable|string|max:100',
+            'provinsi'   => 'nullable|string|max:100',
         ], [
             'kode.required'  => 'Kode cabang wajib diisi.',
             'kode.size'      => 'Kode cabang harus tepat 2 karakter.',
@@ -49,6 +53,10 @@ class CabangController extends Controller
             'nama'       => $request->nama,
             'tipe'       => $request->tipe,
             'keterangan' => $request->keterangan,
+            'alamat'     => $request->alamat,
+            'kecamatan'  => $request->kecamatan,
+            'kota'       => $request->kota,
+            'provinsi'   => $request->provinsi,
         ]);
 
         ActivityLog::record(
@@ -67,7 +75,7 @@ class CabangController extends Controller
     }
 
     /**
-     * Update data cabang (hanya nama, tipe, keterangan — kode tidak bisa diubah)
+     * Update data cabang (hanya nama, tipe, keterangan, alamat, kecamatan, kota, provinsi — kode tidak bisa diubah)
      */
     public function update(Request $request, $id)
     {
@@ -77,6 +85,10 @@ class CabangController extends Controller
             'nama'       => 'required|string|max:100',
             'tipe'       => 'required|in:cabang,regional',
             'keterangan' => 'nullable|string|max:500',
+            'alamat'     => 'nullable|string|max:500',
+            'kecamatan'  => 'nullable|string|max:100',
+            'kota'       => 'nullable|string|max:100',
+            'provinsi'   => 'nullable|string|max:100',
         ], [
             'nama.required' => 'Nama cabang wajib diisi.',
             'tipe.required' => 'Tipe cabang wajib dipilih.',
@@ -88,6 +100,10 @@ class CabangController extends Controller
             'nama'       => $request->nama,
             'tipe'       => $request->tipe,
             'keterangan' => $request->keterangan,
+            'alamat'     => $request->alamat,
+            'kecamatan'  => $request->kecamatan,
+            'kota'       => $request->kota,
+            'provinsi'   => $request->provinsi,
         ]);
 
         ActivityLog::record(

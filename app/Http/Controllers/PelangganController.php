@@ -106,6 +106,7 @@ class PelangganController extends Controller
                     'pid'                => 'required|string',
                     'cabang_id'          => 'required|exists:cabangs,id',
                     'nama'               => 'required',
+                    'jenis_kelamin'      => 'nullable|string|max:20',
                     'nik'                => 'nullable|string',
                     'no_telp'            => 'nullable|string',
                     'dob'                => 'nullable|date',
@@ -162,15 +163,16 @@ class PelangganController extends Controller
                 DB::transaction(function () use ($input, &$createdCount) {
                     $visitDate    = \Carbon\Carbon::parse($input['tanggal_kunjungan']);
                     $pelanggan    = Pelanggan::create([
-                        'pid'       => $input['pid'],
-                        'cabang_id' => $input['cabang_id'],
-                        'nama'      => $input['nama'],
-                        'nik'       => $input['nik'] ?? null,
-                        'no_telp'   => $input['no_telp'] ?? null,
-                        'dob'       => $input['dob'] ?? null,
-                        'alamat'    => $input['alamat'] ?? null,
-                        'kota'      => $input['kota'] ?? null,
-                        'class'     => 'Potensial',
+                        'pid'           => $input['pid'],
+                        'cabang_id'     => $input['cabang_id'],
+                        'nama'          => $input['nama'],
+                        'jenis_kelamin' => !empty($input['jenis_kelamin']) ? $input['jenis_kelamin'] : null,
+                        'nik'           => $input['nik'] ?? null,
+                        'no_telp'       => $input['no_telp'] ?? null,
+                        'dob'           => $input['dob'] ?? null,
+                        'alamat'        => $input['alamat'] ?? null,
+                        'kota'          => $input['kota'] ?? null,
+                        'class'         => 'Potensial',
                     ]);
                     $kelompokKode = $input['kelompok_pelanggan'] ?? 'mandiri';
                     $kelompok     = KelompokPelanggan::where('kode', $kelompokKode)->first();
@@ -323,11 +325,19 @@ class PelangganController extends Controller
         $tanggal_selesai = $request->tanggal_selesai;
         $kelompokPelanggan = $request->kelompok_pelanggan;
         $tipePelanggan   = $request->tipe_pelanggan;
+        $kategoriUsia    = $request->kategori_usia;
         $searchByPemeriksaan = $request->filled('search_by_pemeriksaan') || $request->filled('pemeriksaan');
         $pemeriksaan         = $searchByPemeriksaan ? trim((string)$request->pemeriksaan) : null;
         if ($pemeriksaan === '') {
             $pemeriksaan = null;
         }
+
+        $pemeriksaanOperator = $request->get('pemeriksaan_operator', '>=');
+        if (!in_array($pemeriksaanOperator, ['>', '>=', '<', '<=', '='], true)) {
+            $pemeriksaanOperator = '>=';
+        }
+        $pemeriksaanCountRaw = $request->get('pemeriksaan_count');
+        $pemeriksaanCount    = (is_numeric($pemeriksaanCountRaw) && (int)$pemeriksaanCountRaw >= 0) ? (int)$pemeriksaanCountRaw : 3;
 
         // Ambil opsi pemeriksaan unik dari database untuk searchable dropdown
         $rawPemeriksaanList = Kunjungan::whereNotNull('pemeriksaan')
@@ -359,7 +369,7 @@ class PelangganController extends Controller
 
         // Tampilkan data kosong saat pertama kali masuk (belum klik filter)
         if (!$type && !$search && !$kelompokPelanggan && !$tipePelanggan
-            && !$cabangId && !$kelas && !$omsetRange && !$kedatanganRange && !$pemeriksaan) {
+            && !$cabangId && !$kelas && !$omsetRange && !$kedatanganRange && !$pemeriksaan && !$kategoriUsia) {
             return view('pelanggan.index', [
                 'pelanggan'             => collect(),
                 'bulan'                 => null,
@@ -372,8 +382,11 @@ class PelangganController extends Controller
                 'kelas'                 => null,
                 'kelompok_pelanggan'    => null,
                 'tipe_pelanggan'        => null,
+                'kategori_usia'         => null,
                 'search_by_pemeriksaan' => $searchByPemeriksaan,
                 'pemeriksaan'           => null,
+                'pemeriksaan_operator'  => $pemeriksaanOperator,
+                'pemeriksaan_count'     => $pemeriksaanCount,
                 'pemeriksaanOptions'    => $pemeriksaanOptions,
                 'cabangs'               => $cabangs,
                 'kelasList'             => Kelas::orderedNames(),
@@ -663,8 +676,8 @@ class PelangganController extends Controller
             });
         }
 
-        // Filter Pemeriksaan: Minimal 3 kali kunjungan yang memuat pemeriksaan terkait
-        // '+' = AND (setiap keyword harus minimal 3 kali), ',' = OR (salah satu keyword minimal 3 kali)
+        // Filter Pemeriksaan: Berdasarkan operator dan jumlah kedatangan terkait
+        // '+' = AND (setiap keyword harus memenuhi operator & jumlah), ',' = OR (salah satu keyword memenuhi)
         if ($pemeriksaan) {
             $pemDateSql = '';
             if ($type === 'perbulan' && $bulan && $tahun) {
@@ -678,7 +691,7 @@ class PelangganController extends Controller
             }
 
             if (str_contains($pemeriksaan, '+')) {
-                // Mode AND: Pasien harus memiliki SEMUA pemeriksaan yang dicari, masing-masing MINIMAL 3 kali
+                // Mode AND: Pasien harus memiliki SEMUA pemeriksaan yang dicari, masing-masing memenuhi operator & nilai
                 $keywords = array_values(array_filter(array_map('trim', explode('+', $pemeriksaan))));
                 foreach ($keywords as $kw) {
                     $quotedKw = DB::getPdo()->quote('%' . $kw . '%');
@@ -687,10 +700,10 @@ class PelangganController extends Controller
                         WHERE k2.pelanggan_id = pelanggans.id 
                         AND k2.pemeriksaan LIKE {$quotedKw}
                         {$pemDateSql}
-                    ) >= 3");
+                    ) {$pemeriksaanOperator} {$pemeriksaanCount}");
                 }
             } else {
-                // Mode OR: Pasien memiliki SALAH SATU dari pemeriksaan yang dicari MINIMAL 3 kali
+                // Mode OR: Pasien memiliki SALAH SATU dari pemeriksaan yang dicari
                 $keywords = array_values(array_filter(array_map('trim', explode(',', $pemeriksaan))));
                 if (!empty($keywords)) {
                     $orConditions = [];
@@ -701,10 +714,56 @@ class PelangganController extends Controller
                             WHERE k2.pelanggan_id = pelanggans.id 
                             AND k2.pemeriksaan LIKE {$quotedKw}
                             {$pemDateSql}
-                        ) >= 3";
+                        ) {$pemeriksaanOperator} {$pemeriksaanCount}";
                     }
                     $query->whereRaw('(' . implode(' OR ', $orConditions) . ')');
                 }
+            }
+        }
+
+        // Filter Kategori Usia Pelanggan berdasarkan DOB
+        if (!empty($kategoriUsia)) {
+            switch ($kategoriUsia) {
+                case 'pre_balita':
+                    $query->whereNotNull('pelanggans.dob')
+                          ->whereRaw('TIMESTAMPDIFF(MONTH, pelanggans.dob, CURDATE()) BETWEEN 0 AND 12');
+                    break;
+                case 'balita':
+                    $query->whereNotNull('pelanggans.dob')
+                          ->whereRaw('TIMESTAMPDIFF(MONTH, pelanggans.dob, CURDATE()) BETWEEN 13 AND 59');
+                    break;
+                case 'kanak2':
+                    $query->whereNotNull('pelanggans.dob')
+                          ->whereRaw('TIMESTAMPDIFF(YEAR, pelanggans.dob, CURDATE()) BETWEEN 5 AND 11');
+                    break;
+                case 'remaja_awal':
+                    $query->whereNotNull('pelanggans.dob')
+                          ->whereRaw('TIMESTAMPDIFF(YEAR, pelanggans.dob, CURDATE()) BETWEEN 12 AND 16');
+                    break;
+                case 'remaja_akhir':
+                    $query->whereNotNull('pelanggans.dob')
+                          ->whereRaw('TIMESTAMPDIFF(YEAR, pelanggans.dob, CURDATE()) BETWEEN 17 AND 25');
+                    break;
+                case 'dewasa_awal':
+                    $query->whereNotNull('pelanggans.dob')
+                          ->whereRaw('TIMESTAMPDIFF(YEAR, pelanggans.dob, CURDATE()) BETWEEN 26 AND 35');
+                    break;
+                case 'dewasa_akhir':
+                    $query->whereNotNull('pelanggans.dob')
+                          ->whereRaw('TIMESTAMPDIFF(YEAR, pelanggans.dob, CURDATE()) BETWEEN 36 AND 45');
+                    break;
+                case 'lansia_awal':
+                    $query->whereNotNull('pelanggans.dob')
+                          ->whereRaw('TIMESTAMPDIFF(YEAR, pelanggans.dob, CURDATE()) BETWEEN 46 AND 55');
+                    break;
+                case 'lansia_akhir':
+                    $query->whereNotNull('pelanggans.dob')
+                          ->whereRaw('TIMESTAMPDIFF(YEAR, pelanggans.dob, CURDATE()) BETWEEN 56 AND 65');
+                    break;
+                case 'manula':
+                    $query->whereNotNull('pelanggans.dob')
+                          ->whereRaw('TIMESTAMPDIFF(YEAR, pelanggans.dob, CURDATE()) > 65');
+                    break;
             }
         }
 
@@ -848,8 +907,11 @@ class PelangganController extends Controller
             'tanggal_mulai'         => $tanggal_mulai,
             'tanggal_selesai'       => $tanggal_selesai,
             'tipe_pelanggan'        => $tipePelanggan,
+            'kategori_usia'         => $kategoriUsia,
             'search_by_pemeriksaan' => $searchByPemeriksaan,
             'pemeriksaan'           => $pemeriksaan,
+            'pemeriksaan_operator'  => $pemeriksaanOperator,
+            'pemeriksaan_count'     => $pemeriksaanCount,
             'pemeriksaanOptions'    => $pemeriksaanOptions,
             'cabangs'               => $cabangs,
             'kelasList'             => Kelas::orderedNames(),
@@ -1104,14 +1166,15 @@ class PelangganController extends Controller
         }
 
         $request->validate([
-            'pid'       => 'required|unique:pelanggans,pid,' . $id,
-            'cabang_id' => 'required|exists:cabangs,id',
-            'nama'      => 'required',
-            'nik'       => 'nullable|string',
-            'no_telp'   => 'nullable|string',
-            'dob'       => 'nullable|date',
-            'alamat'    => 'nullable|string',
-            'kota'      => 'nullable|string',
+            'pid'           => 'required|unique:pelanggans,pid,' . $id,
+            'cabang_id'     => 'required|exists:cabangs,id',
+            'nama'          => 'required',
+            'jenis_kelamin' => 'nullable|string|max:20',
+            'nik'           => 'nullable|string',
+            'no_telp'       => 'nullable|string',
+            'dob'           => 'nullable|date',
+            'alamat'        => 'nullable|string',
+            'kota'          => 'nullable|string',
         ]);
 
         $pelanggan = Pelanggan::findOrFail($id);
@@ -1128,7 +1191,7 @@ class PelangganController extends Controller
                 ->with('error', "PID \"{$pid}\" tidak sesuai dengan cabang \"{$cabang->nama}\". Prefix PID harus \"{$cabangKode}\".");
         }
 
-        $pelanggan->update($request->only(['pid', 'cabang_id', 'nama', 'nik', 'no_telp', 'dob', 'alamat', 'kota']));
+        $pelanggan->update($request->only(['pid', 'cabang_id', 'nama', 'jenis_kelamin', 'nik', 'no_telp', 'dob', 'alamat', 'kota']));
 
         ActivityLog::record(
             'update', 'Pelanggan',

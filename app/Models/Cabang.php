@@ -6,7 +6,16 @@ use Illuminate\Database\Eloquent\Model;
 
 class Cabang extends Model
 {
-    protected $fillable = ['kode', 'nama', 'tipe', 'keterangan'];
+    protected $fillable = [
+        'kode',
+        'nama',
+        'tipe',
+        'keterangan',
+        'alamat',
+        'kecamatan',
+        'kota',
+        'provinsi',
+    ];
 
     public function pelanggans()
     {
