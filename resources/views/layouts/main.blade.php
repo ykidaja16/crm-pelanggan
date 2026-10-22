@@ -827,6 +827,11 @@
                     <i class="fas fa-file-contract"></i> Update MOU / Agreement
                 </a>
             </li>
+            <li class="{{ request()->routeIs('kunjungan.update-kolom-terbaru*') ? 'active' : '' }}">
+                <a href="{{ route('kunjungan.update-kolom-terbaru.index') }}" title="Update Kolom Terbaru">
+                    <i class="fas fa-columns"></i> Update Kolom Terbaru
+                </a>
+            </li>
             @endif
         </ul>
 

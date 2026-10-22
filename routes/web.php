@@ -22,6 +22,7 @@ use App\Http\Controllers\SinkronisasiController;
 use App\Http\Controllers\PertumbuhanKelasController;
 use App\Http\Controllers\KunjunganPemeriksaanUpdateController;
 use App\Http\Controllers\KunjunganMouUpdateController;
+use App\Http\Controllers\KunjunganKolomTerbaruUpdateController;
 use App\Http\Controllers\EvaluasiPromoController;
 use App\Http\Middleware\EnsureUserIsAdmin;
 use App\Http\Middleware\EnsureUserIsSuperAdmin;
@@ -281,5 +282,10 @@ Route::middleware([Authenticate::class])->group(function () {
         Route::get('/update-mou', [KunjunganMouUpdateController::class, 'index'])->name('kunjungan.update-mou.index');
         Route::get('/update-mou/download-template', [KunjunganMouUpdateController::class, 'downloadTemplate'])->name('kunjungan.update-mou.template');
         Route::post('/update-mou/import', [KunjunganMouUpdateController::class, 'import'])->name('kunjungan.update-mou.import');
+
+        // Update Kolom Terbaru Kunjungan (Khusus Role IT)
+        Route::get('/update-kolom-terbaru', [KunjunganKolomTerbaruUpdateController::class, 'index'])->name('kunjungan.update-kolom-terbaru.index');
+        Route::get('/update-kolom-terbaru/download-template', [KunjunganKolomTerbaruUpdateController::class, 'downloadTemplate'])->name('kunjungan.update-kolom-terbaru.template');
+        Route::post('/update-kolom-terbaru/import', [KunjunganKolomTerbaruUpdateController::class, 'import'])->name('kunjungan.update-kolom-terbaru.import');
     });
 });
