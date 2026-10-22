@@ -52,6 +52,7 @@ class LaporanExport implements FromCollection, WithHeadings, WithStyles, WithCol
                 'No'                 => $index + 1,
                 'PID'                => $item->pid,
                 'Nama Pasien'        => $item->nama,
+                'JK'                 => in_array($item->jenis_kelamin, ['L', 'Laki-Laki', 'Laki-laki']) ? 'L' : (in_array($item->jenis_kelamin, ['P', 'Perempuan']) ? 'P' : ($item->jenis_kelamin ?? '-')),
                 'NIK'                => $item->nik ?? '-',
                 'Cabang'             => $item->cabang?->nama ?? '-',
                 'No Telpon'          => $item->no_telp ?? '-',
@@ -77,7 +78,7 @@ class LaporanExport implements FromCollection, WithHeadings, WithStyles, WithCol
 
     public function headings(): array
     {
-        $h = ['No','PID','Nama Pasien','NIK','Cabang','No Telpon','DOB','Alamat','Kota','Total Kunjungan','Kunjungan Terakhir'];
+        $h = ['No','PID','Nama Pasien','JK','NIK','Cabang','No Telpon','DOB','Alamat','Kota','Total Kunjungan','Kunjungan Terakhir'];
         if ($this->pemeriksaan) {
             $h[] = 'Total Terkait Pemeriksaan';
             $h[] = 'Pemeriksaan Terakhir';
@@ -92,16 +93,16 @@ class LaporanExport implements FromCollection, WithHeadings, WithStyles, WithCol
 
     public function columnWidths(): array
     {
-        $w = ['A'=>5,'B'=>15,'C'=>25,'D'=>20,'E'=>15,'F'=>15,'G'=>12,'H'=>30,'I'=>15,'J'=>15,'K'=>18];
+        $w = ['A'=>5,'B'=>15,'C'=>25,'D'=>8,'E'=>20,'F'=>15,'G'=>15,'H'=>12,'I'=>30,'J'=>15,'K'=>15,'L'=>18];
         if ($this->pemeriksaan) {
-            $w['L'] = 16;
-            $w['M'] = 30;
-            $w['N'] = 25;
-            $w['O'] = 15;
-            $w['P'] = 12;
+            $w['M'] = 16;
+            $w['N'] = 30;
+            $w['O'] = 25;
+            $w['P'] = 15;
+            $w['Q'] = 12;
         } else {
-            $w['L'] = 15;
-            $w['M'] = 12;
+            $w['M'] = 15;
+            $w['N'] = 12;
         }
         return $w;
     }
@@ -109,7 +110,7 @@ class LaporanExport implements FromCollection, WithHeadings, WithStyles, WithCol
     public function styles(Worksheet $sheet): array
     {
         $last = $sheet->getHighestRow();
-        $lastCol = $this->pemeriksaan ? 'P' : 'M';
+        $lastCol = $this->pemeriksaan ? 'Q' : 'N';
 
         // Baris 1: Judul
         $sheet->mergeCells("A1:{$lastCol}1");
@@ -143,15 +144,15 @@ class LaporanExport implements FromCollection, WithHeadings, WithStyles, WithCol
 
         // Alignment per-kolom (bukan per-baris)
         if ($last >= 4) {
-            $centerCols = ['A', 'B', 'D', 'G', 'J', 'K'];
+            $centerCols = ['A', 'B', 'D', 'E', 'H', 'K', 'L'];
             if ($this->pemeriksaan) {
-                $centerCols[] = 'L';
-                $centerCols[] = 'N';
-                $centerCols[] = 'P'; // Kelas
-                $biayaCol = 'O';
+                $centerCols[] = 'M';
+                $centerCols[] = 'O';
+                $centerCols[] = 'Q'; // Kelas
+                $biayaCol = 'P';
             } else {
-                $centerCols[] = 'M'; // Kelas
-                $biayaCol = 'L';
+                $centerCols[] = 'N'; // Kelas
+                $biayaCol = 'M';
             }
             foreach ($centerCols as $col) {
                 $sheet->getStyle("{$col}4:{$col}{$last}")->getAlignment()->setHorizontal(Alignment::HORIZONTAL_CENTER);

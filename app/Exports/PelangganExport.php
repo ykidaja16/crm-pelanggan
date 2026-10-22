@@ -29,6 +29,7 @@ class PelangganExport implements FromCollection, WithHeadings, WithStyles, WithC
     protected $tanggalMulai;
     protected $tanggalSelesai;
     protected $pemeriksaan;
+    protected $jenisKelamin;
 
     public function __construct(
         $bulan,
@@ -42,7 +43,8 @@ class PelangganExport implements FromCollection, WithHeadings, WithStyles, WithC
         $tipePelanggan   = null,
         $tanggalMulai    = null,
         $tanggalSelesai  = null,
-        $pemeriksaan     = null
+        $pemeriksaan     = null,
+        $jenisKelamin    = null
     ) {
         $this->bulan           = $bulan;
         $this->tahun           = $tahun;
@@ -56,6 +58,7 @@ class PelangganExport implements FromCollection, WithHeadings, WithStyles, WithC
         $this->tanggalMulai    = $tanggalMulai;
         $this->tanggalSelesai  = $tanggalSelesai;
         $this->pemeriksaan     = $pemeriksaan;
+        $this->jenisKelamin    = $jenisKelamin;
     }
 
     /**
@@ -181,6 +184,15 @@ class PelangganExport implements FromCollection, WithHeadings, WithStyles, WithC
             $query->where(function ($q) {
                 $q->where('is_pelanggan_khusus', false)->orWhereNull('is_pelanggan_khusus');
             });
+        }
+
+        // Apply jenis kelamin filter
+        if ($this->jenisKelamin) {
+            if ($this->jenisKelamin === 'L') {
+                $query->whereIn('pelanggans.jenis_kelamin', ['L', 'Laki-Laki', 'Laki-laki', 'laki-laki']);
+            } elseif ($this->jenisKelamin === 'P') {
+                $query->whereIn('pelanggans.jenis_kelamin', ['P', 'Perempuan', 'perempuan']);
+            }
         }
 
         $pelanggan = $query->get();

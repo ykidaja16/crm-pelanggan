@@ -457,6 +457,7 @@ class PelangganImportExportController extends Controller
         $tanggalMulai    = $request->tanggal_mulai;
         $tanggalSelesai  = $request->tanggal_selesai;
         $pemeriksaan     = $request->pemeriksaan;
+        $jenisKelamin    = $request->jenis_kelamin;
 
         // Build filename based on filters
         $filename = 'pelanggan';
@@ -478,6 +479,9 @@ class PelangganImportExportController extends Controller
         }
         if ($tipePelanggan) {
             $filename .= '_' . $tipePelanggan;
+        }
+        if ($jenisKelamin) {
+            $filename .= '_jk_' . $jenisKelamin;
         }
         if ($cabangId) {
             $cabang    = Cabang::find($cabangId);
@@ -501,7 +505,8 @@ class PelangganImportExportController extends Controller
                 $tipePelanggan,
                 $tanggalMulai,
                 $tanggalSelesai,
-                $pemeriksaan
+                $pemeriksaan,
+                $jenisKelamin
             ),
             $filename
         );

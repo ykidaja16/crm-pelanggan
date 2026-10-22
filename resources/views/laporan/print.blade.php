@@ -229,7 +229,8 @@
             <tr>
                 <th style="width: 4%;">No</th>
                 <th style="width: 8%;">PID</th>
-                <th style="width: 15%;">Nama Pasien</th>
+                <th style="width: 14%;">Nama Pasien</th>
+                <th style="width: 4%;">JK</th>
                 <th style="width: 9%;">Cabang</th>
                 <th style="width: 9%;">No Telp</th>
                 <th style="width: 7%;">DOB</th>
@@ -266,6 +267,7 @@
                 <td class="text-center">{{ $index + 1 }}</td>
                 <td class="text-center">{{ $p->pid }}</td>
                 <td class="text-left">{{ $p->nama }}</td>
+                <td class="text-center">{{ in_array($p->jenis_kelamin, ['L', 'Laki-Laki', 'Laki-laki']) ? 'L' : (in_array($p->jenis_kelamin, ['P', 'Perempuan']) ? 'P' : ($p->jenis_kelamin ?? '-')) }}</td>
                 <td class="text-center">{{ $p->cabang?->nama ?? '-' }}</td>
                 <td class="text-center">{{ $p->no_telp ?? '-' }}</td>
                 <td class="text-center">{{ $p->dob ? $p->dob->format('d-m-Y') : '-' }}</td>
@@ -287,7 +289,7 @@
             </tr>
             @empty
             <tr>
-                <td colspan="{{ !empty($pemeriksaan) ? '13' : '10' }}" class="text-center">Tidak ada data yang sesuai dengan filter.</td>
+                <td colspan="{{ !empty($pemeriksaan) ? '14' : '11' }}" class="text-center">Tidak ada data yang sesuai dengan filter.</td>
             </tr>
             @endforelse
         </tbody>

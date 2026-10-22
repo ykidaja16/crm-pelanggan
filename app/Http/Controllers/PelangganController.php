@@ -326,6 +326,7 @@ class PelangganController extends Controller
         $kelompokPelanggan = $request->kelompok_pelanggan;
         $tipePelanggan   = $request->tipe_pelanggan;
         $kategoriUsia    = $request->kategori_usia;
+        $jenisKelamin    = $request->jenis_kelamin;
         $searchByPemeriksaan = $request->filled('search_by_pemeriksaan') || $request->filled('pemeriksaan');
         $pemeriksaan         = $searchByPemeriksaan ? trim((string)$request->pemeriksaan) : null;
         if ($pemeriksaan === '') {
@@ -369,7 +370,7 @@ class PelangganController extends Controller
 
         // Tampilkan data kosong saat pertama kali masuk (belum klik filter)
         if (!$type && !$search && !$kelompokPelanggan && !$tipePelanggan
-            && !$cabangId && !$kelas && !$omsetRange && !$kedatanganRange && !$pemeriksaan && !$kategoriUsia) {
+            && !$cabangId && !$kelas && !$omsetRange && !$kedatanganRange && !$pemeriksaan && !$kategoriUsia && !$jenisKelamin) {
             return view('pelanggan.index', [
                 'pelanggan'             => collect(),
                 'bulan'                 => null,
@@ -383,6 +384,7 @@ class PelangganController extends Controller
                 'kelompok_pelanggan'    => null,
                 'tipe_pelanggan'        => null,
                 'kategori_usia'         => null,
+                'jenis_kelamin'         => null,
                 'search_by_pemeriksaan' => $searchByPemeriksaan,
                 'pemeriksaan'           => null,
                 'pemeriksaan_operator'  => $pemeriksaanOperator,
@@ -767,6 +769,16 @@ class PelangganController extends Controller
             }
         }
 
+        // Filter Jenis Kelamin
+        if ($request->filled('jenis_kelamin')) {
+            $jk = $request->jenis_kelamin;
+            if ($jk === 'L') {
+                $query->whereIn('pelanggans.jenis_kelamin', ['L', 'Laki-Laki', 'Laki-laki', 'laki-laki']);
+            } elseif ($jk === 'P') {
+                $query->whereIn('pelanggans.jenis_kelamin', ['P', 'Perempuan', 'perempuan']);
+            }
+        }
+
         if ($sort === 'tgl_kunjungan') {
             $query->orderByRaw("(tgl_kunjungan IS NULL) ASC, tgl_kunjungan {$direction}");
         } elseif ($sort === 'class') {
@@ -908,6 +920,7 @@ class PelangganController extends Controller
             'tanggal_selesai'       => $tanggal_selesai,
             'tipe_pelanggan'        => $tipePelanggan,
             'kategori_usia'         => $kategoriUsia,
+            'jenis_kelamin'         => $jenisKelamin,
             'search_by_pemeriksaan' => $searchByPemeriksaan,
             'pemeriksaan'           => $pemeriksaan,
             'pemeriksaan_operator'  => $pemeriksaanOperator,

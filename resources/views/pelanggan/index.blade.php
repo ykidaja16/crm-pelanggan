@@ -193,6 +193,16 @@
                             </select>
                         </div>
 
+                        {{-- Filter Jenis Kelamin --}}
+                        <div class="col-md-3">
+                            <label class="form-label fw-medium small">Jenis Kelamin</label>
+                            <select name="jenis_kelamin" class="form-select">
+                                <option value="">Semua Jenis Kelamin</option>
+                                <option value="L" {{ ($jenis_kelamin ?? '') == 'L' ? 'selected' : '' }}>Laki-laki (L)</option>
+                                <option value="P" {{ ($jenis_kelamin ?? '') == 'P' ? 'selected' : '' }}>Perempuan (P)</option>
+                            </select>
+                        </div>
+
                         <!-- Section Search By Pemeriksaan -->
                         <div class="col-12 my-3">
                             <div class="card border border-info border-opacity-50 shadow-sm" style="background: linear-gradient(135deg, rgba(13, 202, 240, 0.08) 0%, rgba(255, 255, 255, 0.9) 100%); border-left: 5px solid #0dcaf0 !important; border-radius: 8px;">
@@ -365,6 +375,8 @@
                             'kedatangan_range'   => $kedatangan_range ?? '',
                             'kelompok_pelanggan' => $kelompok_pelanggan ?? '',
                             'tipe_pelanggan'     => $tipe_pelanggan ?? '',
+                            'kategori_usia'      => $kategori_usia ?? '',
+                            'jenis_kelamin'      => $jenis_kelamin ?? '',
                             'pemeriksaan'        => $pemeriksaan ?? '',
                             'tanggal_mulai'      => $tanggal_mulai ?? '',
                             'tanggal_selesai'    => $tanggal_selesai ?? '',

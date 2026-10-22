@@ -493,6 +493,16 @@ class LaporanController extends Controller
             }
         }
 
+        // ── Filter Jenis Kelamin ───────────────────────────────────────────
+        if ($request->filled('jenis_kelamin')) {
+            $jk = $request->get('jenis_kelamin');
+            if ($jk === 'L') {
+                $query->whereIn('pelanggans.jenis_kelamin', ['L', 'Laki-Laki', 'Laki-laki', 'laki-laki']);
+            } elseif ($jk === 'P') {
+                $query->whereIn('pelanggans.jenis_kelamin', ['P', 'Perempuan', 'perempuan']);
+            }
+        }
+
         // ── Filter Pemeriksaan (Minimal 3 kali) ───────────────────────────────
         $searchByPemeriksaan = $request->filled('search_by_pemeriksaan') || $request->filled('pemeriksaan');
         $pemeriksaan = $searchByPemeriksaan ? trim((string)$request->get('pemeriksaan')) : null;
@@ -670,6 +680,12 @@ class LaporanController extends Controller
         // Tipe
         if ($request->filled('tipe_pelanggan')) {
             $labels['Tipe'] = $request->tipe_pelanggan === 'khusus' ? 'Pelanggan Khusus' : 'Pelanggan Biasa';
+        }
+
+        // Jenis Kelamin
+        if ($request->filled('jenis_kelamin')) {
+            $jk = $request->get('jenis_kelamin');
+            $labels['Jenis Kelamin'] = ($jk === 'L') ? 'Laki-laki (L)' : (($jk === 'P') ? 'Perempuan (P)' : $jk);
         }
 
         // Pemeriksaan

@@ -28,6 +28,16 @@
                     </select>
                 </div>
 
+                <!-- Jenis Kelamin -->
+                <div class="col-md-3">
+                    <label class="form-label fw-medium small">Jenis Kelamin</label>
+                    <select name="jenis_kelamin" class="form-select">
+                        <option value="">Semua Jenis Kelamin</option>
+                        <option value="L">Laki-laki (L)</option>
+                        <option value="P">Perempuan (P)</option>
+                    </select>
+                </div>
+
                 <!-- Periode -->
                 <div class="col-md-3">
                     <label class="form-label fw-medium small">Periode</label>
@@ -294,6 +304,7 @@
                             <th class="px-2 py-2 text-center fw-semibold" style="width: 35px;">No</th>
                             <th class="py-2 fw-semibold" style="width: 100px;">PID</th>
                             <th class="py-2 fw-semibold" style="min-width: 200px;">Nama Pasien</th>
+                            <th class="py-2 text-center fw-semibold" style="width: 55px;">JK</th>
                             <th class="py-2 text-center fw-semibold" style="width: 100px;">Cabang</th>
                             <th class="py-2 fw-semibold" style="width: 110px;">No Telp</th>
                             <th class="py-2 text-center fw-semibold" style="width: 85px;">DOB</th>
@@ -474,6 +485,7 @@ document.addEventListener('DOMContentLoaded', function() {
                     '<th class="px-2 py-2 text-center fw-semibold" style="width: 35px;">No</th>' +
                     '<th class="py-2 fw-semibold" style="width: 100px;">PID</th>' +
                     '<th class="py-2 fw-semibold" style="min-width: 200px;">Nama Pasien</th>' +
+                    '<th class="py-2 text-center fw-semibold" style="width: 55px;">JK</th>' +
                     '<th class="py-2 text-center fw-semibold" style="width: 100px;">Cabang</th>' +
                     '<th class="py-2 fw-semibold" style="width: 110px;">No Telp</th>' +
                     '<th class="py-2 text-center fw-semibold" style="width: 85px;">DOB</th>' +
@@ -511,11 +523,21 @@ document.addEventListener('DOMContentLoaded', function() {
                     ? item.class_at_period
                     : (item.class || 'Umum');
 
+                var jkBadge = '-';
+                if (item.jenis_kelamin) {
+                    var isL = item.jenis_kelamin === 'L' || item.jenis_kelamin === 'Laki-Laki' || item.jenis_kelamin === 'Laki-laki';
+                    var isP = item.jenis_kelamin === 'P' || item.jenis_kelamin === 'Perempuan';
+                    var badgeClass = isL ? 'bg-primary bg-opacity-10 text-primary border border-primary' : (isP ? 'bg-danger bg-opacity-10 text-danger border border-danger' : 'bg-secondary bg-opacity-10 text-secondary border border-secondary');
+                    var label = isL ? 'L' : (isP ? 'P' : item.jenis_kelamin);
+                    jkBadge = '<span class="badge ' + badgeClass + '" style="font-size: 0.72rem; padding: 2px 6px;">' + label + '</span>';
+                }
+
                 var row = document.createElement('tr');
                 var rowHtml =
                     '<td class="px-2 py-2 text-center">' + (startNumber + index) + '</td>' +
                     '<td class="py-2"><code class="bg-light px-1 py-1 rounded small text-nowrap">' + (item.pid || '-') + '</code></td>' +
                     '<td class="py-2 fw-medium">' + (item.nama || '-') + '</td>' +
+                    '<td class="py-2 text-center">' + jkBadge + '</td>' +
                     '<td class="py-2 text-center"><span class="badge bg-info bg-opacity-10 text-info border border-info small text-nowrap">' + (item.cabang ? item.cabang.nama : '-') + '</span></td>' +
                     '<td class="py-2 text-nowrap small">' + (item.no_telp || '-') + '</td>' +
                     '<td class="py-2 text-center text-nowrap small">' + (item.dob ? formatDate(item.dob) : '-') + '</td>' +
