@@ -84,7 +84,33 @@ class PelangganImportExportController extends Controller
 
             $file = $request->file('file');
             $extension = strtolower($file->getClientOriginalExtension() ?? '');
-            Log::info('File uploaded', ['filename' => $file->getClientOriginalName() ?? 'unknown', 'size' => $file->getSize(), 'extension' => $extension]);
+            $originalFilename = $file->getClientOriginalName() ?? 'unknown';
+            Log::info('File uploaded', ['filename' => $originalFilename, 'size' => $file->getSize(), 'extension' => $extension]);
+
+            // ── Validasi Idempotensi: Cegah file dengan nama yang sama persis terimport dua kali ──
+            $existingBatch = ImportBatch::with('user')
+                ->where('cabang_id', $selectedCabang->id)
+                ->whereRaw('LOWER(filename) = ?', [strtolower(trim($originalFilename))])
+                ->where('status', 'completed')
+                ->latest('imported_at')
+                ->first();
+
+            if ($existingBatch) {
+                $importedAt = $existingBatch->imported_at ? $existingBatch->imported_at->format('d/m/Y H:i') : '-';
+                $uploaderName = $existingBatch->user ? $existingBatch->user->name : 'Sistem';
+                $msg = "File dengan nama '{$originalFilename}' sudah pernah diimport pada {$importedAt} (oleh {$uploaderName}) di cabang {$selectedCabang->nama}. "
+                     . "Untuk mencegah duplikasi data, file yang sama tidak dapat diimport ulang. "
+                     . "Silakan periksa kembali file Anda atau ganti nama file jika data memang berbeda.";
+                Log::warning('Import rejected: duplicate filename detected', [
+                    'filename'  => $originalFilename,
+                    'cabang_id' => $selectedCabang->id,
+                    'batch_id'  => $existingBatch->batch_id,
+                ]);
+                if ($isAjax) {
+                    return response()->json(['success' => false, 'message' => $msg], 422);
+                }
+                return back()->with('error', $msg);
+            }
 
             if ($extension === 'csv' || $extension === 'txt') {
                 $rows = $this->readCsvFile($file);
@@ -185,8 +211,10 @@ class PelangganImportExportController extends Controller
                 ? collect()
                 : Pelanggan::whereIn('pid', array_unique($allPidsInFile))->get()->keyBy('pid');
 
-            // Array untuk tracking PID dan Nama dalam satu file (validasi duplikat)
+            // Array untuk tracking PID dan Nama dalam satu file (validasi nama berbeda)
             $pidNamaMap = [];
+            // Array untuk tracking signature data lengkap per PID (validasi baris duplikat identik)
+            $pidRowSignatures = [];
 
             foreach ($rows[0] as $row) {
                 $rowNumber++;
@@ -233,6 +261,30 @@ class PelangganImportExportController extends Controller
                             'baris' => $rowNumber
                         ];
                     }
+
+                    // ── Validasi baris duplikat identik dalam satu file untuk PID yang sama ──
+                    // Salin semua kolom baris kecuali kolom urutan nomor ('NO')
+                    $dataCols = $row;
+                    if (isset($headerMap['no']) && $headerMap['no'] !== null && array_key_exists($headerMap['no'], $dataCols)) {
+                        unset($dataCols[$headerMap['no']]);
+                    }
+                    $normalizedCols = [];
+                    foreach ($dataCols as $colKey => $cellVal) {
+                        if ($cellVal === null) {
+                            $normalizedCols[$colKey] = '';
+                        } elseif (is_string($cellVal)) {
+                            $normalizedCols[$colKey] = trim($cellVal);
+                        } elseif (is_numeric($cellVal)) {
+                            $normalizedCols[$colKey] = (string) (float) $cellVal;
+                        } else {
+                            $normalizedCols[$colKey] = (string) $cellVal;
+                        }
+                    }
+                    $rowSignature = md5(json_encode($normalizedCols));
+                    $pidRowSignatures[$pid][$rowSignature][] = [
+                        'baris' => $rowNumber,
+                        'nama'  => $nama,
+                    ];
                 }
 
                 if (empty($pid) || empty($nama)) {
@@ -293,6 +345,27 @@ class PelangganImportExportController extends Controller
                 }
             }
 
+            // Validasi baris duplikat identik untuk PID yang sama dalam satu file
+            foreach ($pidRowSignatures as $pId => $signatures) {
+                foreach ($signatures as $sig => $occurrences) {
+                    if (count($occurrences) > 1) {
+                        $barisList = array_column($occurrences, 'baris');
+                        $pNama     = $occurrences[0]['nama'] ?? '';
+
+                        if (count($barisList) === 2) {
+                            $barisStr = "Baris {$barisList[0]} dan Baris {$barisList[1]}";
+                        } else {
+                            $lastBaris = array_pop($barisList);
+                            $barisStr = "Baris " . implode(', ', $barisList) . ", dan Baris {$lastBaris}";
+                        }
+
+                        $errors[] = "{$barisStr}: Ditemukan baris duplikat untuk PID '{$pId}'"
+                                  . ($pNama !== '' ? " (Nama: '{$pNama}')" : '')
+                                  . " dengan seluruh isi kolom yang sama persis. Harap periksa kembali file Anda.";
+                    }
+                }
+            }
+
             Log::info('Validation completed', ['total_rows' => $totalRows, 'valid_rows' => $validRows, 'errors' => count($errors)]);
 
             if (!empty($errors)) {
@@ -300,12 +373,12 @@ class PelangganImportExportController extends Controller
                 if ($isAjax) {
                     return response()->json([
                         'success'       => false,
-                        'message'       => 'Import gagal! Beberapa data tidak sesuai dengan database.',
+                        'message'       => 'Import gagal! Beberapa data tidak sesuai atau ditemukan baris duplikat.',
                         'errors'        => $errors,
                         'mismatch_rows' => $mismatchRows,
                     ], 422);
                 }
-                return back()->with('error', 'Import gagal! Beberapa data tidak sesuai dengan database.')
+                return back()->with('error', 'Import gagal! Beberapa data tidak sesuai atau ditemukan baris duplikat.')
                              ->with('import_errors', $errors);
             }
 
